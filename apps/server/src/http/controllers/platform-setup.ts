@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { AppContext } from "@server/app";
 import { platformSetupSchema } from "../validations/platform-setup";
 import { describeRoute, validator } from "hono-openapi";
+import { platformSetupRateLimit } from "../middlewares/rate-limit";
 
 export const platformSetupController = new Hono<AppContext>()
 
@@ -14,6 +15,7 @@ export const platformSetupController = new Hono<AppContext>()
     "/",
     describeRoute({ tags: ["platform-setup"] }),
     validator("json", platformSetupSchema),
+    platformSetupRateLimit,
     async (context) => {
       const body = context.req.valid("json");
 

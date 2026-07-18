@@ -8,9 +8,12 @@ import {
 import { BaseLogger } from "@server/lib/base-logger";
 import { BaseMailer, type SendEmailProps } from "@server/lib/base-mailer";
 import { BaseQueue, BaseQueueHub, type EmailJob } from "@server/lib/base-queue";
+import { BaseRateLimiter } from "@server/lib/base-rate-limiter";
 import { BaseStorage } from "@server/lib/base-storage";
 import { Repositories } from "@server/repositories";
 import { getStripePriceId } from "@repo/constants/billing";
+import type { AppContext, AuthAppContext } from "@server/app";
+import type { MiddlewareHandler } from "hono";
 import type { Pool } from "pg";
 
 class TestLogger extends BaseLogger {
@@ -72,6 +75,44 @@ class TestQueueHub extends BaseQueueHub {
       },
     });
   }
+
+  public override async close(): Promise<void> {}
+}
+
+class TestRateLimiter extends BaseRateLimiter {
+  public anonymous: MiddlewareHandler<AppContext> = async (_context, next) => {
+    await next();
+  };
+  public authEmail: MiddlewareHandler<AppContext> = async (_context, next) => {
+    await next();
+  };
+  public authIp: MiddlewareHandler<AppContext> = async (_context, next) => {
+    await next();
+  };
+  public authenticated: MiddlewareHandler<AuthAppContext> = async (
+    _context,
+    next,
+  ) => {
+    await next();
+  };
+  public billing: MiddlewareHandler<AuthAppContext> = async (
+    _context,
+    next,
+  ) => {
+    await next();
+  };
+  public platformSetup: MiddlewareHandler<AppContext> = async (
+    _context,
+    next,
+  ) => {
+    await next();
+  };
+  public storage: MiddlewareHandler<AuthAppContext> = async (
+    _context,
+    next,
+  ) => {
+    await next();
+  };
 
   public override async close(): Promise<void> {}
 }
@@ -241,12 +282,14 @@ export const createContext = (
   env: ENV,
   billing: BaseBilling = new TestBilling(),
   mailer: BaseMailer = new TestMailer(),
+  rateLimiter: BaseRateLimiter = new TestRateLimiter(),
 ): Context => ({
   billing,
   env,
   logger: new TestLogger(),
   mailer,
   queueHub: new TestQueueHub({ mailer }),
+  rateLimiter,
   repositories: new Repositories({ dbConnection: { db, pool } }),
   storage: new TestStorage(),
 });

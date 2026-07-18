@@ -28,6 +28,8 @@ const schema = z
     REDIS_HOST: z.string().nonempty(),
     REDIS_PORT: z.coerce.number().int().positive(),
     REDIS_PASSWORD: z.string().nonempty(),
+    RATE_LIMIT_KEY_SECRET: z.string().min(32),
+    TRUST_PROXY: z.stringbool().default(false),
     QUEUE_CONCURRENCY: z.coerce.number().int().positive().default(5),
 
     // S3

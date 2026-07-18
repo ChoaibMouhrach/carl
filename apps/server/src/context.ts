@@ -14,6 +14,8 @@ import { StripeBilling } from "./infrastructure/billing/stripe";
 import { DisabledBilling } from "./infrastructure/billing/disabled";
 import type { BaseQueueHub } from "./lib/base-queue";
 import { QueueHub } from "./infrastructure/queue/bullmq";
+import type { BaseRateLimiter } from "./lib/base-rate-limiter";
+import { RedisRateLimiter } from "./infrastructure/rate-limiter/redis";
 
 export const initContext = async () => {
   const logger: BaseLogger = new PinoLogger();
@@ -61,6 +63,11 @@ export const initContext = async () => {
     redisUrl: env.REDIS_CONNECTION_STRING,
   });
 
+  const rateLimiter: BaseRateLimiter = new RedisRateLimiter({
+    keySecret: env.RATE_LIMIT_KEY_SECRET,
+    redisUrl: env.REDIS_CONNECTION_STRING,
+  });
+
   const billing: BaseBilling =
     env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET
       ? new StripeBilling({
@@ -86,6 +93,7 @@ export const initContext = async () => {
     repositories,
     storage,
     queueHub,
+    rateLimiter,
     logger,
     mailer,
     env,

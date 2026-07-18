@@ -13,12 +13,15 @@ import { authMiddleware } from "../middlewares/auth";
 import { deleteCookie, setCookie } from "hono/cookie";
 import { describeRoute, validator } from "hono-openapi";
 import { AUTH_SESSION_COOKIE_NAME } from "@server/config/constants";
+import { authEmailRateLimit, authIpRateLimit } from "../middlewares/rate-limit";
 
 export const authController = new Hono<AppContext>()
   .post(
     "/sign-in",
     describeRoute({ tags: ["auth"] }),
+    authIpRateLimit,
     validator("json", signInSchema),
+    authEmailRateLimit,
     async (context) => {
       const { env } = context.get("context");
       const body = context.req.valid("json");
@@ -45,7 +48,9 @@ export const authController = new Hono<AppContext>()
   .post(
     "/forget-password",
     describeRoute({ tags: ["auth"] }),
+    authIpRateLimit,
     validator("json", forgetPasswordSchema),
+    authEmailRateLimit,
     async (context) => {
       const body = context.req.valid("json");
 
@@ -60,6 +65,7 @@ export const authController = new Hono<AppContext>()
   .post(
     "/reset-password",
     describeRoute({ tags: ["auth"] }),
+    authIpRateLimit,
     validator("json", resetPasswordSchema),
     async (context) => {
       const body = context.req.valid("json");
@@ -76,7 +82,9 @@ export const authController = new Hono<AppContext>()
   .post(
     "/sign-up",
     describeRoute({ tags: ["auth"] }),
+    authIpRateLimit,
     validator("json", signUpSchema),
+    authEmailRateLimit,
     async (context) => {
       const body = context.req.valid("json");
 

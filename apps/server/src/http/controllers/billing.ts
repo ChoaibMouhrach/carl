@@ -7,6 +7,7 @@ import {
   changeSubscriptionSchema,
   createCheckoutSessionSchema,
 } from "../validations/billing";
+import { billingRateLimit } from "../middlewares/rate-limit";
 
 export const billingController = new Hono<AppContext>()
   .post(
@@ -44,6 +45,7 @@ export const billingController = new Hono<AppContext>()
   .post(
     "/checkout",
     describeRoute({ tags: ["billing"] }),
+    billingRateLimit,
     validator("json", createCheckoutSessionSchema),
     async (context) => {
       const { email, userId } = context.get("auth").user;
@@ -61,32 +63,48 @@ export const billingController = new Hono<AppContext>()
     },
   )
 
-  .post("/portal", describeRoute({ tags: ["billing"] }), async (context) => {
-    const { userId } = context.get("auth").user;
-    const { url } = await context
-      .get("services")
-      .billing.createPortalSession({ userId });
+  .post(
+    "/portal",
+    describeRoute({ tags: ["billing"] }),
+    billingRateLimit,
+    async (context) => {
+      const { userId } = context.get("auth").user;
+      const { url } = await context
+        .get("services")
+        .billing.createPortalSession({ userId });
 
-    return context.json({ url });
-  })
+      return context.json({ url });
+    },
+  )
 
-  .post("/cancel", describeRoute({ tags: ["billing"] }), async (context) => {
-    const { userId } = context.get("auth").user;
-    await context.get("services").billing.cancelSubscription({ userId });
+  .post(
+    "/cancel",
+    describeRoute({ tags: ["billing"] }),
+    billingRateLimit,
+    async (context) => {
+      const { userId } = context.get("auth").user;
+      await context.get("services").billing.cancelSubscription({ userId });
 
-    return context.body(null, 204);
-  })
+      return context.body(null, 204);
+    },
+  )
 
-  .post("/resume", describeRoute({ tags: ["billing"] }), async (context) => {
-    const { userId } = context.get("auth").user;
-    await context.get("services").billing.resumeSubscription({ userId });
+  .post(
+    "/resume",
+    describeRoute({ tags: ["billing"] }),
+    billingRateLimit,
+    async (context) => {
+      const { userId } = context.get("auth").user;
+      await context.get("services").billing.resumeSubscription({ userId });
 
-    return context.body(null, 204);
-  })
+      return context.body(null, 204);
+    },
+  )
 
   .post(
     "/change",
     describeRoute({ tags: ["billing"] }),
+    billingRateLimit,
     validator("json", changeSubscriptionSchema),
     async (context) => {
       const { userId } = context.get("auth").user;

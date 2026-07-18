@@ -10,6 +10,7 @@ import { controllers } from "./http/controllers";
 import { openAPIRouteHandler } from "hono-openapi";
 import { HTTPException } from "hono/http-exception";
 import { Scalar } from "@scalar/hono-api-reference";
+import { anonymousRateLimit } from "./http/middlewares/rate-limit";
 
 interface initAppParams {
   context: Context;
@@ -72,6 +73,7 @@ export const initApp = async (params: initAppParams) => {
       );
     })
 
+    .use("/api/*", anonymousRateLimit)
     .route("/api", controllers);
 
   if (params.context.env.IS_DEVELOPMENT) {
@@ -103,13 +105,16 @@ export const initApp = async (params: initAppParams) => {
 };
 
 export interface AppContext {
+  Bindings: {
+    clientIp?: string;
+  };
   Variables: {
     context: Context;
     services: Services;
   };
 }
 
-export interface AuthAppContext {
+export interface AuthAppContext extends AppContext {
   Variables: AppContext["Variables"] & {
     auth: {
       user: {

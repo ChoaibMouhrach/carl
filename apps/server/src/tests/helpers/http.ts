@@ -5,12 +5,14 @@ import { AUTH_SESSION_COOKIE_NAME } from "@server/config/constants";
 import { initENV } from "@server/config/env";
 import { initDB, type DB } from "@server/infrastructure/database/client";
 import type { Context } from "@server/context";
+import type { Pool } from "pg";
 import { TEST_DB_TEMPLATE } from "../setup";
 import { createContext } from "./billing";
 
 interface TestDatabase {
   context: Context;
   db: DB;
+  pool: Pool;
 }
 
 export const withTestDatabase = async (
@@ -38,6 +40,7 @@ export const withTestDatabase = async (
     await callback({
       context: createContext(connection.db, connection.pool, env),
       db: connection.db,
+      pool: connection.pool,
     });
   } finally {
     await connection.pool.end();

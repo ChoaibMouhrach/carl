@@ -32,7 +32,9 @@ export const createAuthMiddleware = (role?: Role) => {
       },
     });
 
-    return next();
+    return await context
+      .get("context")
+      .rateLimiter.authenticated(context, next);
   });
 };
 

@@ -3,10 +3,12 @@ import { Hono } from "hono";
 import { createSignedUrlSchema } from "../validations/upload";
 import { describeRoute, validator } from "hono-openapi";
 import { authMiddleware, billingAccessMiddleware } from "../middlewares/auth";
+import { storageRateLimit } from "../middlewares/rate-limit";
 
 export const storageController = new Hono<AppContext>()
   .use(authMiddleware)
   .use(billingAccessMiddleware)
+  .use(storageRateLimit)
   .post(
     "/",
     describeRoute({ tags: ["storage"] }),

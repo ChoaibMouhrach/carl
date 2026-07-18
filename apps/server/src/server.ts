@@ -47,7 +47,10 @@ export const initServer = async () => {
 
       context.logger.info(`The server is running on port ${port}`);
       const httpServer = Bun.serve({
-        fetch: app.fetch,
+        fetch: (request, server) =>
+          app.fetch(request, {
+            clientIp: server.requestIP(request)?.address,
+          }),
         port,
       });
 
@@ -57,6 +60,7 @@ export const initServer = async () => {
     },
     close: async () => {
       stopHttpServer?.();
+      await context.rateLimiter.close();
       await context.queueHub.close();
     },
   };
