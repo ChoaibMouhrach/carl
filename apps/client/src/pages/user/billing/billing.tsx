@@ -3,11 +3,13 @@ import { Spinner } from "@repo/ui/components/ui/spinner";
 import { onError } from "@/lib/base-api";
 import type { BillingInterval, BillingPlanKey } from "@repo/constants/billing";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { CurrentPlan } from "./current-plan";
 import { PlanCards } from "./plan-cards";
 
 export const Billing = () => {
   const queryClient = useQueryClient();
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   const me = useQuery({
     queryKey: ["me"],
@@ -39,7 +41,10 @@ export const Billing = () => {
   const cancel = useMutation({
     mutationFn: () => api.billing.cancel(),
     onError,
-    onSuccess: invalidateBilling,
+    onSuccess: async () => {
+      setShowCancelConfirm(false);
+      await invalidateBilling();
+    },
   });
 
   const resume = useMutation({
@@ -79,6 +84,8 @@ export const Billing = () => {
           onCancel={() => cancel.mutate()}
           onPortal={() => portal.mutate()}
           onResume={() => resume.mutate()}
+          onShowCancelConfirmChange={setShowCancelConfirm}
+          showCancelConfirm={showCancelConfirm}
           subscription={current}
         />
       )}

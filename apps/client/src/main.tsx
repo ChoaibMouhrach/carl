@@ -8,8 +8,9 @@ import { queryClient } from "./lib/query-client";
 import { routeTree } from "./routes/router";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "./components/theme-provider";
+import { ROUTER_BASEPATH } from "./config/constants";
 
-const router = createRouter({ routeTree, basepath: "/app" });
+const router = createRouter({ routeTree, basepath: ROUTER_BASEPATH });
 
 declare module "@tanstack/react-router" {
   interface Register {

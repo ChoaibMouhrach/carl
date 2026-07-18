@@ -14,6 +14,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, Check } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { ROUTER_BASEPATH } from "@/config/constants";
 
 interface Notification {
   body: string;
@@ -51,7 +52,9 @@ const getLink = (data: unknown): string | null => {
   const { link } = data;
   if (typeof link !== "string" || !link.startsWith("/")) return null;
 
-  return link.startsWith("/app/") ? link.slice(4) : link;
+  return link.startsWith(`${ROUTER_BASEPATH}/`)
+    ? link.slice(ROUTER_BASEPATH.length)
+    : link;
 };
 
 export const NotificationBell = () => {

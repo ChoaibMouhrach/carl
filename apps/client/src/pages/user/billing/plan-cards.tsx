@@ -111,12 +111,7 @@ export const PlanCards = ({
                 featured &&
                   "bg-background text-foreground hover:bg-background/90",
               )}
-              disabled={
-                isCurrent ||
-                isScheduled ||
-                subscription?.cancelAtPeriodEnd ||
-                isAnyMutating
-              }
+              disabled={isCurrent || isScheduled || isAnyMutating}
               onClick={() => {
                 if (subscription) {
                   onChange({ billingInterval, planKey: plan.key });

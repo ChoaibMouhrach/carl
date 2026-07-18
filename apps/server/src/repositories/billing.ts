@@ -268,38 +268,32 @@ export class BillingRepository extends BaseRepository {
         ? (existingPastDueAt ?? new Date())
         : null;
 
+    const mutableFields = {
+      billingInterval: input.snapshot.billingInterval,
+      cancelAtPeriodEnd: input.snapshot.cancelAtPeriodEnd,
+      currentPeriodEnd: input.snapshot.currentPeriodEnd,
+      currentPeriodStart: input.snapshot.currentPeriodStart,
+      endedAt: input.snapshot.endedAt,
+      pastDueAt,
+      planKey: input.snapshot.planKey,
+      providerPriceId: input.snapshot.providerPriceId,
+      scheduledBillingInterval: input.snapshot.scheduledBillingInterval,
+      scheduledPlanKey: input.snapshot.scheduledPlanKey,
+      status: input.snapshot.status,
+    };
+
     await this.db
       .insert(subscriptionsTable)
       .values({
+        ...mutableFields,
         billingCustomerId: input.billingCustomerId,
-        billingInterval: input.snapshot.billingInterval,
-        cancelAtPeriodEnd: input.snapshot.cancelAtPeriodEnd,
-        currentPeriodEnd: input.snapshot.currentPeriodEnd,
-        currentPeriodStart: input.snapshot.currentPeriodStart,
-        endedAt: input.snapshot.endedAt,
-        pastDueAt,
-        planKey: input.snapshot.planKey,
         provider: input.snapshot.provider,
-        providerPriceId: input.snapshot.providerPriceId,
         providerSubscriptionId: input.snapshot.providerSubscriptionId,
-        scheduledBillingInterval: input.snapshot.scheduledBillingInterval,
-        scheduledPlanKey: input.snapshot.scheduledPlanKey,
-        status: input.snapshot.status,
       })
       .onConflictDoUpdate({
         target: subscriptionsTable.providerSubscriptionId,
         set: {
-          billingInterval: input.snapshot.billingInterval,
-          cancelAtPeriodEnd: input.snapshot.cancelAtPeriodEnd,
-          currentPeriodEnd: input.snapshot.currentPeriodEnd,
-          currentPeriodStart: input.snapshot.currentPeriodStart,
-          endedAt: input.snapshot.endedAt,
-          pastDueAt,
-          planKey: input.snapshot.planKey,
-          providerPriceId: input.snapshot.providerPriceId,
-          scheduledBillingInterval: input.snapshot.scheduledBillingInterval,
-          scheduledPlanKey: input.snapshot.scheduledPlanKey,
-          status: input.snapshot.status,
+          ...mutableFields,
           updatedAt: new Date(),
         },
       });

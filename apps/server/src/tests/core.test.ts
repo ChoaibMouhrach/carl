@@ -424,18 +424,6 @@ test("cancellation and resubscription synchronize the persisted subscription", a
       }),
     ]);
 
-    await expect(
-      billing.changeSubscription({
-        billingInterval: "yearly",
-        planKey: "business",
-        userId: user.userId,
-      }),
-    ).rejects.toThrow("Resume the subscription before changing its plan.");
-    const stillCanceling = await connection.db
-      .select()
-      .from(subscriptionsTable);
-    expect(stillCanceling).toEqual(canceling);
-
     await billing.resumeSubscription({ userId: user.userId });
     const resumed = await connection.db.select().from(subscriptionsTable);
 

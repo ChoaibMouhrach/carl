@@ -78,19 +78,9 @@ export class UserRepository extends BaseRepository {
     where: { userId: number },
     input: Partial<{ email: string; emailVerifiedAt: Date }>,
   ) {
-    const updatePayload: Partial<{ [K in keyof User]: User[K] }> = {};
-
-    if (input.email !== undefined) {
-      updatePayload.email = input.email;
-    }
-
-    if (input.emailVerifiedAt !== undefined) {
-      updatePayload.emailVerifiedAt = input.emailVerifiedAt;
-    }
-
     await this.db
       .update(UserRepository.table)
-      .set(updatePayload)
+      .set(input)
       .where(eq(UserRepository.table.userId, where.userId));
   }
 

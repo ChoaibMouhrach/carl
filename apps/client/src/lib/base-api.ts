@@ -1,6 +1,7 @@
 import { isRedirect } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { z } from "zod";
+import { ROUTER_BASEPATH } from "@/config/constants";
 
 export type FieldError = {
   field: string;
@@ -76,7 +77,7 @@ export abstract class BaseApi {
           ].some((path) => currentPath.endsWith(path));
 
           if (!isOnAuthPage) {
-            window.location.href = "/app/sign-in";
+            window.location.href = `${ROUTER_BASEPATH}/sign-in`;
           }
         }
 

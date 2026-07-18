@@ -16,10 +16,6 @@ export const userQuerySchema = z
   })
   .optional();
 
-export const userShowSchema = z.object({
-  userId: z.coerce.number().int().positive(),
-});
-
-export const removeUserSchema = z.object({
+export const userIdParamSchema = z.object({
   userId: z.coerce.number().int().positive(),
 });

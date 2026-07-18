@@ -16,7 +16,6 @@ import {
   CardTitle,
 } from "@repo/ui/components/ui/card";
 import { Spinner } from "@repo/ui/components/ui/spinner";
-import { useState } from "react";
 
 interface Subscription {
   billingInterval: string;
@@ -36,6 +35,8 @@ interface CurrentPlanProps {
   onCancel: () => void;
   onPortal: () => void;
   onResume: () => void;
+  onShowCancelConfirmChange: (show: boolean) => void;
+  showCancelConfirm: boolean;
   subscription: Subscription;
 }
 
@@ -54,10 +55,10 @@ export const CurrentPlan = ({
   onCancel,
   onPortal,
   onResume,
+  onShowCancelConfirmChange,
+  showCancelConfirm,
   subscription,
 }: CurrentPlanProps) => {
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-
   return (
     <>
       <Card>
@@ -95,7 +96,7 @@ export const CurrentPlan = ({
           ) : (
             <Button
               disabled={isAnyMutating}
-              onClick={() => setShowCancelConfirm(true)}
+              onClick={() => onShowCancelConfirmChange(true)}
               variant="outline"
             >
               Cancel subscription
@@ -107,7 +108,7 @@ export const CurrentPlan = ({
       <AlertDialog
         open={showCancelConfirm}
         onOpenChange={(open) => {
-          if (!open) setShowCancelConfirm(false);
+          if (!open && !isCancelPending) onShowCancelConfirmChange(false);
         }}
       >
         <AlertDialogContent>
@@ -127,18 +128,12 @@ export const CurrentPlan = ({
           <AlertDialogFooter>
             <Button
               disabled={isCancelPending}
-              onClick={() => setShowCancelConfirm(false)}
+              onClick={() => onShowCancelConfirmChange(false)}
               variant="outline"
             >
               Keep subscription
             </Button>
-            <Button
-              disabled={isCancelPending}
-              onClick={() => {
-                onCancel();
-                setShowCancelConfirm(false);
-              }}
-            >
+            <Button disabled={isCancelPending} onClick={onCancel}>
               {isCancelPending && <Spinner />}
               Cancel subscription
             </Button>

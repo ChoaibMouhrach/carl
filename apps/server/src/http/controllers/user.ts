@@ -1,15 +1,14 @@
 import {
   createUserSchema,
+  userIdParamSchema,
   userQuerySchema,
-  userShowSchema,
-  removeUserSchema,
 } from "../validations/user";
 import { Hono } from "hono";
 import type { AppContext } from "@server/app";
 import { adminMiddleware } from "../middlewares/auth";
 import { describeRoute, validator } from "hono-openapi";
 
-const adminUserController = new Hono<AppContext>()
+export const userController = new Hono<AppContext>()
   .use(adminMiddleware)
 
   .get(
@@ -38,7 +37,7 @@ const adminUserController = new Hono<AppContext>()
   .get(
     "/:userId",
     describeRoute({ tags: ["user"] }),
-    validator("param", userShowSchema),
+    validator("param", userIdParamSchema),
     async (context) => {
       const { userId } = context.req.valid("param");
 
@@ -55,7 +54,7 @@ const adminUserController = new Hono<AppContext>()
   .post(
     "/:userId/billing/cancel",
     describeRoute({ tags: ["user"] }),
-    validator("param", removeUserSchema),
+    validator("param", userIdParamSchema),
     async (context) => {
       const { userId } = context.req.valid("param");
 
@@ -85,7 +84,7 @@ const adminUserController = new Hono<AppContext>()
   .delete(
     "/:userId",
     describeRoute({ tags: ["user"] }),
-    validator("param", removeUserSchema),
+    validator("param", userIdParamSchema),
     async (context) => {
       const { userId } = context.req.valid("param");
 
@@ -94,8 +93,3 @@ const adminUserController = new Hono<AppContext>()
       return context.body(null, 204);
     },
   );
-
-export const userController = new Hono<AppContext>().route(
-  "/",
-  adminUserController,
-);

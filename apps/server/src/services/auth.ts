@@ -15,40 +15,6 @@ import bcrypt from "bcryptjs";
 import { NotificationService } from "./notification";
 
 export class AuthService extends BaseService {
-  public async changeEmail(input: { email: string; userId: number }) {
-    const existing = await this.context.repositories.user.findByEmail({
-      email: input.email,
-    });
-
-    if (existing && existing.userId !== input.userId) {
-      throw new ConflictError({ message: "Email is already taken." });
-    }
-
-    const customer =
-      await this.context.repositories.billing.findCustomerByUserId({
-        userId: input.userId,
-      });
-
-    if (customer) {
-      await this.context.billing.updateCustomerEmail({
-        email: input.email,
-        providerCustomerId: customer.providerCustomerId,
-      });
-    }
-
-    await this.context.repositories.user.update(
-      { userId: input.userId },
-      { email: input.email },
-    );
-
-    await new NotificationService({ context: this.context }).send({
-      body: "The email address on your account was changed.",
-      data: { link: "/app/user/account" },
-      title: "Your account email was changed",
-      type: "account.email_changed",
-      userId: input.userId,
-    });
-  }
   private static passwordHashSalt = 12;
 
   public static async generateSession() {
@@ -71,88 +37,81 @@ export class AuthService extends BaseService {
   }
 
   public async signUp(input: { email: string; password: string }) {
-    return this.context.repositories.transaction(async ({ tx }) => {
-      let user = await tx.user.findByEmail({
-        email: input.email,
-      });
+    const outcome = await this.context.repositories.transaction(
+      async ({ tx }) => {
+        const existing = await tx.user.findByEmail({ email: input.email });
 
-      const hashedPassword = await AuthService.hashPassword(input.password);
-      const generatedToken = await this.generateToken();
-
-      if (user) {
-        // TODO: handle verified duplicate — decide between 409 ConflictError or
-        // silent 204 + "account already exists" notification email (no HTTP enumeration).
-        if (!user.emailVerifiedAt) {
-          await tx.password.updateByUserId(
-            { userId: user.userId },
-            { hashedPassword },
-          );
-
-          await tx.token.removeByUserIdAndType({
-            userId: user.userId,
-            type: "email-verification",
-          });
-
-          await tx.token.create({
-            userId: user.userId,
-            token: generatedToken,
-            type: "email-verification",
-            expiresAt: new Date(
-              Date.now() + EMAIL_ADDRESS_VERIFICATION_EXPIRATION_DURATION_MS,
-            ),
-          });
-
-          const url = new URL(
-            "/api/auth/verify-email-address",
-            this.context.env.VITE_API_URL,
-          );
-
-          url.searchParams.set("token", generatedToken);
-
-          await this.context.mailer.email({
-            from: "auth",
-            to: [user.email],
-            subject: "Email verification",
-            html: `<a  href="${url.toString()}" >Verify email address</a>`,
-          });
+        if (existing?.emailVerifiedAt) {
+          return { kind: "verified_existing" as const, email: existing.email };
         }
 
-        return;
-      }
-
-      user = await tx.user.create({
-        email: input.email,
-        role: "user",
-        emailVerifiedAt: null,
-      });
-
-      await tx.password.create({
-        hashedPassword,
-        userId: user.userId,
-      });
-
-      await tx.token.create({
-        userId: user.userId,
-        token: generatedToken,
-        type: "email-verification",
-        expiresAt: new Date(
+        const hashedPassword = await AuthService.hashPassword(input.password);
+        const verificationToken = await this.generateToken();
+        const expiresAt = new Date(
           Date.now() + EMAIL_ADDRESS_VERIFICATION_EXPIRATION_DURATION_MS,
-        ),
-      });
+        );
 
-      const url = new URL(
-        "/api/auth/verify-email-address",
-        this.context.env.VITE_API_URL,
-      );
+        let userId: number;
 
-      url.searchParams.set("token", generatedToken);
+        if (existing) {
+          await tx.password.updateByUserId(
+            { userId: existing.userId },
+            { hashedPassword },
+          );
+          await tx.token.removeByUserIdAndType({
+            userId: existing.userId,
+            type: "email-verification",
+          });
+          userId = existing.userId;
+        } else {
+          const created = await tx.user.create({
+            email: input.email,
+            role: "user",
+            emailVerifiedAt: null,
+          });
+          await tx.password.create({
+            hashedPassword,
+            userId: created.userId,
+          });
+          userId = created.userId;
+        }
 
+        await tx.token.create({
+          userId,
+          token: verificationToken,
+          type: "email-verification",
+          expiresAt,
+        });
+
+        return {
+          kind: "verification_sent" as const,
+          email: input.email,
+          verificationToken,
+        };
+      },
+    );
+
+    if (outcome.kind === "verified_existing") {
       await this.context.mailer.email({
         from: "auth",
-        to: [user.email],
-        subject: "Email verification",
-        html: `<a  href="${url.toString()}" >Verify email address</a>`,
+        to: [outcome.email],
+        subject: "Someone tried to sign up with your email",
+        html: `<p>Someone attempted to create an account with this email address. If it wasn't you, no action is required. If it was you, sign in or reset your password instead.</p>`,
       });
+      return;
+    }
+
+    const url = new URL(
+      "/api/auth/verify-email-address",
+      this.context.env.VITE_API_URL,
+    );
+    url.searchParams.set("token", outcome.verificationToken);
+
+    await this.context.mailer.email({
+      from: "auth",
+      to: [outcome.email],
+      subject: "Email verification",
+      html: `<a href="${url.toString()}">Verify email address</a>`,
     });
   }
 
@@ -279,38 +238,42 @@ export class AuthService extends BaseService {
     });
   }
 
-  public forgetPassword(input: { email: string }) {
-    return this.context.repositories.transaction(async ({ tx }) => {
-      const user = await tx.user.findByEmail({
-        email: input.email,
-      });
+  public async forgetPassword(input: { email: string }) {
+    const outcome = await this.context.repositories.transaction(
+      async ({ tx }) => {
+        const user = await tx.user.findByEmail({ email: input.email });
 
-      if (!user) {
-        return;
-      }
+        if (!user) return null;
 
-      await tx.token.removeByUserIdAndType({
-        userId: user.userId,
-        type: "reset-password",
-      });
+        await tx.token.removeByUserIdAndType({
+          userId: user.userId,
+          type: "reset-password",
+        });
 
-      const generatedToken = await this.generateToken();
-      await tx.token.create({
-        userId: user.userId,
-        token: generatedToken,
-        type: "reset-password",
-        expiresAt: new Date(Date.now() + RESET_PASSWORD_EXPIRATION_DURATION_MS),
-      });
+        const generatedToken = await this.generateToken();
+        await tx.token.create({
+          userId: user.userId,
+          token: generatedToken,
+          type: "reset-password",
+          expiresAt: new Date(
+            Date.now() + RESET_PASSWORD_EXPIRATION_DURATION_MS,
+          ),
+        });
 
-      const url = new URL("/reset-password", this.context.env.CLIENT_URL);
-      url.searchParams.set("token", generatedToken);
+        return { email: user.email, token: generatedToken };
+      },
+    );
 
-      await this.context.mailer.email({
-        from: "auth",
-        to: [user.email],
-        subject: "Reset password request",
-        html: `<a  href="${url.toString()}" >Reset password</a>`,
-      });
+    if (!outcome) return;
+
+    const url = new URL("/reset-password", this.context.env.CLIENT_URL);
+    url.searchParams.set("token", outcome.token);
+
+    await this.context.mailer.email({
+      from: "auth",
+      to: [outcome.email],
+      subject: "Reset password request",
+      html: `<a href="${url.toString()}">Reset password</a>`,
     });
   }
 
@@ -411,6 +374,41 @@ export class AuthService extends BaseService {
     });
   }
 
+  public async changeEmail(input: { email: string; userId: number }) {
+    const existing = await this.context.repositories.user.findByEmail({
+      email: input.email,
+    });
+
+    if (existing && existing.userId !== input.userId) {
+      throw new ConflictError({ message: "Email is already taken." });
+    }
+
+    const customer =
+      await this.context.repositories.billing.findCustomerByUserId({
+        userId: input.userId,
+      });
+
+    if (customer) {
+      await this.context.billing.updateCustomerEmail({
+        email: input.email,
+        providerCustomerId: customer.providerCustomerId,
+      });
+    }
+
+    await this.context.repositories.user.update(
+      { userId: input.userId },
+      { email: input.email },
+    );
+
+    await new NotificationService({ context: this.context }).send({
+      body: "The email address on your account was changed.",
+      data: { link: "/user/account" },
+      title: "Your account email was changed",
+      type: "account.email_changed",
+      userId: input.userId,
+    });
+  }
+
   public async changePassword(input: {
     currentPassword: string;
     newPassword: string;
@@ -418,7 +416,7 @@ export class AuthService extends BaseService {
     sessionId: number;
     userId: number;
   }) {
-    return this.context.repositories.transaction(async ({ tx }) => {
+    await this.context.repositories.transaction(async ({ tx }) => {
       const password = await tx.password.findFirstByUserId({
         userId: input.userId,
       });
