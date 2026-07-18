@@ -160,6 +160,12 @@ export class BillingService extends BaseService {
       throw new NotFoundError({ message: "No active subscription exists." });
     }
 
+    if (subscription.cancelAtPeriodEnd) {
+      throw new BadRequestError({
+        message: "Resume the subscription before changing its plan.",
+      });
+    }
+
     if (
       subscription.planKey === input.planKey &&
       subscription.billingInterval === input.billingInterval
