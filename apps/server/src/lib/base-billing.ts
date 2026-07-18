@@ -86,6 +86,7 @@ export abstract class BaseBilling {
     payload: string;
     signature: string;
   }): Promise<{
+    invoiceBillingReason: string | null;
     payload: unknown;
     providerCheckoutSessionId: string | null;
     providerEventId: string;

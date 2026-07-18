@@ -9,6 +9,11 @@ const schema = z.object({
   NEXT_PUBLIC_CLIENT_URL: z.url(),
 });
 
-export const env = schema.parse({
+const parsed = schema.parse({
   NEXT_PUBLIC_CLIENT_URL: process.env["NEXT_PUBLIC_CLIENT_URL"],
 });
+
+export const env = {
+  ...parsed,
+  APP_URL: new URL("/app", parsed.NEXT_PUBLIC_CLIENT_URL).toString(),
+};

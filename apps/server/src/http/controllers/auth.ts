@@ -108,6 +108,11 @@ export const authController = new Hono<AppContext>()
 
   .get("/me", describeRoute({ tags: ["auth"] }), async (context) => {
     const user = context.get("auth").user;
+    const billing = context.get("services").billing;
+    const [{ needsOnboarding }, { subscription }] = await Promise.all([
+      billing.getOnboarding({ userId: user.userId }),
+      billing.getSubscription({ userId: user.userId }),
+    ]);
 
     return context.json({
       user: {
@@ -115,6 +120,8 @@ export const authController = new Hono<AppContext>()
         email: user.email,
         role: user.role,
       },
+      needsOnboarding,
+      subscription,
     });
   })
 

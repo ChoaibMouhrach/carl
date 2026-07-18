@@ -8,6 +8,7 @@ import {
   billingCustomersTable,
   billingEventsTable,
   checkoutAttemptsTable,
+  notificationsTable,
   settingsTable,
   subscriptionsTable,
   usersTable,
@@ -404,12 +405,22 @@ test("cancellation and resubscription synchronize the persisted subscription", a
 
     await billing.cancelSubscription({ userId: user.userId });
     const canceling = await connection.db.select().from(subscriptionsTable);
+    const notifications = await connection.db
+      .select()
+      .from(notificationsTable)
+      .where(eq(notificationsTable.userId, user.userId));
 
     expect(testBilling.cancelledSubscriptionIds).toEqual(["sub_cancel_resume"]);
     expect(canceling).toEqual([
       expect.objectContaining({
         cancelAtPeriodEnd: true,
         providerSubscriptionId: "sub_cancel_resume",
+      }),
+    ]);
+    expect(notifications).toEqual([
+      expect.objectContaining({
+        title: "Your subscription has been canceled",
+        type: "billing.subscription_canceled",
       }),
     ]);
 

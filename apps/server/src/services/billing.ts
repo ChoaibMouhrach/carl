@@ -4,10 +4,25 @@ import {
   type BillingInterval,
   type BillingPlanKey,
 } from "@repo/constants/billing";
+import type { NotificationType } from "@repo/constants/notifications";
+import type { BillingSubscriptionSnapshot } from "@server/lib/base-billing";
 import { BadRequestError, NotFoundError } from "@server/lib/errors";
 import { BaseService } from "@server/lib/base-service";
+import type { subscriptionsTable } from "@server/infrastructure/database/schemas";
+import { NotificationService } from "./notification";
+
+type PreviousSubscription = typeof subscriptionsTable.$inferSelect;
 
 export class BillingService extends BaseService {
+  public async getOnboarding(input: { userId: number }) {
+    const hasEverSubscribed =
+      await this.context.repositories.billing.hasEverSubscribed({
+        userId: input.userId,
+      });
+
+    return { needsOnboarding: !hasEverSubscribed };
+  }
+
   public async getSubscription(input: { userId: number }) {
     const subscription =
       await this.context.repositories.billing.findCurrentSubscription({
@@ -205,6 +220,12 @@ export class BillingService extends BaseService {
 
   public async processWebhook(input: { payload: string; signature: string }) {
     const event = await this.context.billing.verifyWebhook(input);
+    await this.context.logger.info({
+      msg: "webhook received",
+      providerEventId: event.providerEventId,
+      providerSubscriptionId: event.providerSubscriptionId,
+      type: event.type,
+    });
     const claimed = await this.context.repositories.billing.claimEvent({
       payload: event.payload,
       provider: this.context.billing.provider,
@@ -219,6 +240,11 @@ export class BillingService extends BaseService {
       }));
 
     if (!billingEvent || billingEvent.processedAt) {
+      await this.context.logger.info({
+        msg: "webhook skipped (already processed or missing)",
+        alreadyProcessed: !!billingEvent?.processedAt,
+        providerEventId: event.providerEventId,
+      });
       return;
     }
 
@@ -236,33 +262,51 @@ export class BillingService extends BaseService {
       return;
     }
 
-    const shouldNotifyPaymentFailure = event.type === "invoice.payment_failed";
+    const webhookNotification = this.getWebhookNotification({
+      invoiceBillingReason: event.invoiceBillingReason,
+      type: event.type,
+    });
+    const shouldDeferEventProcessing =
+      webhookNotification !== null ||
+      event.type === "customer.subscription.deleted" ||
+      event.type === "customer.subscription.updated";
     const synchronizedSubscription = await this.syncSubscription({
       billingEventId: billingEvent.billingEventId,
-      deferEventProcessing: shouldNotifyPaymentFailure,
+      deferEventProcessing: shouldDeferEventProcessing,
+      eventType: event.type,
       providerSubscriptionId: event.providerSubscriptionId,
     });
 
     if (!synchronizedSubscription) {
+      await this.context.logger.info({
+        msg: "webhook sync returned null — customer not resolved",
+        providerEventId: event.providerEventId,
+        providerSubscriptionId: event.providerSubscriptionId,
+      });
       return;
     }
 
-    const { userId } = synchronizedSubscription;
+    await this.context.logger.info({
+      msg: "webhook synced",
+      cancelAtPeriodEnd: synchronizedSubscription.snapshot.cancelAtPeriodEnd,
+      previousCancelAtPeriodEnd:
+        synchronizedSubscription.previous?.cancelAtPeriodEnd ?? null,
+      providerEventId: event.providerEventId,
+      status: synchronizedSubscription.snapshot.status,
+      userId: synchronizedSubscription.userId,
+    });
 
-    if (shouldNotifyPaymentFailure) {
-      const user = await this.context.repositories.user.findByUserId({
-        userId,
+    if (webhookNotification) {
+      await new NotificationService({ context: this.context }).send({
+        ...webhookNotification,
+        data: { link: "/user/billing" },
+        userId: synchronizedSubscription.userId,
       });
 
-      if (user) {
-        await this.context.mailer.email({
-          from: "billing",
-          html: "Your subscription payment failed. Update your payment method to keep your access.",
-          subject: "Action needed: update your payment method",
-          to: [user.email],
-        });
-      }
-
+      await this.context.repositories.billing.markEventProcessed({
+        billingEventId: billingEvent.billingEventId,
+      });
+    } else if (shouldDeferEventProcessing) {
       await this.context.repositories.billing.markEventProcessed({
         billingEventId: billingEvent.billingEventId,
       });
@@ -298,8 +342,13 @@ export class BillingService extends BaseService {
   private async syncSubscription(input: {
     billingEventId?: number;
     deferEventProcessing?: boolean;
+    eventType?: string;
     providerSubscriptionId: string;
-  }): Promise<{ userId: number } | null> {
+  }): Promise<{
+    previous: PreviousSubscription | null;
+    snapshot: BillingSubscriptionSnapshot;
+    userId: number;
+  } | null> {
     const snapshot = await this.context.billing.getSubscriptionSnapshot({
       providerSubscriptionId: input.providerSubscriptionId,
     });
@@ -315,19 +364,151 @@ export class BillingService extends BaseService {
       return null;
     }
 
-    await this.context.repositories.transaction(async ({ tx }) => {
-      await tx.billing.upsertSubscription({
-        billingCustomerId: customer.billingCustomerId,
-        snapshot,
-      });
-      if (input.billingEventId && !input.deferEventProcessing) {
-        await tx.billing.markEventProcessed({
-          billingEventId: input.billingEventId,
+    const previous = await this.context.repositories.transaction(
+      async ({ tx }) => {
+        const existing =
+          await tx.billing.findSubscriptionByProviderSubscriptionId({
+            providerSubscriptionId: input.providerSubscriptionId,
+          });
+
+        await tx.billing.upsertSubscription({
+          billingCustomerId: customer.billingCustomerId,
+          snapshot,
         });
-      }
+        if (input.billingEventId && !input.deferEventProcessing) {
+          await tx.billing.markEventProcessed({
+            billingEventId: input.billingEventId,
+          });
+        }
+
+        return existing;
+      },
+    );
+
+    const transition = this.getSubscriptionTransitionNotification({
+      eventType: input.eventType ?? "",
+      previous,
+      snapshot,
     });
 
-    return { userId: customer.userId };
+    if (transition) {
+      await new NotificationService({ context: this.context }).send({
+        ...transition,
+        data: { link: "/user/billing" },
+        userId: customer.userId,
+      });
+    }
+
+    return { previous, snapshot, userId: customer.userId };
+  }
+
+  private getWebhookNotification(input: {
+    invoiceBillingReason: string | null;
+    type: string;
+  }): {
+    body: string;
+    title: string;
+    type:
+      | "billing.payment_failed"
+      | "billing.renewed"
+      | "billing.subscription_canceled"
+      | "billing.trial_ending";
+  } | null {
+    if (input.type === "invoice.payment_failed") {
+      return {
+        body: "Your subscription payment failed. Update your payment method to keep your access.",
+        title: "Action needed: update your payment method",
+        type: "billing.payment_failed",
+      };
+    }
+
+    if (input.type === "customer.subscription.trial_will_end") {
+      return {
+        body: "Your trial is ending soon. Choose a plan to keep access.",
+        title: "Your trial is ending soon",
+        type: "billing.trial_ending",
+      };
+    }
+
+    if (
+      input.type === "invoice.paid" &&
+      input.invoiceBillingReason === "subscription_cycle"
+    ) {
+      return {
+        body: "Your subscription payment was received.",
+        title: "Your subscription was renewed",
+        type: "billing.renewed",
+      };
+    }
+
+    return null;
+  }
+
+  private getSubscriptionTransitionNotification(input: {
+    eventType: string;
+    previous: PreviousSubscription | null;
+    snapshot: BillingSubscriptionSnapshot;
+  }): {
+    body: string;
+    title: string;
+    type: NotificationType;
+  } | null {
+    const { eventType, previous, snapshot } = input;
+
+    if (eventType === "customer.subscription.deleted") {
+      if (previous?.cancelAtPeriodEnd) return null;
+
+      return {
+        body: "Your subscription has ended and access is no longer active.",
+        title: "Your subscription has ended",
+        type: "billing.subscription_ended",
+      };
+    }
+
+    if (previous?.cancelAtPeriodEnd && !snapshot.cancelAtPeriodEnd) {
+      return {
+        body: "Your subscription is active again and will renew automatically.",
+        title: "Your subscription was resumed",
+        type: "billing.subscription_resumed",
+      };
+    }
+
+    if (!previous?.cancelAtPeriodEnd && snapshot.cancelAtPeriodEnd) {
+      return {
+        body: "Your subscription will end at the close of the current billing period.",
+        title: "Your subscription has been canceled",
+        type: "billing.subscription_canceled",
+      };
+    }
+
+    if (previous && previous.planKey !== snapshot.planKey) {
+      const previousOrder = isBillingPlanKey(previous.planKey)
+        ? (getBillingPlan(previous.planKey)?.order ?? 0)
+        : 0;
+
+      const nextOrder = getBillingPlan(snapshot.planKey)?.order ?? 0;
+
+      if (nextOrder > previousOrder) {
+        return {
+          body: `You're now on the ${snapshot.planKey} plan.`,
+          title: "Your plan was upgraded",
+          type: "billing.plan_upgraded",
+        };
+      }
+    }
+
+    if (
+      snapshot.scheduledPlanKey &&
+      snapshot.scheduledPlanKey !== previous?.scheduledPlanKey
+    ) {
+      return {
+        body: `You'll switch to the ${snapshot.scheduledPlanKey} plan at your next renewal.`,
+        title: "Plan change scheduled",
+        type: "billing.plan_downgrade_scheduled",
+      };
+    }
+
+    return null;
   }
 
   private async resolveBillingCustomer(snapshot: {
@@ -344,7 +525,13 @@ export class BillingService extends BaseService {
       return providerCustomer;
     }
 
-    if (!snapshot.localUserId) return null;
+    if (!snapshot.localUserId) {
+      await this.context.logger.info({
+        msg: "resolveBillingCustomer failed — no localUserId in Stripe metadata",
+        providerCustomerId: snapshot.providerCustomerId,
+      });
+      return null;
+    }
 
     const userId = snapshot.localUserId;
 

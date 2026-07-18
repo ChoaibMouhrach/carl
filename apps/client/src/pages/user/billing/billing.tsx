@@ -9,13 +9,14 @@ import { PlanCards } from "./plan-cards";
 export const Billing = () => {
   const queryClient = useQueryClient();
 
-  const subscription = useQuery({
-    queryKey: ["billing", "subscription"],
-    queryFn: () => api.billing.subscription(),
+  const me = useQuery({
+    queryKey: ["me"],
+    queryFn: () => api.auth.me(),
+    refetchInterval: 10_000,
   });
 
   const invalidateBilling = async () =>
-    await queryClient.invalidateQueries({ queryKey: ["billing"] });
+    await queryClient.invalidateQueries({ queryKey: ["me"] });
 
   const checkout = useMutation({
     mutationFn: (input: {
@@ -53,10 +54,10 @@ export const Billing = () => {
     onSuccess: ({ url }) => window.location.assign(url),
   });
 
-  if (subscription.isPending) return <Spinner />;
-  if (subscription.isError) throw subscription.error;
+  if (me.isPending) return <Spinner />;
+  if (me.isError) throw me.error;
 
-  const current = subscription.data.subscription;
+  const current = me.data.subscription;
   const isAnyMutating =
     checkout.isPending ||
     change.isPending ||

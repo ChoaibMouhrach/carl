@@ -32,24 +32,13 @@ export const billingController = new Hono<AppContext>()
 
   .use(authMiddleware)
 
-  .get(
-    "/subscription",
-    describeRoute({ tags: ["billing"] }),
-    async (context) => {
-      const { userId } = context.get("auth").user;
-
-      return context.json(
-        await context.get("services").billing.getSubscription({ userId }),
-      );
-    },
-  )
-
   .get("/access", describeRoute({ tags: ["billing"] }), async (context) => {
     const { userId } = context.get("auth").user;
+    const result = await context
+      .get("services")
+      .billingAccess.check({ userId });
 
-    return context.json(
-      await context.get("services").billingAccess.check({ userId }),
-    );
+    return context.json(result);
   })
 
   .post(

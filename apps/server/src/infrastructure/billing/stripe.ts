@@ -240,12 +240,17 @@ export class StripeBilling extends BaseBilling {
     const schedule = await this.getSchedule(subscription);
     const scheduledPrice = this.getScheduledPrice(schedule);
 
+    const cancelAt = subscription.cancel_at
+      ? new Date(subscription.cancel_at * 1_000)
+      : null;
+
     return {
       billingInterval: price.billingInterval,
       cancelAtPeriodEnd:
         subscription.cancel_at_period_end ||
+        cancelAt !== null ||
         schedule?.end_behavior === "cancel",
-      currentPeriodEnd: new Date(item.current_period_end * 1_000),
+      currentPeriodEnd: cancelAt ?? new Date(item.current_period_end * 1_000),
       currentPeriodStart: new Date(item.current_period_start * 1_000),
       endedAt: subscription.ended_at
         ? new Date(subscription.ended_at * 1_000)
@@ -281,6 +286,7 @@ export class StripeBilling extends BaseBilling {
     payload: string;
     signature: string;
   }): Promise<{
+    invoiceBillingReason: string | null;
     payload: unknown;
     providerCheckoutSessionId: string | null;
     providerEventId: string;
@@ -294,6 +300,7 @@ export class StripeBilling extends BaseBilling {
     );
 
     return {
+      invoiceBillingReason: this.getInvoiceBillingReason(event.data.object),
       payload: event.data.object,
       providerCheckoutSessionId: this.getCheckoutSessionId(event.data.object),
       providerEventId: event.id,
@@ -426,6 +433,21 @@ export class StripeBilling extends BaseBilling {
       typeof object.id === "string"
     ) {
       return object.id;
+    }
+
+    return null;
+  }
+
+  private getInvoiceBillingReason(object: unknown): string | null {
+    if (
+      typeof object === "object" &&
+      object !== null &&
+      "object" in object &&
+      object.object === "invoice" &&
+      "billing_reason" in object &&
+      typeof object.billing_reason === "string"
+    ) {
+      return object.billing_reason;
     }
 
     return null;

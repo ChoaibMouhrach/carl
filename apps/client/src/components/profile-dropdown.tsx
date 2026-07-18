@@ -59,14 +59,16 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
           <span className="hidden font-normal text-lg leading-none group-data-[collapsible=icon]:inline">
             {user.email.charAt(0).toUpperCase()}
           </span>
-          <div className="flex flex-col items-start group-data-[collapsible=icon]:hidden">
+          <div className="flex min-w-0 flex-col items-start group-data-[collapsible=icon]:hidden">
             <span>
               {user.role.charAt(0)?.toUpperCase() + user.role.slice(1)}
             </span>
-            <span className="text-muted-foreground">{user.email}</span>
+            <span className="text-muted-foreground max-w-full truncate">
+              {user.email}
+            </span>
           </div>
           <ChevronsUpDown
-            className="ml-auto text-muted-foreground group-data-[collapsible=icon]:hidden"
+            className="text-muted-foreground ml-auto shrink-0 group-data-[collapsible=icon]:hidden"
             size={16}
           />
         </Button>

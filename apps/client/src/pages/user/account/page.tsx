@@ -15,14 +15,12 @@ import {
 } from "@repo/ui/components/ui/card";
 import { Field, FieldLabel } from "@repo/ui/components/ui/field";
 import { ChangePassword } from "@/components/change-password";
+import { getRouteApi } from "@tanstack/react-router";
 
-interface UserAccountPageProps {
-  user: {
-    email: string;
-  };
-}
+const route = getRouteApi("/user-layout");
 
-export const UserAccountPage: React.FC<UserAccountPageProps> = ({ user }) => {
+export const UserAccountPage = () => {
+  const { user } = route.useRouteContext();
   return (
     <UserPage>
       <UserPageHeader>

@@ -3,10 +3,6 @@ import { BaseApi } from "@/lib/base-api";
 import { http } from "@/lib/http";
 
 export class BillingApi extends BaseApi {
-  public subscription() {
-    return this.call(() => http.api.billing.subscription.$get());
-  }
-
   public access() {
     return this.call(() => http.api.billing.access.$get());
   }

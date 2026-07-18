@@ -5,6 +5,7 @@ import { StorageService } from "./storage";
 import { UserService } from "./user";
 import { BillingService } from "./billing";
 import { BillingAccessService } from "./billing-access";
+import { NotificationService } from "./notification";
 
 interface ServicesConstructorParams {
   context: Context;
@@ -17,6 +18,7 @@ export class Services {
   public user;
   public billing;
   public billingAccess;
+  public notification;
 
   public constructor({ context }: ServicesConstructorParams) {
     this.auth = new AuthService({
@@ -40,5 +42,7 @@ export class Services {
     });
 
     this.billingAccess = new BillingAccessService({ context });
+
+    this.notification = new NotificationService({ context });
   }
 }

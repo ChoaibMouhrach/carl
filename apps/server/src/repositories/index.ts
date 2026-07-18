@@ -6,6 +6,7 @@ import { TokenRepository } from "./token";
 import { SettingRepository } from "./setting";
 import { FileRepository } from "./file";
 import { BillingRepository } from "./billing";
+import { NotificationRepository } from "./notification";
 
 interface RepositoriesConstructorProps {
   dbConnection: DBConnection;
@@ -22,6 +23,7 @@ export class Repositories {
   public setting;
   public file;
   public billing;
+  public notification;
 
   public constructor({ dbConnection }: RepositoriesConstructorProps) {
     this.pool = dbConnection.pool;
@@ -52,6 +54,10 @@ export class Repositories {
     });
 
     this.billing = new BillingRepository({
+      db: dbConnection.db,
+    });
+
+    this.notification = new NotificationRepository({
       db: dbConnection.db,
     });
   }

@@ -60,6 +60,7 @@ export class TestBilling extends BaseBilling {
     providerCustomerId: string;
   }> = [];
   public providerCheckoutSessionId: string | null = null;
+  public invoiceBillingReason: string | null = null;
   public providerEventId = "evt_test";
   public providerSubscriptionId: string | null = null;
   public providerSubscriptionIds: string[] = [];
@@ -185,6 +186,7 @@ export class TestBilling extends BaseBilling {
   }
 
   public override async verifyWebhook(): Promise<{
+    invoiceBillingReason: string | null;
     payload: unknown;
     providerCheckoutSessionId: string | null;
     providerEventId: string;
@@ -192,6 +194,7 @@ export class TestBilling extends BaseBilling {
     type: string;
   }> {
     return {
+      invoiceBillingReason: this.invoiceBillingReason,
       payload: {},
       providerCheckoutSessionId: this.providerCheckoutSessionId,
       providerEventId: this.providerEventId,

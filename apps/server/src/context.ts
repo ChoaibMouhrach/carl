@@ -55,13 +55,19 @@ export const initContext = async () => {
   const billing: BaseBilling =
     env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET
       ? new StripeBilling({
-          cancelUrl: new URL("/app/user/billing", env.CLIENT_URL).toString(),
+          cancelUrl: new URL(
+            "/app/user/select-plan",
+            env.CLIENT_URL,
+          ).toString(),
           portalReturnUrl: new URL(
             "/app/user/billing",
             env.CLIENT_URL,
           ).toString(),
           secretKey: env.STRIPE_SECRET_KEY,
-          successUrl: new URL("/app/user/billing", env.CLIENT_URL).toString(),
+          successUrl: new URL(
+            "/app/user/select-plan",
+            env.CLIENT_URL,
+          ).toString(),
           webhookSecret: env.STRIPE_WEBHOOK_SECRET,
         })
       : new DisabledBilling();

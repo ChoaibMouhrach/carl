@@ -26,7 +26,7 @@ export default function Home() {
           <Logo size={38} />
         </Link>
         <Button asChild variant="outline">
-          <Link href={env.NEXT_PUBLIC_CLIENT_URL}>Sign in</Link>
+          <Link href={env.APP_URL}>Sign in</Link>
         </Button>
       </nav>
 
@@ -46,7 +46,7 @@ export default function Home() {
           </p>
           <div className="mt-9 flex flex-wrap gap-3">
             <Button asChild size="lg">
-              <Link href={env.NEXT_PUBLIC_CLIENT_URL}>
+              <Link href={env.APP_URL}>
                 Open the app <ArrowRight className="size-4" />
               </Link>
             </Button>
@@ -107,7 +107,7 @@ export default function Home() {
         </div>
       </section>
 
-      <Pricing appUrl={env.NEXT_PUBLIC_CLIENT_URL} />
+      <Pricing appUrl={env.APP_URL} />
 
       <footer className="mx-auto flex max-w-6xl items-center justify-between px-6 py-8 text-sm text-muted-foreground">
         <span>Built to become your product.</span>

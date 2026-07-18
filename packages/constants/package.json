@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "exports": {
-    "./billing": "./src/billing.ts"
+    "./billing": "./src/billing.ts",
+    "./notifications": "./src/notifications.ts"
   }
 }

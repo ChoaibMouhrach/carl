@@ -4,9 +4,9 @@ import { isRedirect, redirect } from "@tanstack/react-router";
 
 export const requireAuth = async (role?: "admin" | "user") => {
   try {
-    const { user } = await api.auth.me();
+    const me = await api.auth.me();
 
-    if (role && user.role !== role) {
+    if (role && me.user.role !== role) {
       throw redirect({
         to: "/error",
         search: {
@@ -17,7 +17,7 @@ export const requireAuth = async (role?: "admin" | "user") => {
       });
     }
 
-    return user;
+    return me;
   } catch (error) {
     if (isRedirect(error)) {
       throw error;
@@ -54,9 +54,21 @@ export const redirectIfAuthenticated = async () => {
 };
 
 export const redirectToRoleDashboard = async () => {
-  const user = await requireAuth();
+  const me = await requireAuth();
 
   throw redirect({
-    to: user.role === "admin" ? "/admin/dashboard" : "/user/dashboard",
+    to: me.user.role === "admin" ? "/admin/dashboard" : "/user/dashboard",
   });
+};
+
+export const requireOnboarded = (me: { needsOnboarding: boolean }) => {
+  if (me.needsOnboarding) {
+    throw redirect({ to: "/user/select-plan" });
+  }
+};
+
+export const requireNotOnboarded = (me: { needsOnboarding: boolean }) => {
+  if (!me.needsOnboarding) {
+    throw redirect({ to: "/user/dashboard" });
+  }
 };

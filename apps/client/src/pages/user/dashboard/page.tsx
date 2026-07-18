@@ -5,27 +5,10 @@ import {
   UserPageHeader,
   UserPageTitle,
 } from "@/components/user-page";
-import { Button } from "@repo/ui/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@repo/ui/components/ui/card";
-import { Link } from "@tanstack/react-router";
 
-interface UserDashboardPageProps {
-  user: {
-    email: string;
-  };
-}
-
-export const UserDashboardPage: React.FC<UserDashboardPageProps> = ({
-  user,
-}) => {
+export const UserDashboardPage = () => {
   return (
-    <UserPage className="flex-1">
+    <UserPage>
       <UserPageHeader>
         <UserPageTitle>Start with your product.</UserPageTitle>
         <UserPageDescription>
@@ -33,21 +16,7 @@ export const UserDashboardPage: React.FC<UserDashboardPageProps> = ({
           know what your customers need.
         </UserPageDescription>
       </UserPageHeader>
-      <UserPageContent className="grid flex-1 place-items-center py-14">
-        <Card className="w-full max-w-xl">
-          <CardHeader>
-            <CardTitle>Welcome, {user.email}</CardTitle>
-            <CardDescription>
-              This is a clean starter dashboard with no product-specific data.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild>
-              <Link to="/user/account">Manage account</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </UserPageContent>
+      <UserPageContent></UserPageContent>
     </UserPage>
   );
 };

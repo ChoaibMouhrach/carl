@@ -5,8 +5,5 @@ import { userLayoutRoute } from "./layout";
 export const userDashboardRoute = createRoute({
   getParentRoute: () => userLayoutRoute,
   path: "/user/dashboard",
-  component: () => {
-    const user = userLayoutRoute.useRouteContext();
-    return <UserDashboardPage user={user} />;
-  },
+  component: UserDashboardPage,
 });

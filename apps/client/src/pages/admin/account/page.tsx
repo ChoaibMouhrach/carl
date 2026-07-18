@@ -15,14 +15,12 @@ import {
 } from "@repo/ui/components/ui/card";
 import { Field, FieldLabel } from "@repo/ui/components/ui/field";
 import { ChangePassword } from "@/components/change-password";
+import { getRouteApi } from "@tanstack/react-router";
 
-interface AdminAccountPageProps {
-  user: {
-    email: string;
-  };
-}
+const route = getRouteApi("/admin-layout");
 
-export const AdminAccountPage: React.FC<AdminAccountPageProps> = ({ user }) => {
+export const AdminAccountPage = () => {
+  const { user } = route.useRouteContext();
   return (
     <AdminPage>
       <AdminPageHeader>

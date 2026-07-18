@@ -5,8 +5,5 @@ import { adminLayoutRoute } from "./layout";
 export const adminDashboardRoute = createRoute({
   getParentRoute: () => adminLayoutRoute,
   path: "/admin/dashboard",
-  component: () => {
-    const user = adminLayoutRoute.useRouteContext();
-    return <AdminDashboardPage user={user} />;
-  },
+  component: AdminDashboardPage,
 });

@@ -23,6 +23,23 @@ export class BillingRepository extends BaseRepository {
   public async acquireUserLock(input: { userId: number }): Promise<void> {
     await this.db.execute(sql`SELECT pg_advisory_xact_lock(${input.userId})`);
   }
+  public async hasEverSubscribed(where: { userId: number }): Promise<boolean> {
+    const subscriptions = await this.db
+      .select({ subscriptionId: subscriptionsTable.subscriptionId })
+      .from(subscriptionsTable)
+      .innerJoin(
+        billingCustomersTable,
+        eq(
+          subscriptionsTable.billingCustomerId,
+          billingCustomersTable.billingCustomerId,
+        ),
+      )
+      .where(eq(billingCustomersTable.userId, where.userId))
+      .limit(1);
+
+    return subscriptions.length > 0;
+  }
+
   public async findCustomerByUserId(where: { userId: number }) {
     const customers = await this.db
       .select()
@@ -90,6 +107,23 @@ export class BillingRepository extends BaseRepository {
       .limit(1);
 
     return subscriptions.at(0)?.subscription ?? null;
+  }
+
+  public async findSubscriptionByProviderSubscriptionId(where: {
+    providerSubscriptionId: string;
+  }) {
+    const subscriptions = await this.db
+      .select()
+      .from(subscriptionsTable)
+      .where(
+        eq(
+          subscriptionsTable.providerSubscriptionId,
+          where.providerSubscriptionId,
+        ),
+      )
+      .limit(1);
+
+    return subscriptions.at(0) ?? null;
   }
 
   public async listSubscriptionsForReconciliation() {

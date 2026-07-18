@@ -12,6 +12,7 @@ import {
 } from "@server/lib/errors";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
+import { NotificationService } from "./notification";
 
 export class AuthService extends BaseService {
   public async changeEmail(input: { email: string; userId: number }) {
@@ -39,6 +40,14 @@ export class AuthService extends BaseService {
       { userId: input.userId },
       { email: input.email },
     );
+
+    await new NotificationService({ context: this.context }).send({
+      body: "The email address on your account was changed.",
+      data: { link: "/app/user/account" },
+      title: "Your account email was changed",
+      type: "account.email_changed",
+      userId: input.userId,
+    });
   }
   private static passwordHashSalt = 12;
 
@@ -443,6 +452,15 @@ export class AuthService extends BaseService {
           userId: input.userId,
         });
       }
+    });
+
+    await new NotificationService({ context: this.context }).send({
+      body: input.revokeOtherSessions
+        ? "Your password was changed and other sessions were signed out."
+        : "Your password was changed. If this wasn't you, reset it right away.",
+      title: "Your password was changed",
+      type: "account.password_changed",
+      userId: input.userId,
     });
   }
 }
