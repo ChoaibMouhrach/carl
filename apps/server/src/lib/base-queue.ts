@@ -4,8 +4,12 @@ export type EmailSender = "auth" | "notifications";
 
 export type EmailJob = SendEmailProps<EmailSender>;
 
+export type QueueConsumer<Input> = (input: Input) => Promise<void>;
+
 export abstract class BaseQueue<Input> {
   public abstract add(input: Input): Promise<void>;
+
+  public abstract consume(consumer: QueueConsumer<Input>): Promise<void>;
 
   public abstract close(): Promise<void>;
 }

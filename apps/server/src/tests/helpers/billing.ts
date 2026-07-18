@@ -7,7 +7,12 @@ import {
 } from "@server/lib/base-billing";
 import { BaseLogger } from "@server/lib/base-logger";
 import { BaseMailer, type SendEmailProps } from "@server/lib/base-mailer";
-import { BaseQueue, BaseQueueHub, type EmailJob } from "@server/lib/base-queue";
+import {
+  BaseQueue,
+  BaseQueueHub,
+  type EmailJob,
+  type QueueConsumer,
+} from "@server/lib/base-queue";
 import { BaseRateLimiter } from "@server/lib/base-rate-limiter";
 import { BaseStorage } from "@server/lib/base-storage";
 import { Repositories } from "@server/repositories";
@@ -50,6 +55,7 @@ class TestStorage extends BaseStorage {
 }
 
 class TestQueue<Input> extends BaseQueue<Input> {
+  private consumer?: QueueConsumer<Input>;
   private process: (input: Input) => Promise<void>;
 
   public constructor(init: { process: (input: Input) => Promise<void> }) {
@@ -58,13 +64,22 @@ class TestQueue<Input> extends BaseQueue<Input> {
   }
 
   public override async add(input: Input): Promise<void> {
+    if (this.consumer) {
+      await this.consumer(input);
+      return;
+    }
+
     await this.process(input);
+  }
+
+  public override async consume(consumer: QueueConsumer<Input>): Promise<void> {
+    this.consumer = consumer;
   }
 
   public override async close(): Promise<void> {}
 }
 
-class TestQueueHub extends BaseQueueHub {
+export class TestQueueHub extends BaseQueueHub {
   public email: TestQueue<EmailJob>;
 
   public constructor(init: { mailer: BaseMailer }) {

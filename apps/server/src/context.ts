@@ -59,7 +59,6 @@ export const initContext = async () => {
   const queueHub: BaseQueueHub = new QueueHub({
     concurrency: env.QUEUE_CONCURRENCY,
     logger,
-    mailer,
     redisUrl: env.REDIS_CONNECTION_STRING,
   });
 

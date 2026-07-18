@@ -1,11 +1,13 @@
 import { initApp } from "./app";
 import { initContext } from "./context";
 import { BillingService } from "./services/billing";
+import { Workers } from "./workers";
 
 const BILLING_RECONCILIATION_INTERVAL_MS = 60 * 60 * 1_000;
 
 export const initServer = async () => {
   const context = await initContext();
+  await Workers.run({ context });
   let stopHttpServer: (() => void) | undefined;
 
   const app = await initApp({
