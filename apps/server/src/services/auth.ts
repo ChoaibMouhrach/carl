@@ -92,7 +92,7 @@ export class AuthService extends BaseService {
     );
 
     if (outcome.kind === "verified_existing") {
-      await this.context.mailer.email({
+      await this.context.queueHub.email.add({
         from: "auth",
         to: [outcome.email],
         subject: "Someone tried to sign up with your email",
@@ -107,7 +107,7 @@ export class AuthService extends BaseService {
     );
     url.searchParams.set("token", outcome.verificationToken);
 
-    await this.context.mailer.email({
+    await this.context.queueHub.email.add({
       from: "auth",
       to: [outcome.email],
       subject: "Email verification",
@@ -269,7 +269,7 @@ export class AuthService extends BaseService {
     const url = new URL("/reset-password", this.context.env.CLIENT_URL);
     url.searchParams.set("token", outcome.token);
 
-    await this.context.mailer.email({
+    await this.context.queueHub.email.add({
       from: "auth",
       to: [outcome.email],
       subject: "Reset password request",

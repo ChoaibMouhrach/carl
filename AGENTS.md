@@ -34,7 +34,31 @@ The server follows a strict three-layer architecture. Never skip or mix layers.
 **Infrastructure** (`src/infrastructure/`)
 
 - Concrete implementations of abstract base classes (`BaseBilling`, `BaseMailer`, `BaseStorage`, etc.).
-- A `disabled.ts` stub must exist for every abstraction so the app runs without external services configured.
+- Provide a `disabled.ts` stub only when the external integration is optional and the app can operate without it.
+
+### Infrastructure strategy pattern
+
+External integrations always use the same strategy pattern as mailer, logger, and storage:
+
+1. Define the provider-agnostic contract in `src/lib/base-<domain>.ts`.
+2. Create one concrete provider implementation in `src/infrastructure/<domain>/` for each provider (for example, `ResendMailer`, `S3Storage`, or `StripeBilling`).
+3. Type the dependency in `Context` and services as the base contract only. Never expose a concrete provider type outside its infrastructure module.
+4. Select the concrete provider once in `initContext`; services call only the base contract.
+5. Provide a disabled implementation when the external service is optional.
+
+For integrations that expose several independently typed capabilities, use a hub contract composed of strategy contracts:
+
+```ts
+abstract class BaseQueue<Input> {
+  abstract add(input: Input): Promise<void>;
+}
+
+abstract class BaseQueueHub {
+  abstract email: BaseQueue<EmailJob>;
+}
+```
+
+The provider-specific hub (for example, a BullMQ hub) wires its concrete queues internally. Context and services use only `BaseQueueHub` and `BaseQueue<Input>` — never provider-specific queue classes. Add a new queue by adding a typed abstract property to the hub contract, then implementing it in every provider strategy.
 
 **Shared constants** (`src/config/constants.ts`)
 

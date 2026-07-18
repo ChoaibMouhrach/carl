@@ -12,6 +12,8 @@ import { S3Storage } from "./infrastructure/storage/s3";
 import type { BaseBilling } from "./lib/base-billing";
 import { StripeBilling } from "./infrastructure/billing/stripe";
 import { DisabledBilling } from "./infrastructure/billing/disabled";
+import type { BaseQueueHub } from "./lib/base-queue";
+import { QueueHub } from "./infrastructure/queue/bullmq";
 
 export const initContext = async () => {
   const logger: BaseLogger = new PinoLogger();
@@ -52,6 +54,13 @@ export const initContext = async () => {
       })
     : new S3rverStorage();
 
+  const queueHub: BaseQueueHub = new QueueHub({
+    concurrency: env.QUEUE_CONCURRENCY,
+    logger,
+    mailer,
+    redisUrl: env.REDIS_CONNECTION_STRING,
+  });
+
   const billing: BaseBilling =
     env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET
       ? new StripeBilling({
@@ -76,6 +85,7 @@ export const initContext = async () => {
     billing,
     repositories,
     storage,
+    queueHub,
     logger,
     mailer,
     env,

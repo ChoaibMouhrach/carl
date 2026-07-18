@@ -24,6 +24,12 @@ const schema = z
     POSTGRES_PASS: z.string().nonempty(),
     POSTGRES_NAME: z.string().nonempty(),
 
+    // Queue
+    REDIS_HOST: z.string().nonempty(),
+    REDIS_PORT: z.coerce.number().int().positive(),
+    REDIS_PASSWORD: z.string().nonempty(),
+    QUEUE_CONCURRENCY: z.coerce.number().int().positive().default(5),
+
     // S3
     S3_ENDPOINT: z.url(),
     S3_REGION: z.string().nonempty(),
@@ -60,6 +66,9 @@ export const initENV = () => {
 
     // DATABASE
     POSTGRES_CONNECTION_STRING: `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASS}@${env.POSTGRES_HOST}:${env.POSTGRES_PORT}/${env.POSTGRES_NAME}`,
+
+    // QUEUE
+    REDIS_CONNECTION_STRING: `redis://:${encodeURIComponent(env.REDIS_PASSWORD)}@${env.REDIS_HOST}:${env.REDIS_PORT}`,
 
     // NODE ENV
     IS_DEVELOPMENT: env.NODE_ENV === "development",

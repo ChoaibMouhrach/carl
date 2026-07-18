@@ -7,6 +7,7 @@ import {
 } from "@server/lib/base-billing";
 import { BaseLogger } from "@server/lib/base-logger";
 import { BaseMailer, type SendEmailProps } from "@server/lib/base-mailer";
+import { BaseQueue, BaseQueueHub, type EmailJob } from "@server/lib/base-queue";
 import { BaseStorage } from "@server/lib/base-storage";
 import { Repositories } from "@server/repositories";
 import { getStripePriceId } from "@repo/constants/billing";
@@ -43,6 +44,36 @@ class TestStorage extends BaseStorage {
   }
 
   public override async removeFile(_input: { key: string }): Promise<void> {}
+}
+
+class TestQueue<Input> extends BaseQueue<Input> {
+  private process: (input: Input) => Promise<void>;
+
+  public constructor(init: { process: (input: Input) => Promise<void> }) {
+    super();
+    this.process = init.process;
+  }
+
+  public override async add(input: Input): Promise<void> {
+    await this.process(input);
+  }
+
+  public override async close(): Promise<void> {}
+}
+
+class TestQueueHub extends BaseQueueHub {
+  public email: TestQueue<EmailJob>;
+
+  public constructor(init: { mailer: BaseMailer }) {
+    super();
+    this.email = new TestQueue<EmailJob>({
+      process: async (input) => {
+        await init.mailer.email(input);
+      },
+    });
+  }
+
+  public override async close(): Promise<void> {}
 }
 
 export class TestBilling extends BaseBilling {
@@ -215,6 +246,7 @@ export const createContext = (
   env,
   logger: new TestLogger(),
   mailer,
+  queueHub: new TestQueueHub({ mailer }),
   repositories: new Repositories({ dbConnection: { db, pool } }),
   storage: new TestStorage(),
 });

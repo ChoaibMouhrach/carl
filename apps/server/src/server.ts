@@ -6,6 +6,7 @@ const BILLING_RECONCILIATION_INTERVAL_MS = 60 * 60 * 1_000;
 
 export const initServer = async () => {
   const context = await initContext();
+  let stopHttpServer: (() => void) | undefined;
 
   const app = await initApp({
     context,
@@ -45,10 +46,18 @@ export const initServer = async () => {
       const port = context.env.API_PORT;
 
       context.logger.info(`The server is running on port ${port}`);
-      Bun.serve({
+      const httpServer = Bun.serve({
         fetch: app.fetch,
         port,
       });
+
+      stopHttpServer = () => {
+        httpServer.stop();
+      };
+    },
+    close: async () => {
+      stopHttpServer?.();
+      await context.queueHub.close();
     },
   };
 };

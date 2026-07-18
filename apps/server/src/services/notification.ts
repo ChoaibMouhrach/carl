@@ -39,7 +39,7 @@ export class NotificationService extends BaseService {
       userId: input.userId,
     });
 
-    await this.context.mailer.email({
+    await this.context.queueHub.email.add({
       from: "notifications",
       html: `<p>${escapeHtml(input.body)}</p>`,
       subject: input.title,
