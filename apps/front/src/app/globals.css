@@ -1,8 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @import "@repo/ui/globals.css";
 @source "../../../../packages/ui/src";
+
+@custom-variant dark (&:is(.dark *));
 
 /* ── Animations (front-specific) ─────────────────────── */
 @keyframes pop-in {
