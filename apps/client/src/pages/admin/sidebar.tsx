@@ -10,6 +10,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from "@repo/ui/components/ui/sidebar";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
@@ -41,6 +42,11 @@ const navigation: NavigationItem[] = [
 export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
   const location = useLocation();
   const { t } = useTranslation();
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  const closeOnMobile = () => {
+    if (isMobile) setOpenMobile(false);
+  };
 
   return (
     <Sidebar variant="inset" collapsible="icon">
@@ -79,7 +85,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
                     isActive={location.pathname === item.to}
                     tooltip={t(item.labelKey)}
                   >
-                    <Link to={item.to}>
+                    <Link to={item.to} onClick={closeOnMobile}>
                       <item.icon />
                       <span>{t(item.labelKey)}</span>
                     </Link>
@@ -95,6 +101,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
         <ProfileDropdown
           user={user}
           accountPath="/admin/account"
+          onNavigate={closeOnMobile}
           className="w-full justify-start overflow-hidden group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:p-0!"
         />
       </SidebarFooter>
