@@ -9,6 +9,7 @@ COPY apps/server/package.json apps/server/package.json
 COPY apps/client/package.json apps/client/package.json
 COPY apps/front/package.json apps/front/package.json
 COPY packages/constants/package.json packages/constants/package.json
+COPY packages/i18n/package.json packages/i18n/package.json
 COPY packages/ui/package.json packages/ui/package.json
 
 RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \

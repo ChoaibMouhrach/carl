@@ -1,0 +1,45 @@
+{
+  "metadata": {
+    "title": "SaaS Template — Build what only you can build",
+    "description": "A clean, typed foundation for building focused SaaS products."
+  },
+  "nav": {
+    "home": "SaaS Template home",
+    "signIn": "Sign in"
+  },
+  "hero": {
+    "badge": "A clean foundation for your next product",
+    "title": "Build the part only you can build.",
+    "description": "SaaS Template gives you the essential infrastructure—accounts, setup, database, API, and a polished app shell—without inheriting another product's assumptions.",
+    "openApp": "Open the app",
+    "exploreFoundation": "Explore the foundation"
+  },
+  "workspace": {
+    "label": "Your workspace",
+    "title": "Ready for a domain model",
+    "steps": [
+      "Define your product model",
+      "Add your customer workflow",
+      "Ship with confidence"
+    ]
+  },
+  "foundation": {
+    "label": "The foundation",
+    "title": "Enough structure to move fast. Enough space to make it yours.",
+    "items": [
+      "Secure session-based authentication",
+      "A first-admin setup flow",
+      "Typed API, database, and frontend",
+      "Storage and email abstractions ready to adapt"
+    ]
+  },
+  "pricing": {
+    "title": "Simple, transparent pricing.",
+    "description": "One plan for every stage. No hidden fees.",
+    "getStarted": "Get started"
+  },
+  "footer": {
+    "tagline": "Built to become your product.",
+    "note": "No demo domain included"
+  }
+}

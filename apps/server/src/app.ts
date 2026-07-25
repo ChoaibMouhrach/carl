@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serveStatic } from "hono/bun";
+import { defaultLocale, isLocale } from "@repo/i18n/config";
 import { Services } from "./services";
 import { AppError } from "./lib/errors";
 import type { Context } from "./context";
@@ -90,6 +91,18 @@ export const initApp = async (params: initAppParams) => {
 
     app.get("/docs", Scalar({ url: "/openapi", theme: "deepSpace" }));
   }
+
+  app.get("/", (context) => {
+    const preferred = (context.req.header("accept-language") ?? "")
+      .split(",")
+      .map(
+        (part) => part.split(";")[0]?.trim().slice(0, 2).toLowerCase() ?? "",
+      );
+
+    const locale = preferred.find(isLocale) ?? defaultLocale;
+
+    return context.redirect(`/${locale}/`);
+  });
 
   app.use("/*", serveStatic({ root: "./front" }));
 

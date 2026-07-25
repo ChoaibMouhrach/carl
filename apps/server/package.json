@@ -39,6 +39,7 @@
     "@hono/standard-validator": "^0.2.2",
     "@hono/zod-validator": "^0.7.6",
     "@repo/constants": "workspace:*",
+    "@repo/i18n": "workspace:*",
     "@scalar/hono-api-reference": "^0.10.5",
     "bcryptjs": "^3.0.3",
     "bullmq": "^5.80.8",

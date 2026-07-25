@@ -1,0 +1,45 @@
+{
+  "metadata": {
+    "title": "SaaS Template — Construisez ce que vous seul pouvez construire",
+    "description": "Une base propre et typée pour créer des produits SaaS ciblés."
+  },
+  "nav": {
+    "home": "Accueil SaaS Template",
+    "signIn": "Se connecter"
+  },
+  "hero": {
+    "badge": "Une base solide pour votre prochain produit",
+    "title": "Construisez la partie que vous seul pouvez construire.",
+    "description": "SaaS Template vous fournit l'infrastructure essentielle — comptes, configuration, base de données, API et une interface soignée — sans hériter des hypothèses d'un autre produit.",
+    "openApp": "Ouvrir l'application",
+    "exploreFoundation": "Découvrir la base"
+  },
+  "workspace": {
+    "label": "Votre espace de travail",
+    "title": "Prêt pour un modèle métier",
+    "steps": [
+      "Définissez votre modèle produit",
+      "Ajoutez votre parcours client",
+      "Lancez en toute confiance"
+    ]
+  },
+  "foundation": {
+    "label": "La base",
+    "title": "Assez de structure pour avancer vite. Assez d'espace pour la faire vôtre.",
+    "items": [
+      "Authentification sécurisée par session",
+      "Un flux de configuration du premier administrateur",
+      "API, base de données et frontend typés",
+      "Abstractions de stockage et d'e-mail prêtes à adapter"
+    ]
+  },
+  "pricing": {
+    "title": "Une tarification simple et transparente.",
+    "description": "Un seul plan pour chaque étape. Aucuns frais cachés.",
+    "getStarted": "Commencer"
+  },
+  "footer": {
+    "tagline": "Conçu pour devenir votre produit.",
+    "note": "Aucun domaine de démonstration inclus"
+  }
+}
