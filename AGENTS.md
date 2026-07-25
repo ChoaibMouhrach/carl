@@ -146,6 +146,12 @@ Rules:
 - Pages consume route context via `getRouteApi("/route-id").useRouteContext()`. Route IDs always start with `/` (e.g. `/user-layout`, `/user/select-plan`).
 - Pages never take `user` (or similar route-context data) as a prop.
 
+## Code Comments
+
+- Do not add comments that narrate what the code does or explain a change you just made. Let clear naming and structure carry the meaning. This codebase is intentionally near comment-free — match it.
+- Add a comment only when it records a non-obvious _why_ the code itself cannot express (a real constraint, workaround, or gotcha), and keep it to one terse line.
+- Never leave AI-narration, TODO, or placeholder commentary in committed code.
+
 ## Testing Rules
 
 When writing tests, follow these rules strictly:
