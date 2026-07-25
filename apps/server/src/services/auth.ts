@@ -170,7 +170,6 @@ export class AuthService extends BaseService {
       },
     );
 
-    // TODO: add client side page
     const url = new URL("email-verified", this.context.env.CLIENT_URL);
 
     url.searchParams.set("email", email);
@@ -193,6 +192,7 @@ export class AuthService extends BaseService {
 
         throw new UnauthorizedError({
           message: credsValidationErrorMessage,
+          code: "invalidCredentials",
         });
       }
 
@@ -212,6 +212,7 @@ export class AuthService extends BaseService {
       if (!passwordCorrect) {
         throw new UnauthorizedError({
           message: credsValidationErrorMessage,
+          code: "invalidCredentials",
         });
       }
 
@@ -219,6 +220,7 @@ export class AuthService extends BaseService {
         throw new UnauthorizedError({
           message:
             "Your email address has not been verified. Please sign up again to receive a new verification link.",
+          code: "emailNotVerified",
         });
       }
 
@@ -287,6 +289,7 @@ export class AuthService extends BaseService {
         throw new BadRequestError({
           message:
             "The password reset link is invalid or has already been used.",
+          code: "passwordResetInvalid",
         });
       }
 
@@ -298,6 +301,7 @@ export class AuthService extends BaseService {
         throw new BadRequestError({
           message:
             "The password reset link has expired. Please request a new one.",
+          code: "passwordResetExpired",
         });
       }
 
@@ -342,12 +346,14 @@ export class AuthService extends BaseService {
       if (!session) {
         throw new UnauthorizedError({
           message: "Your session is invalid. Please sign in again.",
+          code: "sessionInvalid",
         });
       }
 
       if (new Date() > session.expiresAt) {
         throw new UnauthorizedError({
           message: "Your session has expired. Please sign in again.",
+          code: "sessionExpired",
         });
       }
 
@@ -380,7 +386,10 @@ export class AuthService extends BaseService {
     });
 
     if (existing && existing.userId !== input.userId) {
-      throw new ConflictError({ message: "Email is already taken." });
+      throw new ConflictError({
+        message: "Email is already taken.",
+        code: "emailAlreadyTaken",
+      });
     }
 
     const customer =
@@ -433,6 +442,7 @@ export class AuthService extends BaseService {
       if (!samePassword) {
         throw new BadRequestError({
           message: "Invalid password",
+          code: "invalidPassword",
         });
       }
 

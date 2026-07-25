@@ -49,6 +49,7 @@ export class BillingService extends BaseService {
         if (currentSubscription) {
           throw new BadRequestError({
             message: "An active subscription already exists for this account.",
+            code: "subscriptionExists",
           });
         }
 
@@ -59,6 +60,7 @@ export class BillingService extends BaseService {
         if (existingAttempt) {
           throw new BadRequestError({
             message: "A checkout session is already active for this account.",
+            code: "checkoutActive",
           });
         }
 
@@ -110,6 +112,7 @@ export class BillingService extends BaseService {
     if (!customer) {
       throw new NotFoundError({
         message: "No billing customer exists for this account.",
+        code: "noBillingCustomer",
       });
     }
 
@@ -125,7 +128,10 @@ export class BillingService extends BaseService {
       });
 
     if (!subscription) {
-      throw new NotFoundError({ message: "No active subscription exists." });
+      throw new NotFoundError({
+        message: "No active subscription exists.",
+        code: "noActiveSubscription",
+      });
     }
 
     await this.context.billing.cancelSubscription({
@@ -150,6 +156,7 @@ export class BillingService extends BaseService {
     ) {
       throw new BadRequestError({
         message: "This subscription can no longer be resumed.",
+        code: "subscriptionNotResumable",
       });
     }
 
@@ -172,7 +179,10 @@ export class BillingService extends BaseService {
       });
 
     if (!subscription) {
-      throw new NotFoundError({ message: "No active subscription exists." });
+      throw new NotFoundError({
+        message: "No active subscription exists.",
+        code: "noActiveSubscription",
+      });
     }
 
     if (
@@ -181,12 +191,14 @@ export class BillingService extends BaseService {
     ) {
       throw new BadRequestError({
         message: "The selected plan is already active.",
+        code: "planAlreadyActive",
       });
     }
 
     if (!isBillingPlanKey(subscription.planKey)) {
       throw new BadRequestError({
         message: "The current billing plan is invalid.",
+        code: "currentPlanInvalid",
       });
     }
 
@@ -194,7 +206,10 @@ export class BillingService extends BaseService {
     const targetPlan = getBillingPlan(input.planKey);
 
     if (!currentPlan || !targetPlan) {
-      throw new BadRequestError({ message: "The billing plan is invalid." });
+      throw new BadRequestError({
+        message: "The billing plan is invalid.",
+        code: "planInvalid",
+      });
     }
 
     const timing =
@@ -549,6 +564,7 @@ export class BillingService extends BaseService {
         throw new NotFoundError({
           message:
             "Stripe subscription customer does not match the local user.",
+          code: "stripeCustomerMismatch",
         });
       }
 

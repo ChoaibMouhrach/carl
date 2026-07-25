@@ -28,6 +28,7 @@ export default async function Home({ params }: PageProps<"/[locale]">) {
   const t = await getTranslations();
   const steps: string[] = t.raw("workspace.steps");
   const foundations: string[] = t.raw("foundation.items");
+  const appUrl = `${env.APP_URL}?lng=${locale}`;
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -36,7 +37,7 @@ export default async function Home({ params }: PageProps<"/[locale]">) {
           <Logo size={38} />
         </Link>
         <Button asChild variant="outline">
-          <a href={env.APP_URL}>{t("nav.signIn")}</a>
+          <a href={appUrl}>{t("nav.signIn")}</a>
         </Button>
       </nav>
 
@@ -53,7 +54,7 @@ export default async function Home({ params }: PageProps<"/[locale]">) {
           </p>
           <div className="mt-9 flex flex-wrap gap-3">
             <Button asChild size="lg">
-              <a href={env.APP_URL}>
+              <a href={appUrl}>
                 {t("hero.openApp")} <ArrowRight className="size-4" />
               </a>
             </Button>
@@ -114,7 +115,7 @@ export default async function Home({ params }: PageProps<"/[locale]">) {
         </div>
       </section>
 
-      <Pricing appUrl={env.APP_URL} />
+      <Pricing appUrl={appUrl} />
 
       <footer className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-8 text-sm text-muted-foreground">
         <span>{t("footer.tagline")}</span>

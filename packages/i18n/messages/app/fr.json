@@ -156,5 +156,27 @@
     "loadDescription": "Une erreur est survenue lors du chargement de cette page.",
     "notFound": "Page introuvable",
     "notFoundDescription": "La page que vous recherchez n'existe pas."
+  },
+  "serverErrors": {
+    "permissionDenied": "Vous n'avez pas la permission de faire cela.",
+    "setupAlreadyCompleted": "La configuration a déjà été effectuée.",
+    "invalidCredentials": "E-mail ou mot de passe incorrect.",
+    "emailNotVerified": "Votre adresse e-mail n'a pas encore été vérifiée. Veuillez vous réinscrire pour recevoir un nouveau lien de vérification.",
+    "passwordResetInvalid": "Ce lien de réinitialisation est invalide ou a déjà été utilisé.",
+    "passwordResetExpired": "Ce lien de réinitialisation a expiré. Veuillez en demander un nouveau.",
+    "sessionInvalid": "Votre session est invalide. Veuillez vous reconnecter.",
+    "sessionExpired": "Votre session a expiré. Veuillez vous reconnecter.",
+    "emailAlreadyTaken": "Cette adresse e-mail est déjà utilisée.",
+    "invalidPassword": "Mot de passe incorrect.",
+    "subscriptionExists": "Vous avez déjà un abonnement actif.",
+    "checkoutActive": "Un paiement est déjà en cours.",
+    "noBillingCustomer": "Aucun compte de facturation n'a été trouvé.",
+    "noActiveSubscription": "Vous n'avez pas d'abonnement actif.",
+    "subscriptionNotResumable": "Cet abonnement ne peut plus être repris.",
+    "planAlreadyActive": "Ce forfait est déjà actif.",
+    "currentPlanInvalid": "Votre forfait actuel n'est plus disponible.",
+    "planInvalid": "Ce forfait n'est pas disponible.",
+    "stripeCustomerMismatch": "Nous n'avons pas pu vérifier votre compte de facturation.",
+    "userNotFound": "Utilisateur introuvable."
   }
 }

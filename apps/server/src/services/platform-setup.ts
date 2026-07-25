@@ -20,7 +20,10 @@ export class PlatformSetupService extends BaseService {
       const isSetupDone = await this.checkSetup(tx);
 
       if (isSetupDone) {
-        throw new BadRequestError({ message: "Setup already completed" });
+        throw new BadRequestError({
+          message: "Setup already completed",
+          code: "setupAlreadyCompleted",
+        });
       }
 
       const user = await tx.user.create({

@@ -156,5 +156,27 @@
     "loadDescription": "Algo salió mal al cargar esta página.",
     "notFound": "Página no encontrada",
     "notFoundDescription": "La página que buscas no existe."
+  },
+  "serverErrors": {
+    "permissionDenied": "No tienes permiso para hacer eso.",
+    "setupAlreadyCompleted": "La configuración ya se ha completado.",
+    "invalidCredentials": "Correo o contraseña incorrectos.",
+    "emailNotVerified": "Tu correo electrónico aún no ha sido verificado. Regístrate de nuevo para recibir un nuevo enlace de verificación.",
+    "passwordResetInvalid": "Este enlace de restablecimiento no es válido o ya se ha utilizado.",
+    "passwordResetExpired": "Este enlace de restablecimiento ha caducado. Solicita uno nuevo.",
+    "sessionInvalid": "Tu sesión no es válida. Inicia sesión de nuevo.",
+    "sessionExpired": "Tu sesión ha caducado. Inicia sesión de nuevo.",
+    "emailAlreadyTaken": "Ese correo electrónico ya está en uso.",
+    "invalidPassword": "Contraseña incorrecta.",
+    "subscriptionExists": "Ya tienes una suscripción activa.",
+    "checkoutActive": "Ya hay un pago en curso.",
+    "noBillingCustomer": "No se encontró ninguna cuenta de facturación.",
+    "noActiveSubscription": "No tienes una suscripción activa.",
+    "subscriptionNotResumable": "Esta suscripción ya no se puede reanudar.",
+    "planAlreadyActive": "Ese plan ya está activo.",
+    "currentPlanInvalid": "Tu plan actual ya no está disponible.",
+    "planInvalid": "Ese plan no está disponible.",
+    "stripeCustomerMismatch": "No pudimos verificar tu cuenta de facturación.",
+    "userNotFound": "Usuario no encontrado."
   }
 }

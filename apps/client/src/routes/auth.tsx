@@ -48,8 +48,7 @@ export const resetPasswordRoute = createRoute({
   component: () => <ResetPasswordPage />,
   path: "/reset-password",
   validateSearch: z.object({
-    // TODO: add max string for this token
-    token: z.string().nonempty(),
+    token: z.string().length(64),
   }),
 });
 

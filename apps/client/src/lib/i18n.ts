@@ -21,8 +21,10 @@ void i18n
     load: "languageOnly",
     interpolation: { escapeValue: false },
     detection: {
-      order: ["localStorage", "navigator"],
-      caches: ["localStorage"],
+      order: ["querystring", "cookie", "localStorage", "navigator"],
+      caches: ["cookie", "localStorage"],
+      lookupCookie: "NEXT_LOCALE",
+      lookupQuerystring: "lng",
     },
   });
 

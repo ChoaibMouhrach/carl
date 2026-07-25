@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { getCookie } from "hono/cookie";
 import { serveStatic } from "hono/bun";
 import { defaultLocale, isLocale } from "@repo/i18n/config";
 import { Services } from "./services";
@@ -58,6 +59,7 @@ export const initApp = async (params: initAppParams) => {
           {
             statusCode: error.statusCode,
             message: error.message,
+            code: error.code,
           },
           error.statusCode,
         );
@@ -93,6 +95,12 @@ export const initApp = async (params: initAppParams) => {
   }
 
   app.get("/", (context) => {
+    const cookieLocale = getCookie(context, "NEXT_LOCALE");
+
+    if (cookieLocale && isLocale(cookieLocale)) {
+      return context.redirect(`/${cookieLocale}/`);
+    }
+
     const preferred = (context.req.header("accept-language") ?? "")
       .split(",")
       .map(

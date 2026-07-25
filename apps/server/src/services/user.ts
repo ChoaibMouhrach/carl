@@ -9,7 +9,10 @@ export class UserService extends BaseService {
       const existing = await tx.user.findByEmail({ email: input.email });
 
       if (existing) {
-        throw new ConflictError({ message: "Email is already taken." });
+        throw new ConflictError({
+          message: "Email is already taken.",
+          code: "emailAlreadyTaken",
+        });
       }
 
       const user = await tx.user.create({
@@ -53,7 +56,10 @@ export class UserService extends BaseService {
     });
 
     if (!user) {
-      throw new NotFoundError({ message: "User not found." });
+      throw new NotFoundError({
+        message: "User not found.",
+        code: "userNotFound",
+      });
     }
 
     return { user };
@@ -75,7 +81,10 @@ export class UserService extends BaseService {
       const user = await tx.user.findByUserId({ userId: params.userId });
 
       if (!user) {
-        throw new NotFoundError({ message: "User not found." });
+        throw new NotFoundError({
+          message: "User not found.",
+          code: "userNotFound",
+        });
       }
 
       await tx.user.remove({ userId: params.userId });

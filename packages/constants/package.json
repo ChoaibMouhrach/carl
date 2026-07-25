@@ -4,6 +4,7 @@
   "private": true,
   "exports": {
     "./billing": "./src/billing.ts",
+    "./errors": "./src/errors.ts",
     "./notifications": "./src/notifications.ts"
   }
 }

@@ -1,12 +1,17 @@
 import { isRedirect } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { z } from "zod";
+import { serverErrorCodes, type ServerErrorCode } from "@repo/constants/errors";
+import i18n from "@/lib/i18n";
 import { ROUTER_BASEPATH } from "@/config/constants";
 
 export type FieldError = {
   field: string;
   message: string;
 };
+
+const isServerErrorCode = (value: string): value is ServerErrorCode =>
+  serverErrorCodes.some((code) => code === value);
 
 export const onError = (error: Error) => {
   if (isRedirect(error)) {
@@ -15,8 +20,12 @@ export const onError = (error: Error) => {
 
   let message = error.message;
 
-  if (error instanceof ApiError) {
-    message = error.message;
+  if (
+    error instanceof ApiError &&
+    error.code &&
+    isServerErrorCode(error.code)
+  ) {
+    message = i18n.t(`serverErrors.${error.code}`);
   }
 
   toast.error(message);
@@ -24,16 +33,23 @@ export const onError = (error: Error) => {
 
 export class ApiError extends Error {
   public statusCode;
+  public code;
 
-  public constructor(payload: { statusCode: number; message: string }) {
+  public constructor(payload: {
+    statusCode: number;
+    message: string;
+    code?: string;
+  }) {
     super(payload.message);
     this.statusCode = payload.statusCode;
+    this.code = payload.code;
   }
 }
 
 const errorSchema = z.object({
   message: z.string(),
   statusCode: z.number(),
+  code: z.string().optional(),
 });
 
 export abstract class BaseApi {
@@ -84,6 +100,7 @@ export abstract class BaseApi {
         throw new ApiError({
           statusCode: validation.data.statusCode,
           message: validation.data.message,
+          code: validation.data.code,
         });
       }
 
