@@ -68,6 +68,13 @@
     "admin": "Admin",
     "user": "User"
   },
+  "validation": {
+    "required": "This field is required",
+    "email": "Enter a valid email address",
+    "minLength": "Must be at least {{min}} characters",
+    "maxLength": "Must be at most {{max}} characters",
+    "passwordsMatch": "Passwords don't match"
+  },
   "settings": {
     "title": "Settings",
     "subtitle": "Manage your account settings.",

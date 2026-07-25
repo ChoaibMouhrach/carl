@@ -68,6 +68,13 @@
     "admin": "Administrador",
     "user": "Usuario"
   },
+  "validation": {
+    "required": "Este campo es obligatorio",
+    "email": "Introduce un correo electrónico válido",
+    "minLength": "Debe tener al menos {{min}} caracteres",
+    "maxLength": "No debe superar los {{max}} caracteres",
+    "passwordsMatch": "Las contraseñas no coinciden"
+  },
   "settings": {
     "title": "Configuración",
     "subtitle": "Administra la configuración de tu cuenta.",

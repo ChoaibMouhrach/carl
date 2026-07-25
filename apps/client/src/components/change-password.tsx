@@ -1,4 +1,5 @@
 import { api } from "@/api";
+import i18n from "@/lib/i18n";
 import { PasswordInput } from "@/components/password-input";
 import { Button } from "@repo/ui/components/ui/button";
 import {
@@ -32,7 +33,7 @@ const schema = z
     confirmPassword: z.string().min(8).max(60),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
-    message: "Passwords don't match",
+    error: () => i18n.t("validation.passwordsMatch"),
     path: ["confirmPassword"],
   });
 

@@ -68,6 +68,13 @@
     "admin": "Administrateur",
     "user": "Utilisateur"
   },
+  "validation": {
+    "required": "Ce champ est requis",
+    "email": "Saisissez une adresse e-mail valide",
+    "minLength": "Doit contenir au moins {{min}} caractères",
+    "maxLength": "Ne doit pas dépasser {{max}} caractères",
+    "passwordsMatch": "Les mots de passe ne correspondent pas"
+  },
   "settings": {
     "title": "Paramètres",
     "subtitle": "Gérez les paramètres de votre compte.",
