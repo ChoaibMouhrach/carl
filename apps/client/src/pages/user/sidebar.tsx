@@ -12,12 +12,12 @@ import {
   SidebarRail,
 } from "@repo/ui/components/ui/sidebar";
 import { Link, useLocation } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { Logo, LogoWithText } from "@repo/ui/logo-mark";
 import {
   LayoutDashboardIcon,
   CreditCardIcon,
   type LucideIcon,
-  UserRoundIcon,
 } from "lucide-react";
 
 interface UserSidebarProps {
@@ -29,19 +29,23 @@ interface UserSidebarProps {
 }
 
 interface NavigationItem {
-  label: string;
-  to: "/user/dashboard" | "/user/account" | "/user/billing";
+  labelKey: "nav.dashboard" | "nav.billing";
+  to: "/user/dashboard" | "/user/billing";
   icon: LucideIcon;
 }
 
 const navigation: NavigationItem[] = [
-  { label: "Dashboard", to: "/user/dashboard", icon: LayoutDashboardIcon },
-  { label: "Billing", to: "/user/billing", icon: CreditCardIcon },
-  { label: "Account", to: "/user/account", icon: UserRoundIcon },
+  {
+    labelKey: "nav.dashboard",
+    to: "/user/dashboard",
+    icon: LayoutDashboardIcon,
+  },
+  { labelKey: "nav.billing", to: "/user/billing", icon: CreditCardIcon },
 ];
 
 export const UserSidebar: React.FC<UserSidebarProps> = ({ user }) => {
   const location = useLocation();
+  const { t } = useTranslation();
 
   return (
     <Sidebar variant="inset" collapsible="icon">
@@ -78,11 +82,11 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({ user }) => {
                   <SidebarMenuButton
                     asChild
                     isActive={location.pathname === item.to}
-                    tooltip={item.label}
+                    tooltip={t(item.labelKey)}
                   >
                     <Link to={item.to}>
                       <item.icon />
-                      <span>{item.label}</span>
+                      <span>{t(item.labelKey)}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

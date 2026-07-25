@@ -12,12 +12,9 @@ import {
   SidebarRail,
 } from "@repo/ui/components/ui/sidebar";
 import { Link, useLocation } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { Logo, LogoWithText } from "@repo/ui/logo-mark";
-import {
-  LayoutDashboardIcon,
-  type LucideIcon,
-  UserRoundIcon,
-} from "lucide-react";
+import { LayoutDashboardIcon, type LucideIcon } from "lucide-react";
 
 interface AdminSidebarProps {
   user: {
@@ -28,18 +25,22 @@ interface AdminSidebarProps {
 }
 
 interface NavigationItem {
-  label: string;
-  to: "/admin/dashboard" | "/admin/account";
+  labelKey: "nav.dashboard";
+  to: "/admin/dashboard";
   icon: LucideIcon;
 }
 
 const navigation: NavigationItem[] = [
-  { label: "Dashboard", to: "/admin/dashboard", icon: LayoutDashboardIcon },
-  { label: "Account", to: "/admin/account", icon: UserRoundIcon },
+  {
+    labelKey: "nav.dashboard",
+    to: "/admin/dashboard",
+    icon: LayoutDashboardIcon,
+  },
 ];
 
 export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
   const location = useLocation();
+  const { t } = useTranslation();
 
   return (
     <Sidebar variant="inset" collapsible="icon">
@@ -76,11 +77,11 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
                   <SidebarMenuButton
                     asChild
                     isActive={location.pathname === item.to}
-                    tooltip={item.label}
+                    tooltip={t(item.labelKey)}
                   >
                     <Link to={item.to}>
                       <item.icon />
-                      <span>{item.label}</span>
+                      <span>{t(item.labelKey)}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

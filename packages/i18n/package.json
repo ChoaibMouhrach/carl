@@ -6,6 +6,9 @@
     "./config": "./src/config.ts",
     "./messages/en": "./messages/en.json",
     "./messages/fr": "./messages/fr.json",
-    "./messages/es": "./messages/es.json"
+    "./messages/es": "./messages/es.json",
+    "./messages/app/en": "./messages/app/en.json",
+    "./messages/app/fr": "./messages/app/fr.json",
+    "./messages/app/es": "./messages/app/es.json"
   }
 }

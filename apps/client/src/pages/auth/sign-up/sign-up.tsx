@@ -15,6 +15,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Controller, useForm } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import z from "zod";
 
@@ -33,6 +34,7 @@ type Output = z.output<typeof schema>;
 
 export const SignUp = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const form = useForm({
     resolver: zodResolver(schema),
@@ -51,7 +53,7 @@ export const SignUp = () => {
       });
     },
     onSuccess: () => {
-      toast.success("Check your inbox to verify your email");
+      toast.success(t("auth.signUp.verifyEmailToast"));
       navigate({ to: "/sign-in" });
     },
     onError,
@@ -69,7 +71,9 @@ export const SignUp = () => {
           name="email"
           render={({ field, fieldState }) => (
             <Field>
-              <FieldLabel htmlFor={field.name}>Email address</FieldLabel>
+              <FieldLabel htmlFor={field.name}>
+                {t("auth.signUp.email")}
+              </FieldLabel>
               <CustomInput
                 {...field}
                 id={field.name}
@@ -86,7 +90,9 @@ export const SignUp = () => {
           name="password"
           render={({ field, fieldState }) => (
             <Field>
-              <FieldLabel htmlFor={field.name}>Password</FieldLabel>
+              <FieldLabel htmlFor={field.name}>
+                {t("auth.signUp.password")}
+              </FieldLabel>
               <PasswordInput
                 {...field}
                 id={field.name}
@@ -102,7 +108,9 @@ export const SignUp = () => {
           name="passwordConfirmation"
           render={({ field, fieldState }) => (
             <Field>
-              <FieldLabel htmlFor={field.name}>Confirm Password</FieldLabel>
+              <FieldLabel htmlFor={field.name}>
+                {t("auth.signUp.confirmPassword")}
+              </FieldLabel>
               <PasswordInput
                 {...field}
                 id={field.name}
@@ -114,17 +122,17 @@ export const SignUp = () => {
         />
 
         <Button type="submit" disabled={signUp.isPending}>
-          {signUp.isPending && <Spinner />} Sign Up
+          {signUp.isPending && <Spinner />} {t("auth.signUp.submit")}
         </Button>
 
         <div className="flex items-center gap-4 text-muted-foreground">
           <Separator className="shrink flex-1" />
-          <span className="text-sm">OR</span>
+          <span className="text-sm">{t("common.or")}</span>
           <Separator className="shrink flex-1" />
         </div>
 
         <Button size="lg" variant="outline" disabled={signUp.isPending} asChild>
-          <Link to="/sign-in">Sign in</Link>
+          <Link to="/sign-in">{t("common.signIn")}</Link>
         </Button>
       </FieldGroup>
     </form>

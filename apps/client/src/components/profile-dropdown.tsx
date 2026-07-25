@@ -9,6 +9,7 @@ import {
 import { Button } from "@repo/ui/components/ui/button";
 import { ChevronsUpDown } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { onError } from "@/lib/base-api";
 import { api } from "@/api";
@@ -33,6 +34,14 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   className,
 }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
+
+  const roleLabel =
+    user.role === "admin"
+      ? t("roles.admin")
+      : user.role === "user"
+        ? t("roles.user")
+        : user.role.charAt(0).toUpperCase() + user.role.slice(1);
 
   const signOut = useMutation({
     mutationFn: () => {
@@ -60,9 +69,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
             {user.email.charAt(0).toUpperCase()}
           </span>
           <div className="flex min-w-0 flex-col items-start group-data-[collapsible=icon]:hidden">
-            <span>
-              {user.role.charAt(0)?.toUpperCase() + user.role.slice(1)}
-            </span>
+            <span>{roleLabel}</span>
             <span className="text-muted-foreground max-w-full truncate">
               {user.email}
             </span>
@@ -75,14 +82,14 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuGroup>
-          <DropdownMenuLabel>My Account</DropdownMenuLabel>
+          <DropdownMenuLabel>{t("profile.myAccount")}</DropdownMenuLabel>
           <DropdownMenuItem asChild>
             <Link to={accountPath} onClick={() => onNavigate?.()}>
-              Account
+              {t("profile.settings")}
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem disabled={signOut.isPending} onClick={onSignOut}>
-            Sign out {signOut.isPending && <Spinner />}
+            {t("profile.signOut")} {signOut.isPending && <Spinner />}
           </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>

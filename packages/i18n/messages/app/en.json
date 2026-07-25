@@ -1,0 +1,153 @@
+{
+  "common": {
+    "or": "OR",
+    "signIn": "Sign in",
+    "goHome": "Go Home"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "billing": "Billing"
+  },
+  "auth": {
+    "signIn": {
+      "title": "Welcome back",
+      "subtitle": "Sign in to continue to your account",
+      "email": "Email address",
+      "password": "Password",
+      "forgotPassword": "Forgot password?",
+      "submit": "Sign In",
+      "createAccount": "Create an account"
+    },
+    "signUp": {
+      "title": "Create an account",
+      "subtitle": "Enter your details to get started",
+      "email": "Email address",
+      "password": "Password",
+      "confirmPassword": "Confirm Password",
+      "submit": "Sign Up",
+      "verifyEmailToast": "Check your inbox to verify your email"
+    },
+    "forgotPassword": {
+      "title": "Forgot password",
+      "subtitle": "Enter your email and we'll send you a reset link",
+      "email": "Email address",
+      "submit": "Send Reset Link",
+      "sentToast": "If an account exists with that email, you'll receive a reset link shortly"
+    },
+    "resetPassword": {
+      "title": "Reset password",
+      "subtitle": "Choose a new password for your account",
+      "password": "Password",
+      "confirmPassword": "Confirm password",
+      "submit": "Reset password",
+      "successToast": "Password reset successfully"
+    },
+    "emailVerified": {
+      "title": "Email Verified",
+      "description": "Your email {{email}} has been successfully verified. You're all set to sign in and get started.",
+      "signIn": "Sign In"
+    }
+  },
+  "setup": {
+    "email": "Email address",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "submit": "Submit",
+    "successToast": "Setup completed successfully"
+  },
+  "dashboard": {
+    "title": "Start with your product.",
+    "description": "Your SaaS foundation is ready. Add a focused domain module when you know what your customers need."
+  },
+  "profile": {
+    "myAccount": "My Account",
+    "settings": "Settings",
+    "signOut": "Sign out"
+  },
+  "roles": {
+    "admin": "Admin",
+    "user": "User"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Manage your account settings.",
+    "profile": {
+      "title": "Profile",
+      "description": "Your account information",
+      "email": "Email"
+    },
+    "language": {
+      "title": "Language",
+      "description": "Choose the language used across the app."
+    }
+  },
+  "password": {
+    "title": "Change password",
+    "description": "Update your password to keep your account secure",
+    "current": "Current password",
+    "currentPlaceholder": "Enter your current password",
+    "new": "New password",
+    "newPlaceholder": "Enter your new password",
+    "confirm": "Confirm new password",
+    "confirmPlaceholder": "Confirm your new password",
+    "submit": "Change password",
+    "changedToast": "Password changed successfully",
+    "dialog": {
+      "title": "Sign out other devices?",
+      "description": "Your password will be changed. Would you also like to sign out all other active sessions? Your current session will stay active.",
+      "keep": "No, keep them",
+      "confirm": "Yes, sign them out"
+    }
+  },
+  "billing": {
+    "current": {
+      "title": "Current plan",
+      "description": "Your subscription is managed through Stripe.",
+      "accessEnds": "Your access ends on {{date}}.",
+      "switching": "Switching to {{plan}} ({{interval}}) at next renewal.",
+      "manageBilling": "Manage billing",
+      "resume": "Resume",
+      "cancel": "Cancel subscription",
+      "dialog": {
+        "title": "Cancel subscription?",
+        "description": "You'll keep access until the end of your current billing period.",
+        "accessEnds": "Your access ends on {{date}}.",
+        "keep": "Keep subscription",
+        "confirm": "Cancel subscription"
+      }
+    },
+    "plans": {
+      "choose": "Choose {{plan}}",
+      "switchPlan": "Switch plan",
+      "upgradeTo": "Upgrade to {{plan}}",
+      "downgradeTo": "Downgrade to {{plan}}",
+      "switchToYearly": "Switch to yearly",
+      "switchToMonthly": "Switch to monthly",
+      "current": "Current plan",
+      "scheduled": "Scheduled",
+      "immediate": "Charged immediately, prorated.",
+      "periodEnd": "Takes effect at next renewal."
+    }
+  },
+  "selectPlan": {
+    "title": "Choose a plan to get started",
+    "subtitle": "Pick a plan to activate your account.",
+    "signOut": "Sign out"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "open": "Open notifications",
+    "markAllRead": "Mark all as read",
+    "empty": "You're all caught up.",
+    "justNow": "just now",
+    "minutesAgo": "{{minutes}}m ago",
+    "hoursAgo": "{{hours}}h ago",
+    "daysAgo": "{{days}}d ago"
+  },
+  "errors": {
+    "generic": "Something went wrong",
+    "loadDescription": "Something went wrong while loading this page.",
+    "notFound": "Page not found",
+    "notFoundDescription": "The page you are looking for does not exist."
+  }
+}

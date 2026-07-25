@@ -6,6 +6,7 @@ import { Logo } from "@repo/ui/logo-mark";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { LogOut } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ModeToggle } from "@/components/mode-toggle";
 
 interface HeaderProps {
@@ -14,6 +15,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ email }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const signOut = useMutation({
     mutationFn: () => api.auth.signOut(),
     onError,
@@ -33,7 +35,7 @@ export const Header: React.FC<HeaderProps> = ({ email }) => {
           variant="outline"
         >
           {signOut.isPending ? <Spinner /> : <LogOut />}
-          Sign out
+          {t("selectPlan.signOut")}
         </Button>
       </div>
     </header>

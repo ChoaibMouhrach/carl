@@ -16,6 +16,7 @@ import {
   CardTitle,
 } from "@repo/ui/components/ui/card";
 import { Spinner } from "@repo/ui/components/ui/spinner";
+import { useTranslation } from "react-i18next";
 
 interface Subscription {
   billingInterval: string;
@@ -59,24 +60,28 @@ export const CurrentPlan = ({
   showCancelConfirm,
   subscription,
 }: CurrentPlanProps) => {
+  const { t } = useTranslation();
+
   return (
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Current plan</CardTitle>
-          <CardDescription>
-            Your subscription is managed through Stripe.
-          </CardDescription>
+          <CardTitle>{t("billing.current.title")}</CardTitle>
+          <CardDescription>{t("billing.current.description")}</CardDescription>
           {subscription.cancelAtPeriodEnd && subscription.currentPeriodEnd && (
             <CardDescription>
-              Your access ends on {formatDate(subscription.currentPeriodEnd)}.
+              {t("billing.current.accessEnds", {
+                date: formatDate(subscription.currentPeriodEnd),
+              })}
             </CardDescription>
           )}
           {subscription.scheduledPlanKey &&
             subscription.scheduledBillingInterval && (
               <CardDescription>
-                Switching to {subscription.scheduledPlanKey} (
-                {subscription.scheduledBillingInterval}) at next renewal.
+                {t("billing.current.switching", {
+                  plan: subscription.scheduledPlanKey,
+                  interval: subscription.scheduledBillingInterval,
+                })}
               </CardDescription>
             )}
         </CardHeader>
@@ -86,12 +91,12 @@ export const CurrentPlan = ({
           <Badge variant="outline">{subscription.status}</Badge>
           <Button disabled={isAnyMutating} onClick={onPortal} variant="outline">
             {isPortalPending && <Spinner />}
-            Manage billing
+            {t("billing.current.manageBilling")}
           </Button>
           {subscription.cancelAtPeriodEnd ? (
             <Button disabled={isAnyMutating} onClick={onResume}>
               {isResumePending && <Spinner />}
-              Resume
+              {t("billing.current.resume")}
             </Button>
           ) : (
             <Button
@@ -99,7 +104,7 @@ export const CurrentPlan = ({
               onClick={() => onShowCancelConfirmChange(true)}
               variant="outline"
             >
-              Cancel subscription
+              {t("billing.current.cancel")}
             </Button>
           )}
         </CardContent>
@@ -113,14 +118,17 @@ export const CurrentPlan = ({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancel subscription?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("billing.current.dialog.title")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              You'll keep access until the end of your current billing period.
+              {t("billing.current.dialog.description")}
               {subscription.currentPeriodEnd && (
                 <>
                   {" "}
-                  Your access ends on{" "}
-                  {formatDate(subscription.currentPeriodEnd)}.
+                  {t("billing.current.dialog.accessEnds", {
+                    date: formatDate(subscription.currentPeriodEnd),
+                  })}
                 </>
               )}
             </AlertDialogDescription>
@@ -131,11 +139,11 @@ export const CurrentPlan = ({
               onClick={() => onShowCancelConfirmChange(false)}
               variant="outline"
             >
-              Keep subscription
+              {t("billing.current.dialog.keep")}
             </Button>
             <Button disabled={isCancelPending} onClick={onCancel}>
               {isCancelPending && <Spinner />}
-              Cancel subscription
+              {t("billing.current.dialog.confirm")}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

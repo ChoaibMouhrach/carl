@@ -1,0 +1,153 @@
+{
+  "common": {
+    "or": "OU",
+    "signIn": "Se connecter",
+    "goHome": "Retour à l'accueil"
+  },
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "billing": "Facturation"
+  },
+  "auth": {
+    "signIn": {
+      "title": "Bon retour",
+      "subtitle": "Connectez-vous pour accéder à votre compte",
+      "email": "Adresse e-mail",
+      "password": "Mot de passe",
+      "forgotPassword": "Mot de passe oublié ?",
+      "submit": "Se connecter",
+      "createAccount": "Créer un compte"
+    },
+    "signUp": {
+      "title": "Créer un compte",
+      "subtitle": "Renseignez vos informations pour commencer",
+      "email": "Adresse e-mail",
+      "password": "Mot de passe",
+      "confirmPassword": "Confirmer le mot de passe",
+      "submit": "S'inscrire",
+      "verifyEmailToast": "Consultez votre boîte de réception pour vérifier votre e-mail"
+    },
+    "forgotPassword": {
+      "title": "Mot de passe oublié",
+      "subtitle": "Saisissez votre e-mail et nous vous enverrons un lien de réinitialisation",
+      "email": "Adresse e-mail",
+      "submit": "Envoyer le lien",
+      "sentToast": "Si un compte existe avec cet e-mail, vous recevrez un lien de réinitialisation sous peu"
+    },
+    "resetPassword": {
+      "title": "Réinitialiser le mot de passe",
+      "subtitle": "Choisissez un nouveau mot de passe pour votre compte",
+      "password": "Mot de passe",
+      "confirmPassword": "Confirmer le mot de passe",
+      "submit": "Réinitialiser le mot de passe",
+      "successToast": "Mot de passe réinitialisé avec succès"
+    },
+    "emailVerified": {
+      "title": "E-mail vérifié",
+      "description": "Votre e-mail {{email}} a été vérifié avec succès. Vous pouvez maintenant vous connecter et commencer.",
+      "signIn": "Se connecter"
+    }
+  },
+  "setup": {
+    "email": "Adresse e-mail",
+    "password": "Mot de passe",
+    "confirmPassword": "Confirmer le mot de passe",
+    "submit": "Valider",
+    "successToast": "Configuration terminée avec succès"
+  },
+  "dashboard": {
+    "title": "Commencez avec votre produit.",
+    "description": "Votre base SaaS est prête. Ajoutez un module métier ciblé lorsque vous savez ce dont vos clients ont besoin."
+  },
+  "profile": {
+    "myAccount": "Mon compte",
+    "settings": "Paramètres",
+    "signOut": "Se déconnecter"
+  },
+  "roles": {
+    "admin": "Administrateur",
+    "user": "Utilisateur"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "subtitle": "Gérez les paramètres de votre compte.",
+    "profile": {
+      "title": "Profil",
+      "description": "Les informations de votre compte",
+      "email": "E-mail"
+    },
+    "language": {
+      "title": "Langue",
+      "description": "Choisissez la langue utilisée dans l'application."
+    }
+  },
+  "password": {
+    "title": "Changer le mot de passe",
+    "description": "Mettez à jour votre mot de passe pour sécuriser votre compte",
+    "current": "Mot de passe actuel",
+    "currentPlaceholder": "Saisissez votre mot de passe actuel",
+    "new": "Nouveau mot de passe",
+    "newPlaceholder": "Saisissez votre nouveau mot de passe",
+    "confirm": "Confirmer le nouveau mot de passe",
+    "confirmPlaceholder": "Confirmez votre nouveau mot de passe",
+    "submit": "Changer le mot de passe",
+    "changedToast": "Mot de passe modifié avec succès",
+    "dialog": {
+      "title": "Déconnecter les autres appareils ?",
+      "description": "Votre mot de passe va être modifié. Souhaitez-vous également déconnecter toutes les autres sessions actives ? Votre session actuelle restera active.",
+      "keep": "Non, les garder",
+      "confirm": "Oui, les déconnecter"
+    }
+  },
+  "billing": {
+    "current": {
+      "title": "Forfait actuel",
+      "description": "Votre abonnement est géré via Stripe.",
+      "accessEnds": "Votre accès prend fin le {{date}}.",
+      "switching": "Passage à {{plan}} ({{interval}}) au prochain renouvellement.",
+      "manageBilling": "Gérer la facturation",
+      "resume": "Reprendre",
+      "cancel": "Annuler l'abonnement",
+      "dialog": {
+        "title": "Annuler l'abonnement ?",
+        "description": "Vous conserverez l'accès jusqu'à la fin de votre période de facturation en cours.",
+        "accessEnds": "Votre accès prend fin le {{date}}.",
+        "keep": "Conserver l'abonnement",
+        "confirm": "Annuler l'abonnement"
+      }
+    },
+    "plans": {
+      "choose": "Choisir {{plan}}",
+      "switchPlan": "Changer de forfait",
+      "upgradeTo": "Passer à {{plan}}",
+      "downgradeTo": "Rétrograder vers {{plan}}",
+      "switchToYearly": "Passer à l'annuel",
+      "switchToMonthly": "Passer au mensuel",
+      "current": "Forfait actuel",
+      "scheduled": "Programmé",
+      "immediate": "Facturé immédiatement, au prorata.",
+      "periodEnd": "Prend effet au prochain renouvellement."
+    }
+  },
+  "selectPlan": {
+    "title": "Choisissez un forfait pour commencer",
+    "subtitle": "Sélectionnez un forfait pour activer votre compte.",
+    "signOut": "Se déconnecter"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "open": "Ouvrir les notifications",
+    "markAllRead": "Tout marquer comme lu",
+    "empty": "Vous êtes à jour.",
+    "justNow": "à l'instant",
+    "minutesAgo": "il y a {{minutes}} min",
+    "hoursAgo": "il y a {{hours}} h",
+    "daysAgo": "il y a {{days}} j"
+  },
+  "errors": {
+    "generic": "Une erreur est survenue",
+    "loadDescription": "Une erreur est survenue lors du chargement de cette page.",
+    "notFound": "Page introuvable",
+    "notFoundDescription": "La page que vous recherchez n'existe pas."
+  }
+}

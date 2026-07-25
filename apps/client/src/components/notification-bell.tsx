@@ -13,6 +13,8 @@ import { Spinner } from "@repo/ui/components/ui/spinner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, Check } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useNavigate } from "@tanstack/react-router";
 import { ROUTER_BASEPATH } from "@/config/constants";
 
@@ -33,17 +35,19 @@ interface UnreadCountResult {
   unreadCount: number;
 }
 
-const relativeTime = (createdAt: string | Date): string => {
+const relativeTime = (createdAt: string | Date, t: TFunction): string => {
   const seconds = Math.max(
     0,
     Math.round((Date.now() - new Date(createdAt).getTime()) / 1_000),
   );
 
-  if (seconds < 60) return "just now";
-  if (seconds < 3_600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86_400) return `${Math.floor(seconds / 3_600)}h ago`;
+  if (seconds < 60) return t("notifications.justNow");
+  if (seconds < 3_600)
+    return t("notifications.minutesAgo", { minutes: Math.floor(seconds / 60) });
+  if (seconds < 86_400)
+    return t("notifications.hoursAgo", { hours: Math.floor(seconds / 3_600) });
 
-  return `${Math.floor(seconds / 86_400)}d ago`;
+  return t("notifications.daysAgo", { days: Math.floor(seconds / 86_400) });
 };
 
 const getLink = (data: unknown): string | null => {
@@ -61,6 +65,7 @@ export const NotificationBell = () => {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const listKey = ["notifications", "list"] as const;
   const unreadKey = ["notifications", "unread-count"] as const;
@@ -168,7 +173,7 @@ export const NotificationBell = () => {
     <DropdownMenu onOpenChange={setOpen} open={open}>
       <DropdownMenuTrigger asChild>
         <Button
-          aria-label="Open notifications"
+          aria-label={t("notifications.open")}
           className="relative"
           size="icon"
           variant="outline"
@@ -183,7 +188,7 @@ export const NotificationBell = () => {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-96">
         <div className="flex items-center justify-between px-2 py-1">
-          <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+          <DropdownMenuLabel>{t("notifications.title")}</DropdownMenuLabel>
           {count > 0 && (
             <Button
               disabled={markAllRead.isPending}
@@ -192,7 +197,7 @@ export const NotificationBell = () => {
               variant="ghost"
             >
               {markAllRead.isPending ? <Spinner /> : <Check />}
-              Mark all as read
+              {t("notifications.markAllRead")}
             </Button>
           )}
         </div>
@@ -204,7 +209,7 @@ export const NotificationBell = () => {
         )}
         {notifications.data?.notifications.length === 0 && (
           <p className="text-muted-foreground px-2 py-6 text-center text-sm">
-            You&apos;re all caught up.
+            {t("notifications.empty")}
           </p>
         )}
         {notifications.data?.notifications.map((notification) => (
@@ -227,7 +232,7 @@ export const NotificationBell = () => {
                 {notification.body}
               </span>
               <span className="text-muted-foreground block text-xs">
-                {relativeTime(notification.createdAt)}
+                {relativeTime(notification.createdAt, t)}
               </span>
             </span>
           </DropdownMenuItem>

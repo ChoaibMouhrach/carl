@@ -15,6 +15,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";
 import { Controller, useForm } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 import z from "zod";
 import { Separator } from "@repo/ui/components/ui/separator";
 
@@ -32,6 +33,7 @@ type Output = z.output<typeof schema>;
 
 export const ResetPassword = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const search = resetPasswordRoute.useSearch();
 
   const form = useForm({
@@ -50,7 +52,7 @@ export const ResetPassword = () => {
       });
     },
     onSuccess: () => {
-      toast.success("Password reset successfully");
+      toast.success(t("auth.resetPassword.successToast"));
       navigate({ to: "/sign-in" });
     },
     onError,
@@ -68,7 +70,9 @@ export const ResetPassword = () => {
           control={form.control}
           render={({ field, fieldState }) => (
             <Field>
-              <FieldLabel htmlFor={field.name}>Password</FieldLabel>
+              <FieldLabel htmlFor={field.name}>
+                {t("auth.resetPassword.password")}
+              </FieldLabel>
               <PasswordInput
                 {...field}
                 id={field.name}
@@ -85,7 +89,9 @@ export const ResetPassword = () => {
           control={form.control}
           render={({ field, fieldState }) => (
             <Field>
-              <FieldLabel htmlFor={field.name}>Confirm password</FieldLabel>
+              <FieldLabel htmlFor={field.name}>
+                {t("auth.resetPassword.confirmPassword")}
+              </FieldLabel>
               <PasswordInput
                 {...field}
                 id={field.name}
@@ -98,12 +104,13 @@ export const ResetPassword = () => {
         />
 
         <Button type="submit" disabled={resetPassword.isPending}>
-          {resetPassword.isPending && <Spinner />} Reset password
+          {resetPassword.isPending && <Spinner />}{" "}
+          {t("auth.resetPassword.submit")}
         </Button>
 
         <div className="flex items-center gap-4 text-muted-foreground">
           <Separator className="shrink flex-1" />
-          <span className="text-sm">OR</span>
+          <span className="text-sm">{t("common.or")}</span>
           <Separator className="shrink flex-1" />
         </div>
 
@@ -113,7 +120,7 @@ export const ResetPassword = () => {
           disabled={resetPassword.isPending}
           asChild
         >
-          <Link to="/sign-in">Sign in</Link>
+          <Link to="/sign-in">{t("common.signIn")}</Link>
         </Button>
       </FieldGroup>
     </form>

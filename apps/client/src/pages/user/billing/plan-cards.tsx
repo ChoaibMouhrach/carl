@@ -9,6 +9,7 @@ import { Pricing } from "@repo/ui/components/pricing";
 import { Button } from "@repo/ui/components/ui/button";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { cn } from "@repo/ui/utils";
+import { useTranslation } from "react-i18next";
 
 interface Subscription {
   billingInterval: string;
@@ -43,12 +44,16 @@ export const PlanCards = ({
   pendingPlanKey,
   subscription,
 }: PlanCardsProps) => {
+  const { t } = useTranslation();
+
   const getPlanAction = (
     billingInterval: BillingInterval,
     planKey: BillingPlanKey,
   ): string => {
     if (!subscription) {
-      return `Choose ${billingPlans.find((plan) => plan.key === planKey)?.name}`;
+      return t("billing.plans.choose", {
+        plan: billingPlans.find((plan) => plan.key === planKey)?.name,
+      });
     }
 
     const currentPlanKey = isBillingPlanKey(subscription.planKey)
@@ -57,17 +62,17 @@ export const PlanCards = ({
     const currentPlan = currentPlanKey ? getBillingPlan(currentPlanKey) : null;
     const targetPlan = getBillingPlan(planKey);
 
-    if (!currentPlan || !targetPlan) return "Switch plan";
+    if (!currentPlan || !targetPlan) return t("billing.plans.switchPlan");
     if (targetPlan.order > currentPlan.order) {
-      return `Upgrade to ${targetPlan.name}`;
+      return t("billing.plans.upgradeTo", { plan: targetPlan.name });
     }
     if (targetPlan.order < currentPlan.order) {
-      return `Downgrade to ${targetPlan.name}`;
+      return t("billing.plans.downgradeTo", { plan: targetPlan.name });
     }
 
     return billingInterval === "yearly"
-      ? "Switch to yearly"
-      : "Switch to monthly";
+      ? t("billing.plans.switchToYearly")
+      : t("billing.plans.switchToMonthly");
   };
 
   const getChangeTiming = (
@@ -123,9 +128,9 @@ export const PlanCards = ({
             >
               {isThisPlanPending && <Spinner />}
               {isCurrent
-                ? "Current plan"
+                ? t("billing.plans.current")
                 : isScheduled
-                  ? "Scheduled"
+                  ? t("billing.plans.scheduled")
                   : getPlanAction(billingInterval, plan.key)}
             </Button>
             {timing && !isCurrent && !isScheduled && (
@@ -136,8 +141,8 @@ export const PlanCards = ({
                 )}
               >
                 {timing === "immediate"
-                  ? "Charged immediately, prorated."
-                  : "Takes effect at next renewal."}
+                  ? t("billing.plans.immediate")
+                  : t("billing.plans.periodEnd")}
               </p>
             )}
           </div>

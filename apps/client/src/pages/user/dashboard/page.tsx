@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   UserPage,
   UserPageContent,
@@ -7,14 +8,13 @@ import {
 } from "@/components/user-page";
 
 export const UserDashboardPage = () => {
+  const { t } = useTranslation();
+
   return (
     <UserPage>
       <UserPageHeader>
-        <UserPageTitle>Start with your product.</UserPageTitle>
-        <UserPageDescription>
-          Your SaaS foundation is ready. Add a focused domain module when you
-          know what your customers need.
-        </UserPageDescription>
+        <UserPageTitle>{t("dashboard.title")}</UserPageTitle>
+        <UserPageDescription>{t("dashboard.description")}</UserPageDescription>
       </UserPageHeader>
       <UserPageContent></UserPageContent>
     </UserPage>

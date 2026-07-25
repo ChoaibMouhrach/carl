@@ -15,6 +15,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Controller, useForm } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 import z from "zod";
 
 const schema = z
@@ -32,6 +33,7 @@ type Output = z.output<typeof schema>;
 
 export const SetupPage = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const form = useForm({
     resolver: zodResolver(schema),
@@ -50,7 +52,7 @@ export const SetupPage = () => {
       });
     },
     onSuccess: () => {
-      toast.success("Setup completed successfully");
+      toast.success(t("setup.successToast"));
       navigate({ to: "/sign-in" });
     },
     onError,
@@ -69,7 +71,7 @@ export const SetupPage = () => {
             control={form.control}
             render={({ field, fieldState }) => (
               <Field>
-                <FieldLabel htmlFor={field.name}>Email address</FieldLabel>
+                <FieldLabel htmlFor={field.name}>{t("setup.email")}</FieldLabel>
                 <CustomInput
                   {...field}
                   type="email"
@@ -88,7 +90,9 @@ export const SetupPage = () => {
             control={form.control}
             render={({ field, fieldState }) => (
               <Field>
-                <FieldLabel htmlFor={field.name}>Password</FieldLabel>
+                <FieldLabel htmlFor={field.name}>
+                  {t("setup.password")}
+                </FieldLabel>
                 <PasswordInput
                   {...field}
                   id={field.name}
@@ -106,7 +110,9 @@ export const SetupPage = () => {
             control={form.control}
             render={({ field, fieldState }) => (
               <Field>
-                <FieldLabel htmlFor={field.name}>Confirm Password</FieldLabel>
+                <FieldLabel htmlFor={field.name}>
+                  {t("setup.confirmPassword")}
+                </FieldLabel>
                 <PasswordInput
                   {...field}
                   id={field.name}
@@ -121,7 +127,7 @@ export const SetupPage = () => {
 
           <Button type="submit" disabled={setup.isPending}>
             {setup.isPending && <Spinner />}
-            Submit
+            {t("setup.submit")}
           </Button>
         </FieldGroup>
       </form>

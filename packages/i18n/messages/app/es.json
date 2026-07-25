@@ -1,0 +1,153 @@
+{
+  "common": {
+    "or": "O",
+    "signIn": "Iniciar sesión",
+    "goHome": "Volver al inicio"
+  },
+  "nav": {
+    "dashboard": "Panel",
+    "billing": "Facturación"
+  },
+  "auth": {
+    "signIn": {
+      "title": "Bienvenido de nuevo",
+      "subtitle": "Inicia sesión para acceder a tu cuenta",
+      "email": "Correo electrónico",
+      "password": "Contraseña",
+      "forgotPassword": "¿Olvidaste tu contraseña?",
+      "submit": "Iniciar sesión",
+      "createAccount": "Crear una cuenta"
+    },
+    "signUp": {
+      "title": "Crear una cuenta",
+      "subtitle": "Introduce tus datos para empezar",
+      "email": "Correo electrónico",
+      "password": "Contraseña",
+      "confirmPassword": "Confirmar contraseña",
+      "submit": "Registrarse",
+      "verifyEmailToast": "Revisa tu bandeja de entrada para verificar tu correo"
+    },
+    "forgotPassword": {
+      "title": "Olvidé mi contraseña",
+      "subtitle": "Introduce tu correo y te enviaremos un enlace de restablecimiento",
+      "email": "Correo electrónico",
+      "submit": "Enviar enlace",
+      "sentToast": "Si existe una cuenta con ese correo, recibirás un enlace de restablecimiento en breve"
+    },
+    "resetPassword": {
+      "title": "Restablecer contraseña",
+      "subtitle": "Elige una nueva contraseña para tu cuenta",
+      "password": "Contraseña",
+      "confirmPassword": "Confirmar contraseña",
+      "submit": "Restablecer contraseña",
+      "successToast": "Contraseña restablecida correctamente"
+    },
+    "emailVerified": {
+      "title": "Correo verificado",
+      "description": "Tu correo {{email}} se ha verificado correctamente. Ya puedes iniciar sesión y empezar.",
+      "signIn": "Iniciar sesión"
+    }
+  },
+  "setup": {
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "confirmPassword": "Confirmar contraseña",
+    "submit": "Enviar",
+    "successToast": "Configuración completada correctamente"
+  },
+  "dashboard": {
+    "title": "Empieza con tu producto.",
+    "description": "Tu base SaaS está lista. Añade un módulo de dominio específico cuando sepas qué necesitan tus clientes."
+  },
+  "profile": {
+    "myAccount": "Mi cuenta",
+    "settings": "Configuración",
+    "signOut": "Cerrar sesión"
+  },
+  "roles": {
+    "admin": "Administrador",
+    "user": "Usuario"
+  },
+  "settings": {
+    "title": "Configuración",
+    "subtitle": "Administra la configuración de tu cuenta.",
+    "profile": {
+      "title": "Perfil",
+      "description": "La información de tu cuenta",
+      "email": "Correo electrónico"
+    },
+    "language": {
+      "title": "Idioma",
+      "description": "Elige el idioma utilizado en la aplicación."
+    }
+  },
+  "password": {
+    "title": "Cambiar contraseña",
+    "description": "Actualiza tu contraseña para mantener tu cuenta segura",
+    "current": "Contraseña actual",
+    "currentPlaceholder": "Introduce tu contraseña actual",
+    "new": "Nueva contraseña",
+    "newPlaceholder": "Introduce tu nueva contraseña",
+    "confirm": "Confirmar nueva contraseña",
+    "confirmPlaceholder": "Confirma tu nueva contraseña",
+    "submit": "Cambiar contraseña",
+    "changedToast": "Contraseña cambiada correctamente",
+    "dialog": {
+      "title": "¿Cerrar sesión en otros dispositivos?",
+      "description": "Se cambiará tu contraseña. ¿Quieres también cerrar sesión en todas las demás sesiones activas? Tu sesión actual permanecerá activa.",
+      "keep": "No, mantenerlas",
+      "confirm": "Sí, cerrarlas"
+    }
+  },
+  "billing": {
+    "current": {
+      "title": "Plan actual",
+      "description": "Tu suscripción se gestiona a través de Stripe.",
+      "accessEnds": "Tu acceso finaliza el {{date}}.",
+      "switching": "Cambio a {{plan}} ({{interval}}) en la próxima renovación.",
+      "manageBilling": "Gestionar facturación",
+      "resume": "Reanudar",
+      "cancel": "Cancelar suscripción",
+      "dialog": {
+        "title": "¿Cancelar suscripción?",
+        "description": "Mantendrás el acceso hasta el final de tu período de facturación actual.",
+        "accessEnds": "Tu acceso finaliza el {{date}}.",
+        "keep": "Mantener suscripción",
+        "confirm": "Cancelar suscripción"
+      }
+    },
+    "plans": {
+      "choose": "Elegir {{plan}}",
+      "switchPlan": "Cambiar de plan",
+      "upgradeTo": "Mejorar a {{plan}}",
+      "downgradeTo": "Bajar a {{plan}}",
+      "switchToYearly": "Cambiar a anual",
+      "switchToMonthly": "Cambiar a mensual",
+      "current": "Plan actual",
+      "scheduled": "Programado",
+      "immediate": "Cobrado inmediatamente, prorrateado.",
+      "periodEnd": "Se aplica en la próxima renovación."
+    }
+  },
+  "selectPlan": {
+    "title": "Elige un plan para empezar",
+    "subtitle": "Selecciona un plan para activar tu cuenta.",
+    "signOut": "Cerrar sesión"
+  },
+  "notifications": {
+    "title": "Notificaciones",
+    "open": "Abrir notificaciones",
+    "markAllRead": "Marcar todo como leído",
+    "empty": "Estás al día.",
+    "justNow": "ahora mismo",
+    "minutesAgo": "hace {{minutes}} min",
+    "hoursAgo": "hace {{hours}} h",
+    "daysAgo": "hace {{days}} d"
+  },
+  "errors": {
+    "generic": "Algo salió mal",
+    "loadDescription": "Algo salió mal al cargar esta página.",
+    "notFound": "Página no encontrada",
+    "notFoundDescription": "La página que buscas no existe."
+  }
+}
