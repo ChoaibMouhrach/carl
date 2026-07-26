@@ -36,7 +36,7 @@ export const Search: React.FC<SearchProps> = ({
         placeholder={placeholder}
         value={input}
         onChange={onChange}
-        className={className}
+        className={`pl-9 ${className ?? ""}`}
       />
     </div>
   );
