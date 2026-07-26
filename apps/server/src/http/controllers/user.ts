@@ -22,6 +22,7 @@ export const userController = new Hono<AppContext>()
         page: query?.page,
         search: query?.search,
         role: query?.role,
+        verification: query?.verification,
       });
 
       return context.json({

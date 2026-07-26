@@ -6,6 +6,7 @@ export class UserApi extends BaseApi {
     page?: number;
     search?: string;
     role?: "admin" | "user";
+    verification?: "verified" | "unverified";
   }) {
     return this.call(() =>
       http.api.users.$get({
@@ -13,6 +14,7 @@ export class UserApi extends BaseApi {
           page: query?.page?.toString(),
           search: query?.search,
           role: query?.role,
+          verification: query?.verification,
         },
       }),
     );

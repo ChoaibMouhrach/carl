@@ -8,13 +8,23 @@ import { userTable, type User } from "@server/infrastructure/database/schemas";
 export class UserRepository extends BaseRepository {
   private static table = userTable;
 
-  public async list(query: { page: number; search?: string; role?: Role }) {
+  public async list(query: {
+    page: number;
+    search?: string;
+    role?: Role;
+    emailVerified?: boolean;
+  }) {
     const conditions = [];
     if (query.search) {
       conditions.push(ilike(UserRepository.table.email, `%${query.search}%`));
     }
     if (query.role) {
       conditions.push(eq(UserRepository.table.role, query.role));
+    }
+    if (query.emailVerified !== undefined) {
+      conditions.push(
+        eq(UserRepository.table.emailVerified, query.emailVerified),
+      );
     }
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 

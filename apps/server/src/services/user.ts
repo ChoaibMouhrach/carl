@@ -25,7 +25,12 @@ export class UserService extends BaseService {
     }
   }
 
-  public async list(query: { page?: number; search?: string; role?: Role }) {
+  public async list(query: {
+    page?: number;
+    search?: string;
+    role?: Role;
+    verification?: "verified" | "unverified";
+  }) {
     return await this.context.repositories.transaction(async ({ tx }) => {
       const page = query.page || 1;
 
@@ -33,6 +38,10 @@ export class UserService extends BaseService {
         page,
         search: query.search,
         role: query.role,
+        emailVerified:
+          query.verification === undefined
+            ? undefined
+            : query.verification === "verified",
       });
 
       const subscriptions = await Promise.all(

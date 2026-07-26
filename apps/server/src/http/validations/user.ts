@@ -13,6 +13,7 @@ export const userQuerySchema = z
     search: z.string().max(255).optional(),
     page: z.coerce.number().int().positive().gte(1).optional(),
     role: z.enum(roles).optional(),
+    verification: z.enum(["verified", "unverified"]).optional(),
   })
   .optional();
 

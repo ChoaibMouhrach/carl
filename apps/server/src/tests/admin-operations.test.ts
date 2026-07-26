@@ -81,7 +81,7 @@ test("admins can search accounts, view subscriptions, and resend auth emails", a
     const adminCookie = getSessionCookie(adminSignIn);
 
     const list = await app.request(
-      "/api/users?search=customer-operations@example.com",
+      "/api/users?search=customer-operations@example.com&role=user&verification=unverified",
       { headers: { cookie: adminCookie } },
     );
     expect(list.status).toBe(200);

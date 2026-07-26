@@ -1,26 +1,23 @@
-import { useDebouncedCallback } from "use-debounce";
-import { SearchIcon } from "lucide-react";
+import { Input } from "@repo/ui/components/ui/input";
 import { useState } from "react";
-import { CustomInput } from "./custom-input";
+import { useDebouncedCallback } from "use-debounce";
 
 interface SearchProps {
-  value?: string;
   onSearch: (value: string | undefined) => void;
   placeholder?: string;
-  className?: string;
+  value?: string;
   delay?: number;
 }
 
 export const Search: React.FC<SearchProps> = ({
-  value,
   onSearch,
   placeholder = "Search...",
-  className,
+  value,
   delay = 300,
 }) => {
   const [input, setInput] = useState(value ?? "");
   const debouncedSearch = useDebouncedCallback(
-    (next: string) => onSearch(next || undefined),
+    (next: string) => onSearch(next.trim() || undefined),
     delay,
   );
 
@@ -30,14 +27,8 @@ export const Search: React.FC<SearchProps> = ({
   };
 
   return (
-    <div className="relative">
-      <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-      <CustomInput
-        placeholder={placeholder}
-        value={input}
-        onChange={onChange}
-        className={`pl-9 ${className ?? ""}`}
-      />
+    <div className="max-w-md">
+      <Input placeholder={placeholder} value={input} onChange={onChange} />
     </div>
   );
 };
