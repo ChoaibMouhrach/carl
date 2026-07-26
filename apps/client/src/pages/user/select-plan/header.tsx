@@ -1,4 +1,4 @@
-import { api } from "@/api";
+import { authClient, unwrapAuthResponse } from "@/lib/auth-client";
 import { onError } from "@/lib/base-api";
 import { Button } from "@repo/ui/components/ui/button";
 import { Spinner } from "@repo/ui/components/ui/spinner";
@@ -17,7 +17,7 @@ export const Header: React.FC<HeaderProps> = ({ email }) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const signOut = useMutation({
-    mutationFn: () => api.auth.signOut(),
+    mutationFn: () => unwrapAuthResponse(authClient.signOut()),
     onError,
     onSuccess: () => navigate({ to: "/sign-in" }),
   });

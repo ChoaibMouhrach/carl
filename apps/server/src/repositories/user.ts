@@ -1,11 +1,12 @@
 import { and, desc, eq, getTableColumns, ilike, sql } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import type { Role } from "@server/config/constants";
 import { BaseRepository } from "@server/lib/base-repository";
 import { DEFAULT_RECORD_LIMIT } from "@server/config/constants";
-import { usersTable, type User } from "@server/infrastructure/database/schemas";
+import { userTable, type User } from "@server/infrastructure/database/schemas";
 
 export class UserRepository extends BaseRepository {
-  private static table = usersTable;
+  private static table = userTable;
 
   public async list(query: { page: number; search?: string; role?: Role }) {
     const conditions = [];
@@ -41,11 +42,11 @@ export class UserRepository extends BaseRepository {
     return { users, lastPage };
   }
 
-  public async findByUserId(where: { userId: number }): Promise<User | null> {
+  public async findByUserId(where: { userId: string }): Promise<User | null> {
     const users = await this.db
       .select()
       .from(UserRepository.table)
-      .where(eq(UserRepository.table.userId, where.userId))
+      .where(eq(UserRepository.table.id, where.userId))
       .limit(1);
 
     return users.at(0) || null;
@@ -62,31 +63,42 @@ export class UserRepository extends BaseRepository {
   }
 
   public async create(input: {
+    id?: string;
+    name?: string;
     email: string;
     role: Role;
-    emailVerifiedAt: Date | null;
+    emailVerified?: boolean;
+    emailVerifiedAt?: Date;
   }) {
     const users = await this.db
       .insert(UserRepository.table)
-      .values(input)
+      .values({
+        email: input.email,
+        emailVerified: input.emailVerified ?? Boolean(input.emailVerifiedAt),
+        id: input.id ?? randomUUID(),
+        name: input.name ?? input.email,
+        role: input.role,
+      })
       .returning();
 
-    return users.at(0)!;
+    const user = users.at(0)!;
+
+    return { ...user, userId: user.id };
   }
 
   public async update(
-    where: { userId: number },
-    input: Partial<{ email: string; emailVerifiedAt: Date }>,
+    where: { userId: string },
+    input: Partial<{ email: string; emailVerified: boolean; role: Role }>,
   ) {
     await this.db
       .update(UserRepository.table)
       .set(input)
-      .where(eq(UserRepository.table.userId, where.userId));
+      .where(eq(UserRepository.table.id, where.userId));
   }
 
-  public async remove(where: { userId: number }) {
+  public async remove(where: { userId: string }) {
     await this.db
       .delete(UserRepository.table)
-      .where(eq(UserRepository.table.userId, where.userId));
+      .where(eq(UserRepository.table.id, where.userId));
   }
 }

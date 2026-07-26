@@ -20,10 +20,12 @@ const accessStatuses: BillingSubscriptionStatus[] = [
 ];
 
 export class BillingRepository extends BaseRepository {
-  public async acquireUserLock(input: { userId: number }): Promise<void> {
-    await this.db.execute(sql`SELECT pg_advisory_xact_lock(${input.userId})`);
+  public async acquireUserLock(input: { userId: string }): Promise<void> {
+    await this.db.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtext(${input.userId}))`,
+    );
   }
-  public async hasEverSubscribed(where: { userId: number }): Promise<boolean> {
+  public async hasEverSubscribed(where: { userId: string }): Promise<boolean> {
     const subscriptions = await this.db
       .select({ subscriptionId: subscriptionsTable.subscriptionId })
       .from(subscriptionsTable)
@@ -40,7 +42,7 @@ export class BillingRepository extends BaseRepository {
     return subscriptions.length > 0;
   }
 
-  public async findCustomerByUserId(where: { userId: number }) {
+  public async findCustomerByUserId(where: { userId: string }) {
     const customers = await this.db
       .select()
       .from(billingCustomersTable)
@@ -67,7 +69,7 @@ export class BillingRepository extends BaseRepository {
   public async createCustomer(input: {
     provider: BillingProvider;
     providerCustomerId: string;
-    userId: number;
+    userId: string;
   }) {
     const customers = await this.db
       .insert(billingCustomersTable)
@@ -77,7 +79,7 @@ export class BillingRepository extends BaseRepository {
     return customers.at(0)!;
   }
 
-  public async findCurrentSubscription(where: { userId: number }) {
+  public async findCurrentSubscription(where: { userId: string }) {
     const subscriptions = await this.db
       .select({
         subscription: subscriptionsTable,
@@ -142,7 +144,7 @@ export class BillingRepository extends BaseRepository {
       );
   }
 
-  public async findActiveCheckoutAttempt(where: { userId: number }) {
+  public async findActiveCheckoutAttempt(where: { userId: string }) {
     const attempts = await this.db
       .select()
       .from(checkoutAttemptsTable)
@@ -164,7 +166,7 @@ export class BillingRepository extends BaseRepository {
     expiresAt: Date;
     planKey: BillingPlanKey;
     provider: BillingProvider;
-    userId: number;
+    userId: string;
   }) {
     const attempts = await this.db
       .insert(checkoutAttemptsTable)

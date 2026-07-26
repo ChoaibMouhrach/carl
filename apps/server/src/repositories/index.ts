@@ -1,8 +1,5 @@
 import { UserRepository } from "./user";
-import { SessionRepository } from "./session";
 import type { DBConnection } from "@server/infrastructure/database/client";
-import { PasswordRepository } from "./password";
-import { TokenRepository } from "./token";
 import { SettingRepository } from "./setting";
 import { FileRepository } from "./file";
 import { BillingRepository } from "./billing";
@@ -14,12 +11,9 @@ interface RepositoriesConstructorProps {
 
 export class Repositories {
   private pool;
-  private db;
+  public db;
 
   public user;
-  public token;
-  public session;
-  public password;
   public setting;
   public file;
   public billing;
@@ -30,18 +24,6 @@ export class Repositories {
     this.db = dbConnection.db;
 
     this.user = new UserRepository({
-      db: dbConnection.db,
-    });
-
-    this.password = new PasswordRepository({
-      db: dbConnection.db,
-    });
-
-    this.token = new TokenRepository({
-      db: dbConnection.db,
-    });
-
-    this.session = new SessionRepository({
       db: dbConnection.db,
     });
 

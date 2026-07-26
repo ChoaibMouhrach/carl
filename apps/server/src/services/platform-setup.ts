@@ -1,5 +1,4 @@
 import { BaseService } from "@server/lib/base-service";
-import { AuthService } from "./auth";
 import { SETUP_KEY } from "@server/config/constants";
 import { BadRequestError } from "@server/lib/errors";
 import type { Repositories } from "@server/repositories";
@@ -15,29 +14,26 @@ export class PlatformSetupService extends BaseService {
     return !!setting;
   }
 
-  public async setup(input: { email: string; password: string }) {
-    return this.context.repositories.transaction(async ({ tx }) => {
-      const isSetupDone = await this.checkSetup(tx);
+  public async setup(input: { email: string; name: string; password: string }) {
+    const isSetupDone = await this.checkSetup();
 
-      if (isSetupDone) {
-        throw new BadRequestError({
-          message: "Setup already completed",
-          code: "setupAlreadyCompleted",
-        });
-      }
-
-      const user = await tx.user.create({
-        email: input.email,
-        role: "admin",
-        emailVerifiedAt: new Date(),
+    if (isSetupDone) {
+      throw new BadRequestError({
+        message: "Setup already completed",
+        code: "setupAlreadyCompleted",
       });
+    }
 
-      const hashedPassword = await AuthService.hashPassword(input.password);
-      await tx.password.create({
-        hashedPassword,
-        userId: user.userId,
-      });
+    const result = await this.context.auth.api.signUpEmail({
+      body: { email: input.email, name: input.name, password: input.password },
+    });
 
+    await this.context.repositories.user.update(
+      { userId: result.user.id },
+      { emailVerified: true, role: "admin" },
+    );
+
+    await this.context.repositories.transaction(async ({ tx }) => {
       await tx.setting.create({
         key: SETUP_KEY,
         value: JSON.stringify(true),

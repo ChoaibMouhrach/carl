@@ -2,7 +2,7 @@ import { BILLING_PAST_DUE_GRACE_PERIOD_MS } from "@server/config/constants";
 import { BaseService } from "@server/lib/base-service";
 
 export class BillingAccessService extends BaseService {
-  public async check(input: { userId: number }) {
+  public async check(input: { userId: string }) {
     const subscription =
       await this.context.repositories.billing.findCurrentSubscription({
         userId: input.userId,

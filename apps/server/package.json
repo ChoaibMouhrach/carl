@@ -41,6 +41,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1004.0",
     "@aws-sdk/s3-request-presigner": "^3.1004.0",
+    "@better-auth/drizzle-adapter": "^1.6.25",
     "@hono/standard-validator": "^0.2.2",
     "@hono/zod-validator": "^0.7.6",
     "@react-email/components": "^1.0.12",
@@ -48,7 +49,7 @@
     "@repo/constants": "workspace:*",
     "@repo/i18n": "workspace:*",
     "@scalar/hono-api-reference": "^0.10.5",
-    "bcryptjs": "^3.0.3",
+    "better-auth": "^1.6.25",
     "bullmq": "^5.80.8",
     "dotenv": "^17.2.4",
     "drizzle-orm": "^0.45.1",

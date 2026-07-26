@@ -1,4 +1,4 @@
-import { api } from "@/api";
+import { authClient, unwrapAuthResponse } from "@/lib/auth-client";
 import { Button } from "@repo/ui/components/ui/button";
 import {
   Field,
@@ -36,9 +36,12 @@ export const ForgotPassword = () => {
 
   const forgotPassword = useMutation({
     mutationFn: (output: Output) => {
-      return api.auth.forgotPassword({
-        email: output.email,
-      });
+      return unwrapAuthResponse(
+        authClient.requestPasswordReset({
+          email: output.email,
+          redirectTo: `${window.location.origin}/app/reset-password`,
+        }),
+      );
     },
     onSuccess: () => {
       toast.success(t("auth.forgotPassword.sentToast"));

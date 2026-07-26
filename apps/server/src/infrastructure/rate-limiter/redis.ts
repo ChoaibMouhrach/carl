@@ -141,7 +141,13 @@ export class RedisRateLimiter extends BaseRateLimiter {
     });
     this.authEmail = this.createMiddleware<AppContext>({
       key: async (context) => {
-        const body = await context.req.json();
+        let body: unknown = null;
+
+        try {
+          body = await context.req.raw.clone().json();
+        } catch {
+          return "invalid";
+        }
         const email = this.getEmail(body);
 
         return email ? this.hash(email) : "invalid";

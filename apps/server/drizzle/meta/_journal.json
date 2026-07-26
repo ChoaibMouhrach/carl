@@ -5,43 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1784243364793,
-      "tag": "0000_friendly_spyke",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1784331331501,
-      "tag": "0001_common_wolfsbane",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1784335113207,
-      "tag": "0002_marvelous_norman_osborn",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1784380406458,
-      "tag": "0003_simple_terrax",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1784390143719,
-      "tag": "0004_cheerful_post",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1784392335449,
-      "tag": "0005_stale_adam_warlock",
+      "when": 1785074843261,
+      "tag": "0000_sloppy_synch",
       "breakpoints": true
     }
   ]

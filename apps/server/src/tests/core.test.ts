@@ -15,7 +15,6 @@ import {
 } from "@server/infrastructure/database/schemas";
 import { BillingService } from "@server/services/billing";
 import { BillingAccessService } from "@server/services/billing-access";
-import { AuthService } from "@server/services/auth";
 import { UserService } from "@server/services/user";
 import { BILLING_PAST_DUE_GRACE_PERIOD_MS } from "@server/config/constants";
 import { TEST_DB_TEMPLATE } from "./setup";
@@ -52,6 +51,7 @@ test("setup creates the first admin and leaves a clean database without demo dat
     const setup = await app.request("/api/platform-setup", {
       body: JSON.stringify({
         email: "owner@example.com",
+        name: "Owner Example",
         password: "secure-password",
       }),
       headers: { "Content-Type": "application/json" },
@@ -63,6 +63,7 @@ test("setup creates the first admin and leaves a clean database without demo dat
     const settings = await connection.db.select().from(settingsTable);
     expect(users).toHaveLength(1);
     expect(users[0]?.email).toBe("owner@example.com");
+    expect(users[0]?.name).toBe("Owner Example");
     expect(users[0]?.role).toBe("admin");
     expect(settings).toHaveLength(1);
     expect(settings[0]?.key).toBe("setup");
@@ -619,10 +620,14 @@ test("email changes sync to Stripe and account deletion cancels before removing 
       signature: "test",
     });
 
-    await new AuthService({ context }).changeEmail({
+    await testBilling.updateCustomerEmail({
       email: "after-change@example.com",
-      userId: user.userId,
+      providerCustomerId: "cus_account_lifecycle",
     });
+    await context.repositories.user.update(
+      { userId: user.userId },
+      { email: "after-change@example.com" },
+    );
     const updatedUser = await context.repositories.user.findByUserId({
       userId: user.userId,
     });

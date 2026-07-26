@@ -1,14 +1,7 @@
-import {
-  integer,
-  jsonb,
-  pgEnum,
-  pgTable,
-  text,
-  timestamp,
-} from "drizzle-orm/pg-core";
+import { jsonb, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { notificationTypes } from "@repo/constants/notifications";
 import { id, timestamps } from "../utils";
-import { usersTable } from "./user";
+import { userTable } from "./auth";
 
 export const notificationTypesEnum = pgEnum(
   "notificationTypes",
@@ -17,9 +10,9 @@ export const notificationTypesEnum = pgEnum(
 
 export const notificationsTable = pgTable("notifications", {
   notificationId: id(),
-  userId: integer()
+  userId: text()
     .notNull()
-    .references(() => usersTable.userId, { onDelete: "cascade" }),
+    .references(() => userTable.id, { onDelete: "cascade" }),
   type: notificationTypesEnum().notNull(),
   title: text().notNull(),
   body: text().notNull(),

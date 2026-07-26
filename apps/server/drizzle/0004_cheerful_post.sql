@@ -1,3 +1,0 @@
-CREATE TYPE "public"."notificationTypes" AS ENUM('billing.payment_failed', 'billing.subscription_canceled', 'billing.subscription_ended', 'billing.subscription_resumed', 'billing.plan_upgraded', 'billing.plan_downgrade_scheduled', 'billing.trial_ending', 'billing.renewed', 'job.completed', 'job.failed', 'credits.low', 'credits.exhausted', 'account.email_changed', 'account.password_changed', 'team.invite');--> statement-breakpoint
-ALTER TABLE "notificationPreferences" ALTER COLUMN "type" SET DATA TYPE "public"."notificationTypes" USING "type"::"public"."notificationTypes";--> statement-breakpoint
-ALTER TABLE "notifications" ALTER COLUMN "type" SET DATA TYPE "public"."notificationTypes" USING "type"::"public"."notificationTypes";

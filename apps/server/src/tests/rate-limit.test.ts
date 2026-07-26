@@ -80,12 +80,15 @@ test("auth limits are shared through Redis across app instances and keyed by ema
     };
 
     for (let index = 0; index < 5; index += 1) {
-      const response = await firstApp.request("/api/auth/sign-in", request);
+      const response = await firstApp.request(
+        "/api/auth/sign-in/email",
+        request,
+      );
 
       expect(response.status).toBe(401);
     }
 
-    const differentEmail = await firstApp.request("/api/auth/sign-in", {
+    const differentEmail = await firstApp.request("/api/auth/sign-in/email", {
       ...request,
       body: JSON.stringify({
         email: "different@example.com",
@@ -93,7 +96,7 @@ test("auth limits are shared through Redis across app instances and keyed by ema
       }),
     });
 
-    const limited = await secondApp.request("/api/auth/sign-in", request);
+    const limited = await secondApp.request("/api/auth/sign-in/email", request);
 
     expect(differentEmail.status).toBe(401);
     expect(limited.status).toBe(429);
@@ -116,7 +119,7 @@ test("auth email limits remain atomic during concurrent credential stuffing", as
     };
     const responses = await Promise.all(
       Array.from({ length: 10 }, () =>
-        app.request("/api/auth/sign-in", request),
+        app.request("/api/auth/sign-in/email", request),
       ),
     );
 
@@ -135,7 +138,7 @@ test("auth email limits normalize casing before creating a key", async () => {
     const app = await initApp({ context });
 
     for (let index = 0; index < 5; index += 1) {
-      const response = await app.request("/api/auth/sign-in", {
+      const response = await app.request("/api/auth/sign-in/email", {
         body: JSON.stringify({
           email: "CaseSensitive@Example.com",
           password: "password-that-is-long-enough",
@@ -147,7 +150,7 @@ test("auth email limits normalize casing before creating a key", async () => {
       expect(response.status).toBe(401);
     }
 
-    const limited = await app.request("/api/auth/sign-in", {
+    const limited = await app.request("/api/auth/sign-in/email", {
       body: JSON.stringify({
         email: "casesensitive@example.com",
         password: "password-that-is-long-enough",
@@ -167,7 +170,7 @@ test("auth email rate-limit keys never expose the email address", async () => {
     const app = await initApp({ context });
     const email = "private@example.com";
 
-    const response = await app.request("/api/auth/sign-in", {
+    const response = await app.request("/api/auth/sign-in/email", {
       body: JSON.stringify({
         email,
         password: "password-that-is-long-enough",
@@ -195,8 +198,11 @@ test("auth IP limits use trusted proxy headers without grouping different client
     const app = await initApp({ context });
 
     for (let index = 0; index < 10; index += 1) {
-      const response = await app.request("/api/auth/forget-password", {
-        body: JSON.stringify({ email: `ip-${index}@example.com` }),
+      const response = await app.request("/api/auth/sign-in/email", {
+        body: JSON.stringify({
+          email: `ip-${index}@example.com`,
+          password: "password-that-is-long-enough",
+        }),
         headers: {
           "Content-Type": "application/json",
           "X-Forwarded-For": "203.0.113.20",
@@ -204,19 +210,25 @@ test("auth IP limits use trusted proxy headers without grouping different client
         method: "POST",
       });
 
-      expect(response.status).toBe(204);
+      expect(response.status).toBe(401);
     }
 
-    const limited = await app.request("/api/auth/forget-password", {
-      body: JSON.stringify({ email: "another@example.com" }),
+    const limited = await app.request("/api/auth/sign-in/email", {
+      body: JSON.stringify({
+        email: "another@example.com",
+        password: "password-that-is-long-enough",
+      }),
       headers: {
         "Content-Type": "application/json",
         "X-Forwarded-For": "203.0.113.20",
       },
       method: "POST",
     });
-    const otherClient = await app.request("/api/auth/forget-password", {
-      body: JSON.stringify({ email: "other-client@example.com" }),
+    const otherClient = await app.request("/api/auth/sign-in/email", {
+      body: JSON.stringify({
+        email: "other-client@example.com",
+        password: "password-that-is-long-enough",
+      }),
       headers: {
         "Content-Type": "application/json",
         "X-Forwarded-For": "203.0.113.21",
@@ -225,7 +237,7 @@ test("auth IP limits use trusted proxy headers without grouping different client
     });
 
     expect(limited.status).toBe(429);
-    expect(otherClient.status).toBe(204);
+    expect(otherClient.status).toBe(401);
   });
 });
 
@@ -235,8 +247,11 @@ test("forwarded headers cannot bypass auth limits when proxy trust is disabled",
     const app = await initApp({ context });
 
     for (let index = 0; index < 10; index += 1) {
-      const response = await app.request("/api/auth/forget-password", {
-        body: JSON.stringify({ email: `spoof-${index}@example.com` }),
+      const response = await app.request("/api/auth/sign-in/email", {
+        body: JSON.stringify({
+          email: `spoof-${index}@example.com`,
+          password: "password-that-is-long-enough",
+        }),
         headers: {
           "Content-Type": "application/json",
           "X-Forwarded-For": `203.0.113.${index + 1}`,
@@ -244,11 +259,14 @@ test("forwarded headers cannot bypass auth limits when proxy trust is disabled",
         method: "POST",
       });
 
-      expect(response.status).toBe(204);
+      expect(response.status).toBe(401);
     }
 
-    const limited = await app.request("/api/auth/forget-password", {
-      body: JSON.stringify({ email: "spoof-limited@example.com" }),
+    const limited = await app.request("/api/auth/sign-in/email", {
+      body: JSON.stringify({
+        email: "spoof-limited@example.com",
+        password: "password-that-is-long-enough",
+      }),
       headers: {
         "Content-Type": "application/json",
         "X-Forwarded-For": "203.0.113.200",
@@ -266,8 +284,8 @@ test("malformed auth payloads still consume the IP limit", async () => {
     const app = await initApp({ context });
 
     for (let index = 0; index < 10; index += 1) {
-      const response = await app.request("/api/auth/sign-in", {
-        body: "{",
+      const response = await app.request("/api/auth/sign-in/email", {
+        body: JSON.stringify({ email: `invalid-${index}@example.com` }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });
@@ -275,8 +293,8 @@ test("malformed auth payloads still consume the IP limit", async () => {
       expect(response.status).toBe(400);
     }
 
-    const limited = await app.request("/api/auth/sign-in", {
-      body: "{",
+    const limited = await app.request("/api/auth/sign-in/email", {
+      body: JSON.stringify({ email: "invalid-limited@example.com" }),
       headers: { "Content-Type": "application/json" },
       method: "POST",
     });

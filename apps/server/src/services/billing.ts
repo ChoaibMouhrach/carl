@@ -14,7 +14,7 @@ import { NotificationService } from "./notification";
 type PreviousSubscription = typeof subscriptionsTable.$inferSelect;
 
 export class BillingService extends BaseService {
-  public async getOnboarding(input: { userId: number }) {
+  public async getOnboarding(input: { userId: string }) {
     const hasEverSubscribed =
       await this.context.repositories.billing.hasEverSubscribed({
         userId: input.userId,
@@ -23,7 +23,7 @@ export class BillingService extends BaseService {
     return { needsOnboarding: !hasEverSubscribed };
   }
 
-  public async getSubscription(input: { userId: number }) {
+  public async getSubscription(input: { userId: string }) {
     const subscription =
       await this.context.repositories.billing.findCurrentSubscription({
         userId: input.userId,
@@ -36,7 +36,7 @@ export class BillingService extends BaseService {
     billingInterval: BillingInterval;
     email: string;
     planKey: BillingPlanKey;
-    userId: number;
+    userId: string;
   }) {
     const attempt = await this.context.repositories.transaction(
       async ({ tx }) => {
@@ -103,7 +103,7 @@ export class BillingService extends BaseService {
     }
   }
 
-  public async createPortalSession(input: { userId: number }) {
+  public async createPortalSession(input: { userId: string }) {
     const customer =
       await this.context.repositories.billing.findCustomerByUserId({
         userId: input.userId,
@@ -121,7 +121,7 @@ export class BillingService extends BaseService {
     });
   }
 
-  public async cancelSubscription(input: { userId: number }): Promise<void> {
+  public async cancelSubscription(input: { userId: string }): Promise<void> {
     const subscription =
       await this.context.repositories.billing.findCurrentSubscription({
         userId: input.userId,
@@ -142,7 +142,7 @@ export class BillingService extends BaseService {
     });
   }
 
-  public async resumeSubscription(input: { userId: number }): Promise<void> {
+  public async resumeSubscription(input: { userId: string }): Promise<void> {
     const subscription =
       await this.context.repositories.billing.findCurrentSubscription({
         userId: input.userId,
@@ -171,7 +171,7 @@ export class BillingService extends BaseService {
   public async changeSubscription(input: {
     billingInterval: BillingInterval;
     planKey: BillingPlanKey;
-    userId: number;
+    userId: string;
   }): Promise<void> {
     const subscription =
       await this.context.repositories.billing.findCurrentSubscription({
@@ -356,7 +356,7 @@ export class BillingService extends BaseService {
   }): Promise<{
     previous: PreviousSubscription | null;
     snapshot: BillingSubscriptionSnapshot;
-    userId: number;
+    userId: string;
   } | null> {
     const snapshot = await this.context.billing.getSubscriptionSnapshot({
       providerSubscriptionId: input.providerSubscriptionId,
@@ -521,7 +521,7 @@ export class BillingService extends BaseService {
   }
 
   private async resolveBillingCustomer(snapshot: {
-    localUserId: number | null;
+    localUserId: string | null;
     provider: "stripe";
     providerCustomerId: string;
   }) {
@@ -577,12 +577,12 @@ export class BillingService extends BaseService {
       return await tx.billing.createCustomer({
         provider: snapshot.provider,
         providerCustomerId: snapshot.providerCustomerId,
-        userId: user.userId,
+        userId: user.id,
       });
     });
   }
 
-  private async getOrCreateCustomer(input: { email: string; userId: number }) {
+  private async getOrCreateCustomer(input: { email: string; userId: string }) {
     const existing =
       await this.context.repositories.billing.findCustomerByUserId({
         userId: input.userId,

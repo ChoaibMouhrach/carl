@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host",
     "build": "tsc -b && vite build",
+    "test": "bun test tests",
     "typecheck": "tsc -b --noEmit",
     "check:env": "bun --env-file=../../.env run src/config/env.ts",
     "lint": "eslint .",
@@ -24,6 +25,7 @@
     "@repo/ui": "workspace:*",
     "@tailwindcss/vite": "^4.2.1",
     "@tanstack/react-query": "^5.90.21",
+    "better-auth": "^1.6.25",
     "hono": "^4.12.3",
     "i18next": "^25.6.0",
     "i18next-browser-languagedetector": "^8.2.0",

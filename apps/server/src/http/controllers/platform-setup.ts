@@ -21,6 +21,7 @@ export const platformSetupController = new Hono<AppContext>()
 
       await context.get("services").platformSetup.setup({
         email: body.email,
+        name: body.name,
         password: body.password,
       });
 

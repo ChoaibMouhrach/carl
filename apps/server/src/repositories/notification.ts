@@ -9,7 +9,7 @@ export class NotificationRepository extends BaseRepository {
     data: Record<string, unknown>;
     title: string;
     type: NotificationType;
-    userId: number;
+    userId: string;
   }) {
     const notifications = await this.db
       .insert(notificationsTable)
@@ -19,7 +19,7 @@ export class NotificationRepository extends BaseRepository {
     return notifications.at(0)!;
   }
 
-  public async list(input: { cursor?: number; limit: number; userId: number }) {
+  public async list(input: { cursor?: number; limit: number; userId: string }) {
     const where = input.cursor
       ? and(
           eq(notificationsTable.userId, input.userId),
@@ -43,7 +43,7 @@ export class NotificationRepository extends BaseRepository {
     };
   }
 
-  public async getUnreadCount(where: { userId: number }): Promise<number> {
+  public async getUnreadCount(where: { userId: string }): Promise<number> {
     const rows = await this.db
       .select({ count: sql<number>`COUNT(*)`.mapWith(Number) })
       .from(notificationsTable)
@@ -57,7 +57,7 @@ export class NotificationRepository extends BaseRepository {
     return rows.at(0)?.count ?? 0;
   }
 
-  public async markAllRead(where: { userId: number }): Promise<void> {
+  public async markAllRead(where: { userId: string }): Promise<void> {
     await this.db
       .update(notificationsTable)
       .set({ readAt: new Date() })
@@ -71,7 +71,7 @@ export class NotificationRepository extends BaseRepository {
 
   public async markRead(where: {
     notificationId: number;
-    userId: number;
+    userId: string;
   }): Promise<boolean> {
     const notifications = await this.db
       .update(notificationsTable)

@@ -33,7 +33,7 @@ export class StripeBilling extends BaseBilling {
 
   public override async createCustomer(input: {
     email: string;
-    userId: number;
+    userId: string;
   }): Promise<{ providerCustomerId: string }> {
     const customer = await this.stripe.customers.create({
       email: input.email,
@@ -48,7 +48,7 @@ export class StripeBilling extends BaseBilling {
     customerId: string;
     idempotencyKey: string;
     planKey: BillingPlanKey;
-    userId: number;
+    userId: string;
   }): Promise<{
     expiresAt: Date;
     providerCheckoutSessionId: string;
@@ -326,14 +326,8 @@ export class StripeBilling extends BaseBilling {
     throw new Error(`Unsupported Stripe subscription status: ${status}.`);
   }
 
-  private getLocalUserId(value: string | undefined): number | null {
-    if (!value) {
-      return null;
-    }
-
-    const userId = Number(value);
-
-    return Number.isSafeInteger(userId) && userId > 0 ? userId : null;
+  private getLocalUserId(value: string | undefined): string | null {
+    return value || null;
   }
 
   private async getOrCreateSchedule(subscription: Stripe.Subscription) {

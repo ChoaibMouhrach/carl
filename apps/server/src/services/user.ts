@@ -1,33 +1,24 @@
 import type { Role } from "@server/config/constants";
 import { ConflictError, NotFoundError } from "@server/lib/errors";
 import { BaseService } from "@server/lib/base-service";
-import { AuthService } from "./auth";
 
 export class UserService extends BaseService {
   public async create(input: { email: string; password: string; role: Role }) {
-    return await this.context.repositories.transaction(async ({ tx }) => {
-      const existing = await tx.user.findByEmail({ email: input.email });
-
-      if (existing) {
-        throw new ConflictError({
-          message: "Email is already taken.",
-          code: "emailAlreadyTaken",
-        });
-      }
-
-      const user = await tx.user.create({
+    const result = await this.context.auth.api.createUser({
+      body: {
         email: input.email,
+        name: input.email,
+        password: input.password,
         role: input.role,
-        emailVerifiedAt: new Date(),
-      });
-
-      const hashedPassword = await AuthService.hashPassword(input.password);
-
-      await tx.password.create({
-        userId: user.userId,
-        hashedPassword,
-      });
+      },
     });
+
+    if (!result) {
+      throw new ConflictError({
+        message: "Email is already taken.",
+        code: "emailAlreadyTaken",
+      });
+    }
   }
 
   public async list(query: { page?: number; search?: string; role?: Role }) {
@@ -50,7 +41,7 @@ export class UserService extends BaseService {
     });
   }
 
-  public async show(params: { userId: number }) {
+  public async show(params: { userId: string }) {
     const user = await this.context.repositories.user.findByUserId({
       userId: params.userId,
     });
@@ -65,7 +56,7 @@ export class UserService extends BaseService {
     return { user };
   }
 
-  public async remove(params: { userId: number }) {
+  public async remove(params: { userId: string }) {
     const subscription =
       await this.context.repositories.billing.findCurrentSubscription({
         userId: params.userId,

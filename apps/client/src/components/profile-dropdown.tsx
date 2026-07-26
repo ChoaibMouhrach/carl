@@ -12,13 +12,13 @@ import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { onError } from "@/lib/base-api";
-import { api } from "@/api";
+import { authClient, unwrapAuthResponse } from "@/lib/auth-client";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { cn } from "@repo/ui/utils";
 
 interface ProfileDropdownProps {
   user: {
-    userId: number;
+    userId: string;
     email: string;
     role: string;
   };
@@ -45,7 +45,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
 
   const signOut = useMutation({
     mutationFn: () => {
-      return api.auth.signOut();
+      return unwrapAuthResponse(authClient.signOut());
     },
     onSuccess: () => {
       navigate({ to: "/sign-in" });

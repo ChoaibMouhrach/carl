@@ -17,7 +17,7 @@ export interface BillingSubscriptionSnapshot {
   currentPeriodEnd: Date | null;
   currentPeriodStart: Date | null;
   endedAt: Date | null;
-  localUserId: number | null;
+  localUserId: string | null;
   planKey: BillingPlanKey;
   provider: BillingProvider;
   providerCustomerId: string;
@@ -33,7 +33,7 @@ export abstract class BaseBilling {
 
   public abstract createCustomer(input: {
     email: string;
-    userId: number;
+    userId: string;
   }): Promise<{ providerCustomerId: string }>;
 
   public abstract createCheckoutSession(input: {
@@ -41,7 +41,7 @@ export abstract class BaseBilling {
     customerId: string;
     idempotencyKey: string;
     planKey: BillingPlanKey;
-    userId: number;
+    userId: string;
   }): Promise<{
     expiresAt: Date;
     providerCheckoutSessionId: string;

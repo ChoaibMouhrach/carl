@@ -1,4 +1,4 @@
-import { api } from "@/api";
+import { authClient, unwrapAuthResponse } from "@/lib/auth-client";
 import i18n from "@/lib/i18n";
 import { PasswordInput } from "@/components/password-input";
 import { Button } from "@repo/ui/components/ui/button";
@@ -47,10 +47,12 @@ export const ResetPassword = () => {
 
   const resetPassword = useMutation({
     mutationFn: (output: Output) => {
-      return api.auth.resetPassword({
-        password: output.password,
-        token: search.token,
-      });
+      return unwrapAuthResponse(
+        authClient.resetPassword({
+          newPassword: output.password,
+          token: search.token,
+        }),
+      );
     },
     onSuccess: () => {
       toast.success(t("auth.resetPassword.successToast"));

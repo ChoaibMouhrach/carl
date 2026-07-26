@@ -12,7 +12,11 @@ import { controllers } from "./http/controllers";
 import { openAPIRouteHandler } from "hono-openapi";
 import { HTTPException } from "hono/http-exception";
 import { Scalar } from "@scalar/hono-api-reference";
-import { anonymousRateLimit } from "./http/middlewares/rate-limit";
+import {
+  anonymousRateLimit,
+  authEmailRateLimit,
+  authIpRateLimit,
+} from "./http/middlewares/rate-limit";
 
 interface initAppParams {
   context: Context;
@@ -38,6 +42,17 @@ export const initApp = async (params: initAppParams) => {
         origin: [params.context.env.CLIENT_URL],
         credentials: true,
       }),
+    )
+
+    .post(
+      "/api/auth/sign-in/email",
+      authEmailRateLimit,
+      authIpRateLimit,
+      (context) => params.context.auth.handler(context.req.raw),
+    )
+
+    .on(["POST", "GET"], "/api/auth/*", (context) =>
+      params.context.auth.handler(context.req.raw),
     )
 
     .onError((error, context) => {
@@ -139,12 +154,12 @@ export interface AuthAppContext extends AppContext {
   Variables: AppContext["Variables"] & {
     auth: {
       user: {
-        userId: number;
+        userId: string;
         email: string;
         role: Role;
       };
       session: {
-        sessionId: number;
+        sessionId: string;
         session: string;
       };
     };

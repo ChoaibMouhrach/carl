@@ -17,6 +17,9 @@ const schema = z
     // CLIENT
     CLIENT_URL: z.url(),
 
+    // AUTH
+    BETTER_AUTH_SECRET: z.string().min(32),
+
     // Database
     POSTGRES_HOST: z.string().nonempty(),
     POSTGRES_PORT: z.coerce.number().int().positive(),

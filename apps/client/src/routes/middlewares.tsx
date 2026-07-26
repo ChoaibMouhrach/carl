@@ -1,12 +1,17 @@
 import { api } from "@/api";
+import { authClient } from "@/lib/auth-client";
 import { ApiError } from "@/lib/base-api";
 import { isRedirect, redirect } from "@tanstack/react-router";
 
 export const requireAuth = async (role?: "admin" | "user") => {
   try {
-    const me = await api.auth.me();
+    const session = await authClient.getSession();
 
-    if (role && me.user.role !== role) {
+    if (!session.data) {
+      throw redirect({ to: "/sign-in" });
+    }
+
+    if (role && session.data.user.role !== role) {
       throw redirect({
         to: "/error",
         search: {
@@ -16,6 +21,8 @@ export const requireAuth = async (role?: "admin" | "user") => {
         },
       });
     }
+
+    const me = await api.auth.me();
 
     return me;
   } catch (error) {
@@ -37,7 +44,11 @@ export const requireAuth = async (role?: "admin" | "user") => {
 
 export const redirectIfAuthenticated = async () => {
   try {
-    await api.auth.me();
+    const session = await authClient.getSession();
+
+    if (!session.data) {
+      return;
+    }
 
     throw redirect({ to: "/dashboard" });
   } catch (error) {

@@ -19,7 +19,7 @@ import { LayoutDashboardIcon, type LucideIcon } from "lucide-react";
 
 interface AdminSidebarProps {
   user: {
-    userId: number;
+    userId: string;
     email: string;
     role: string;
   };

@@ -1,4 +1,4 @@
-import { api } from "@/api";
+import { authClient, unwrapAuthResponse } from "@/lib/auth-client";
 import i18n from "@/lib/i18n";
 import { PasswordInput } from "@/components/password-input";
 import { Button } from "@repo/ui/components/ui/button";
@@ -22,6 +22,7 @@ import z from "zod";
 
 const schema = z
   .object({
+    name: z.string().trim().min(1).max(255),
     email: z.email().max(255),
     password: z.string().min(8).max(60),
     passwordConfirmation: z.string().min(8).max(60),
@@ -40,6 +41,7 @@ export const SignUp = () => {
   const form = useForm({
     resolver: zodResolver(schema),
     values: {
+      name: "",
       email: "",
       password: "",
       passwordConfirmation: "",
@@ -48,10 +50,14 @@ export const SignUp = () => {
 
   const signUp = useMutation({
     mutationFn: (output: Output) => {
-      return api.auth.signUp({
-        email: output.email,
-        password: output.password,
-      });
+      return unwrapAuthResponse(
+        authClient.signUp.email({
+          callbackURL: `${window.location.origin}/app/email-verified?email=${encodeURIComponent(output.email)}`,
+          email: output.email,
+          name: output.name,
+          password: output.password,
+        }),
+      );
     },
     onSuccess: () => {
       toast.success(t("auth.signUp.verifyEmailToast"));
@@ -67,6 +73,20 @@ export const SignUp = () => {
   return (
     <form onSubmit={form.handleSubmit(onSubmit)}>
       <FieldGroup>
+        <Controller
+          control={form.control}
+          name="name"
+          render={({ field, fieldState }) => (
+            <Field>
+              <FieldLabel htmlFor={field.name}>
+                {t("auth.signUp.name")}
+              </FieldLabel>
+              <CustomInput {...field} id={field.name} placeholder="Jane Doe" />
+              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+            </Field>
+          )}
+        />
+
         <Controller
           control={form.control}
           name="email"

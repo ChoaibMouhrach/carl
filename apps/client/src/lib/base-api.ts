@@ -2,6 +2,8 @@ import { isRedirect } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { z } from "zod";
 import { serverErrorCodes, type ServerErrorCode } from "@repo/constants/errors";
+import { AuthClientError } from "@/lib/auth-client";
+import { getAuthErrorTranslationCode } from "@/lib/auth-errors";
 import i18n from "@/lib/i18n";
 import { ROUTER_BASEPATH } from "@/config/constants";
 
@@ -20,12 +22,15 @@ export const onError = (error: Error) => {
 
   let message = error.message;
 
-  if (
-    error instanceof ApiError &&
-    error.code &&
-    isServerErrorCode(error.code)
-  ) {
-    message = i18n.t(`serverErrors.${error.code}`);
+  const errorCode =
+    error instanceof ApiError
+      ? error.code
+      : error instanceof AuthClientError
+        ? getAuthErrorTranslationCode(error.code)
+        : undefined;
+
+  if (errorCode && isServerErrorCode(errorCode)) {
+    message = i18n.t(`serverErrors.${errorCode}`);
   }
 
   toast.error(message);

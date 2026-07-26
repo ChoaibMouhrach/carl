@@ -21,6 +21,7 @@ import z from "zod";
 
 const schema = z
   .object({
+    name: z.string().trim().min(1).max(255),
     email: z.email(),
     password: z.string().min(8).max(60),
     passwordConfirmation: z.string().min(8).max(60),
@@ -39,6 +40,7 @@ export const SetupPage = () => {
   const form = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
+      name: "",
       email: "",
       password: "",
       passwordConfirmation: "",
@@ -49,6 +51,7 @@ export const SetupPage = () => {
     mutationFn: (output: Output) => {
       return api.platformSetup.setup({
         email: output.email,
+        name: output.name,
         password: output.password,
       });
     },
@@ -67,6 +70,24 @@ export const SetupPage = () => {
     <main className="min-h-screen flex items-center justify-center">
       <form onSubmit={form.handleSubmit(onSubmit)} className="w-full max-w-sm">
         <FieldGroup>
+          <Controller
+            name="name"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <Field>
+                <FieldLabel htmlFor={field.name}>{t("setup.name")}</FieldLabel>
+                <CustomInput
+                  {...field}
+                  id={field.name}
+                  placeholder="Jane Doe"
+                />
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
+              </Field>
+            )}
+          />
+
           <Controller
             name="email"
             control={form.control}

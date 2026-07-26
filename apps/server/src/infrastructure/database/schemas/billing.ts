@@ -7,14 +7,14 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 import { id, timestamps } from "../utils";
-import { usersTable } from "./user";
+import { userTable } from "./auth";
 
 export const billingCustomersTable = pgTable("billingCustomers", {
   billingCustomerId: id(),
-  userId: integer()
+  userId: text()
     .notNull()
     .unique()
-    .references(() => usersTable.userId, { onDelete: "cascade" }),
+    .references(() => userTable.id, { onDelete: "cascade" }),
   provider: text().notNull(),
   providerCustomerId: text().notNull().unique(),
   ...timestamps(),
@@ -55,9 +55,9 @@ export const billingEventsTable = pgTable("billingEvents", {
 
 export const checkoutAttemptsTable = pgTable("checkoutAttempts", {
   checkoutAttemptId: id(),
-  userId: integer()
+  userId: text()
     .notNull()
-    .references(() => usersTable.userId, { onDelete: "cascade" }),
+    .references(() => userTable.id, { onDelete: "cascade" }),
   provider: text().notNull(),
   providerCheckoutSessionId: text().unique(),
   planKey: text().notNull(),

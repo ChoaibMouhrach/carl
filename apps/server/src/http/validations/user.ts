@@ -17,5 +17,5 @@ export const userQuerySchema = z
   .optional();
 
 export const userIdParamSchema = z.object({
-  userId: z.coerce.number().int().positive(),
+  userId: z.string().min(1),
 });

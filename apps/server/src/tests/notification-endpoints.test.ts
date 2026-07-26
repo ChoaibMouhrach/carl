@@ -16,7 +16,7 @@ const notificationSchema = z.object({
   title: z.string(),
   type: z.string(),
   updatedAt: z.coerce.date(),
-  userId: z.number().int().positive(),
+  userId: z.string().min(1),
 });
 
 const notificationListSchema = z.object({
@@ -38,7 +38,7 @@ const seedNotification = async (input: {
   context: Context;
   title: string;
   type: "billing.renewed" | "job.completed";
-  userId: number;
+  userId: string;
 }) =>
   await input.context.repositories.notification.create({
     body: input.body,

@@ -29,5 +29,6 @@
     "paths": {
       "@server/*": ["./src/*"]
     }
-  }
+  },
+  "exclude": ["src/tests"]
 }

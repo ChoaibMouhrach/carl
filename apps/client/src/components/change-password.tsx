@@ -1,4 +1,4 @@
-import { api } from "@/api";
+import { authClient, unwrapAuthResponse } from "@/lib/auth-client";
 import i18n from "@/lib/i18n";
 import { PasswordInput } from "@/components/password-input";
 import { Button } from "@repo/ui/components/ui/button";
@@ -54,11 +54,13 @@ export const ChangePassword = () => {
 
   const mutation = useMutation({
     mutationFn: (input: { output: Output; revokeOtherSessions: boolean }) =>
-      api.auth.changePassword({
-        currentPassword: input.output.currentPassword,
-        newPassword: input.output.newPassword,
-        revokeOtherSessions: input.revokeOtherSessions,
-      }),
+      unwrapAuthResponse(
+        authClient.changePassword({
+          currentPassword: input.output.currentPassword,
+          newPassword: input.output.newPassword,
+          revokeOtherSessions: input.revokeOtherSessions,
+        }),
+      ),
     onSuccess: () => {
       toast.success(t("password.changedToast"));
       form.reset();

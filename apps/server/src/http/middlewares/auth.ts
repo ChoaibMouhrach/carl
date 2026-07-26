@@ -1,34 +1,33 @@
-import { getCookie } from "hono/cookie";
 import { createMiddleware } from "hono/factory";
 import type { AuthAppContext } from "@server/app";
 import { ForbiddenError, UnauthorizedError } from "@server/lib/errors";
-import { AUTH_SESSION_COOKIE_NAME, type Role } from "@server/config/constants";
+import type { Role } from "@server/config/constants";
 
 export const createAuthMiddleware = (role?: Role) => {
   return createMiddleware<AuthAppContext>(async (context, next) => {
-    const cookie = getCookie(context, AUTH_SESSION_COOKIE_NAME);
+    const auth = await context.get("context").auth.api.getSession({
+      headers: context.req.raw.headers,
+    });
 
-    if (!cookie) {
-      throw new UnauthorizedError({
-        message: "Invalid session",
-      });
+    if (!auth) {
+      throw new UnauthorizedError({ message: "Invalid session" });
     }
 
-    const auth = await context.get("services").auth.me({ session: cookie });
+    const authRole: Role = auth.user.role === "admin" ? "admin" : "user";
 
-    if (!!role && role !== auth.user.role) {
+    if (!!role && role !== authRole) {
       throw new ForbiddenError();
     }
 
     context.set("auth", {
       user: {
-        userId: auth.user.userId,
+        userId: auth.user.id,
         email: auth.user.email,
-        role: auth.user.role,
+        role: authRole,
       },
       session: {
-        sessionId: auth.session.sessionId,
-        session: auth.session.session,
+        sessionId: auth.session.id,
+        session: auth.session.token,
       },
     });
 

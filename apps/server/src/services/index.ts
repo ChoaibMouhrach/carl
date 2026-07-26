@@ -1,5 +1,4 @@
 import type { Context } from "@server/context";
-import { AuthService } from "./auth";
 import { PlatformSetupService } from "./platform-setup";
 import { StorageService } from "./storage";
 import { UserService } from "./user";
@@ -12,7 +11,6 @@ interface ServicesConstructorParams {
 }
 
 export class Services {
-  public auth;
   public platformSetup;
   public storage;
   public user;
@@ -21,10 +19,6 @@ export class Services {
   public notification;
 
   public constructor({ context }: ServicesConstructorParams) {
-    this.auth = new AuthService({
-      context,
-    });
-
     this.platformSetup = new PlatformSetupService({
       context,
     });

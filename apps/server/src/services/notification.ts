@@ -10,7 +10,7 @@ export class NotificationService extends BaseService {
     data?: Record<string, unknown>;
     title: string;
     type: NotificationType;
-    userId: number;
+    userId: string;
   }): Promise<void> {
     const user = await this.context.repositories.user.findByUserId({
       userId: input.userId,
@@ -40,7 +40,7 @@ export class NotificationService extends BaseService {
     });
   }
 
-  public async list(input: { cursor?: number; userId: number }) {
+  public async list(input: { cursor?: number; userId: string }) {
     return await this.context.repositories.notification.list({
       cursor: input.cursor,
       limit: notificationPageSize,
@@ -50,16 +50,16 @@ export class NotificationService extends BaseService {
 
   public async markRead(input: {
     notificationId: number;
-    userId: number;
+    userId: string;
   }): Promise<void> {
     await this.context.repositories.notification.markRead(input);
   }
 
-  public async markAllRead(input: { userId: number }): Promise<void> {
+  public async markAllRead(input: { userId: string }): Promise<void> {
     await this.context.repositories.notification.markAllRead(input);
   }
 
-  public async getUnreadCount(input: { userId: number }) {
+  public async getUnreadCount(input: { userId: string }) {
     const unreadCount =
       await this.context.repositories.notification.getUnreadCount(input);
 

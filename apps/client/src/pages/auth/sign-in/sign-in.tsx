@@ -12,7 +12,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { api } from "@/api";
+import { authClient, unwrapAuthResponse } from "@/lib/auth-client";
 import { onError } from "@/lib/base-api";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -39,10 +39,12 @@ export const SignIn = () => {
 
   const signIn = useMutation({
     mutationFn: async (output: Output) => {
-      return await api.auth.signIn({
-        email: output.email,
-        password: output.password,
-      });
+      return await unwrapAuthResponse(
+        authClient.signIn.email({
+          email: output.email,
+          password: output.password,
+        }),
+      );
     },
     onSuccess: () => navigate({ to: "/dashboard" }),
     onError,

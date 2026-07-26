@@ -21,6 +21,7 @@
     "signUp": {
       "title": "Crear una cuenta",
       "subtitle": "Introduce tus datos para empezar",
+      "name": "Nombre completo",
       "email": "Correo electrónico",
       "password": "Contraseña",
       "confirmPassword": "Confirmar contraseña",
@@ -49,6 +50,7 @@
     }
   },
   "setup": {
+    "name": "Nombre completo",
     "email": "Correo electrónico",
     "password": "Contraseña",
     "confirmPassword": "Confirmar contraseña",

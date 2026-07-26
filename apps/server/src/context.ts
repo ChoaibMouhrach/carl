@@ -16,6 +16,7 @@ import type { BaseQueueHub } from "./lib/base-queue";
 import { QueueHub } from "./infrastructure/queue/bullmq";
 import type { BaseRateLimiter } from "./lib/base-rate-limiter";
 import { RedisRateLimiter } from "./infrastructure/rate-limiter/redis";
+import { createAuth } from "./infrastructure/auth";
 
 export const initContext = async () => {
   const logger: BaseLogger = new PinoLogger();
@@ -67,6 +68,8 @@ export const initContext = async () => {
     redisUrl: env.REDIS_CONNECTION_STRING,
   });
 
+  const auth = createAuth({ db: dbConnection.db, env, queueHub });
+
   const billing: BaseBilling =
     env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET
       ? new StripeBilling({
@@ -96,6 +99,7 @@ export const initContext = async () => {
     logger,
     mailer,
     env,
+    auth,
   };
 };
 

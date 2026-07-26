@@ -20,6 +20,7 @@ import { getStripePriceId } from "@repo/constants/billing";
 import type { AppContext, AuthAppContext } from "@server/app";
 import type { MiddlewareHandler } from "hono";
 import type { Pool } from "pg";
+import { createAuth } from "@server/infrastructure/auth";
 
 class TestLogger extends BaseLogger {
   public override async info(_message: string | object): Promise<void> {}
@@ -27,12 +28,14 @@ class TestLogger extends BaseLogger {
 
 export class TestMailer extends BaseMailer {
   public emailsSent = 0;
+  public sentAt: number[] = [];
   public shouldFail = false;
 
   public override async email<From extends string>(
     _props: SendEmailProps<From>,
   ): Promise<void> {
     this.emailsSent += 1;
+    this.sentAt.push(Date.now());
 
     if (this.shouldFail) {
       throw new Error("Test mailer failed.");
@@ -298,13 +301,18 @@ export const createContext = (
   billing: BaseBilling = new TestBilling(),
   mailer: BaseMailer = new TestMailer(),
   rateLimiter: BaseRateLimiter = new TestRateLimiter(),
-): Context => ({
-  billing,
-  env,
-  logger: new TestLogger(),
-  mailer,
-  queueHub: new TestQueueHub({ mailer }),
-  rateLimiter,
-  repositories: new Repositories({ dbConnection: { db, pool } }),
-  storage: new TestStorage(),
-});
+): Context => {
+  const queueHub = new TestQueueHub({ mailer });
+
+  return {
+    auth: createAuth({ db, env, queueHub }),
+    billing,
+    env,
+    logger: new TestLogger(),
+    mailer,
+    queueHub,
+    rateLimiter,
+    repositories: new Repositories({ dbConnection: { db, pool } }),
+    storage: new TestStorage(),
+  };
+};

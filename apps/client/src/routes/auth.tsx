@@ -47,9 +47,7 @@ export const resetPasswordRoute = createRoute({
   getParentRoute: () => authLayout,
   component: () => <ResetPasswordPage />,
   path: "/reset-password",
-  validateSearch: z.object({
-    token: z.string().length(64),
-  }),
+  validateSearch: z.object({ token: z.string().min(1) }),
 });
 
 export const authRouteTree = authLayout.addChildren([
