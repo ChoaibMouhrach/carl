@@ -6,7 +6,8 @@
   },
   "nav": {
     "dashboard": "Panel",
-    "billing": "Facturación"
+    "billing": "Facturación",
+    "users": "Usuarios"
   },
   "auth": {
     "signIn": {
@@ -79,6 +80,24 @@
   "roles": {
     "admin": "Administrador",
     "user": "Usuario"
+  },
+  "adminUsers": {
+    "title": "Usuarios",
+    "description": "Busca cuentas, revisa el estado de facturación y envía correos de recuperación.",
+    "search": "Buscar por correo electrónico",
+    "empty": "Ninguna cuenta coincide con tu búsqueda.",
+    "account": "Cuenta",
+    "accountStatus": "Estado de la cuenta",
+    "subscription": "Suscripción",
+    "actions": "Acciones",
+    "verified": "Verificado",
+    "unverified": "Sin verificar",
+    "banned": "Suspendido",
+    "noSubscription": "Sin suscripción activa",
+    "resendVerification": "Reenviar verificación",
+    "resendPasswordReset": "Enviar restablecimiento de contraseña",
+    "verificationSent": "Correo de verificación enviado.",
+    "passwordResetSent": "Correo de restablecimiento enviado."
   },
   "validation": {
     "required": "Este campo es obligatorio",

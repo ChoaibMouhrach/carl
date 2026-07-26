@@ -6,7 +6,8 @@
   },
   "nav": {
     "dashboard": "Dashboard",
-    "billing": "Billing"
+    "billing": "Billing",
+    "users": "Users"
   },
   "auth": {
     "signIn": {
@@ -79,6 +80,24 @@
   "roles": {
     "admin": "Admin",
     "user": "User"
+  },
+  "adminUsers": {
+    "title": "Users",
+    "description": "Search accounts, review billing status, and send account recovery emails.",
+    "search": "Search by email",
+    "empty": "No accounts match your search.",
+    "account": "Account",
+    "accountStatus": "Account status",
+    "subscription": "Subscription",
+    "actions": "Actions",
+    "verified": "Verified",
+    "unverified": "Unverified",
+    "banned": "Banned",
+    "noSubscription": "No active subscription",
+    "resendVerification": "Resend verification",
+    "resendPasswordReset": "Send password reset",
+    "verificationSent": "Verification email sent.",
+    "passwordResetSent": "Password reset email sent."
   },
   "validation": {
     "required": "This field is required",

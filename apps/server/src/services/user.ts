@@ -1,5 +1,9 @@
 import type { Role } from "@server/config/constants";
-import { ConflictError, NotFoundError } from "@server/lib/errors";
+import {
+  BadRequestError,
+  ConflictError,
+  NotFoundError,
+} from "@server/lib/errors";
 import { BaseService } from "@server/lib/base-service";
 
 export class UserService extends BaseService {
@@ -31,8 +35,17 @@ export class UserService extends BaseService {
         role: query.role,
       });
 
+      const subscriptions = await Promise.all(
+        users.map((user) =>
+          tx.billing.findCurrentSubscription({ userId: user.id }),
+        ),
+      );
+
       return {
-        users,
+        users: users.map((user, index) => ({
+          ...user,
+          subscription: subscriptions[index] ?? null,
+        })),
         meta: {
           page,
           lastPage,
@@ -53,7 +66,58 @@ export class UserService extends BaseService {
       });
     }
 
-    return { user };
+    const subscription =
+      await this.context.repositories.billing.findCurrentSubscription({
+        userId: params.userId,
+      });
+
+    return { subscription, user };
+  }
+
+  public async resendVerification(input: { userId: string }): Promise<void> {
+    const user = await this.context.repositories.user.findByUserId({
+      userId: input.userId,
+    });
+
+    if (!user) {
+      throw new NotFoundError({
+        message: "User not found.",
+        code: "userNotFound",
+      });
+    }
+
+    if (user.emailVerified) {
+      throw new BadRequestError({
+        message: "This email address is already verified.",
+      });
+    }
+
+    await this.context.auth.api.sendVerificationEmail({
+      body: {
+        callbackURL: `${this.context.env.CLIENT_URL}/app/email-verified?email=${encodeURIComponent(user.email)}`,
+        email: user.email,
+      },
+    });
+  }
+
+  public async resendPasswordReset(input: { userId: string }): Promise<void> {
+    const user = await this.context.repositories.user.findByUserId({
+      userId: input.userId,
+    });
+
+    if (!user) {
+      throw new NotFoundError({
+        message: "User not found.",
+        code: "userNotFound",
+      });
+    }
+
+    await this.context.auth.api.requestPasswordReset({
+      body: {
+        email: user.email,
+        redirectTo: `${this.context.env.CLIENT_URL}/app/reset-password`,
+      },
+    });
   }
 
   public async remove(params: { userId: string }) {

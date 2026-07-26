@@ -41,13 +41,38 @@ export const userController = new Hono<AppContext>()
     async (context) => {
       const { userId } = context.req.valid("param");
 
-      const { user } = await context.get("services").user.show({
+      const { subscription, user } = await context.get("services").user.show({
         userId,
       });
 
       return context.json({
+        subscription,
         user,
       });
+    },
+  )
+
+  .post(
+    "/:userId/auth/resend-verification",
+    describeRoute({ tags: ["user"] }),
+    validator("param", userIdParamSchema),
+    async (context) => {
+      const { userId } = context.req.valid("param");
+      await context.get("services").user.resendVerification({ userId });
+
+      return context.body(null, 204);
+    },
+  )
+
+  .post(
+    "/:userId/auth/resend-password-reset",
+    describeRoute({ tags: ["user"] }),
+    validator("param", userIdParamSchema),
+    async (context) => {
+      const { userId } = context.req.valid("param");
+      await context.get("services").user.resendPasswordReset({ userId });
+
+      return context.body(null, 204);
     },
   )
 

@@ -6,7 +6,8 @@
   },
   "nav": {
     "dashboard": "Tableau de bord",
-    "billing": "Facturation"
+    "billing": "Facturation",
+    "users": "Utilisateurs"
   },
   "auth": {
     "signIn": {
@@ -79,6 +80,24 @@
   "roles": {
     "admin": "Administrateur",
     "user": "Utilisateur"
+  },
+  "adminUsers": {
+    "title": "Utilisateurs",
+    "description": "Recherchez des comptes, consultez leur facturation et envoyez des e-mails de récupération.",
+    "search": "Rechercher par e-mail",
+    "empty": "Aucun compte ne correspond à votre recherche.",
+    "account": "Compte",
+    "accountStatus": "État du compte",
+    "subscription": "Abonnement",
+    "actions": "Actions",
+    "verified": "Vérifié",
+    "unverified": "Non vérifié",
+    "banned": "Suspendu",
+    "noSubscription": "Aucun abonnement actif",
+    "resendVerification": "Renvoyer la vérification",
+    "resendPasswordReset": "Envoyer la réinitialisation du mot de passe",
+    "verificationSent": "E-mail de vérification envoyé.",
+    "passwordResetSent": "E-mail de réinitialisation envoyé."
   },
   "validation": {
     "required": "Ce champ est requis",

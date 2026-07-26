@@ -15,7 +15,7 @@ import {
 import { Link, useLocation } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Logo, LogoWithText } from "@repo/ui/logo-mark";
-import { LayoutDashboardIcon, type LucideIcon } from "lucide-react";
+import { LayoutDashboardIcon, UsersIcon, type LucideIcon } from "lucide-react";
 
 interface AdminSidebarProps {
   user: {
@@ -26,8 +26,8 @@ interface AdminSidebarProps {
 }
 
 interface NavigationItem {
-  labelKey: "nav.dashboard";
-  to: "/admin/dashboard";
+  labelKey: "nav.dashboard" | "nav.users";
+  to: "/admin/dashboard" | "/admin/users";
   icon: LucideIcon;
 }
 
@@ -36,6 +36,11 @@ const navigation: NavigationItem[] = [
     labelKey: "nav.dashboard",
     to: "/admin/dashboard",
     icon: LayoutDashboardIcon,
+  },
+  {
+    labelKey: "nav.users",
+    to: "/admin/users",
+    icon: UsersIcon,
   },
 ];
 

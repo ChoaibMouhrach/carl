@@ -18,11 +18,11 @@ export class UserApi extends BaseApi {
     );
   }
 
-  public show(where: { userId: number }) {
+  public show(where: { userId: string }) {
     return this.call(() =>
       http.api.users[":userId"].$get({
         param: {
-          userId: where.userId.toString(),
+          userId: where.userId,
         },
       }),
     );
@@ -44,12 +44,28 @@ export class UserApi extends BaseApi {
     );
   }
 
-  public remove(where: { userId: number }) {
+  public remove(where: { userId: string }) {
     return this.call(() =>
       http.api.users[":userId"].$delete({
         param: {
-          userId: where.userId.toString(),
+          userId: where.userId,
         },
+      }),
+    );
+  }
+
+  public resendVerification(where: { userId: string }) {
+    return this.call(() =>
+      http.api.users[":userId"].auth["resend-verification"].$post({
+        param: { userId: where.userId },
+      }),
+    );
+  }
+
+  public resendPasswordReset(where: { userId: string }) {
+    return this.call(() =>
+      http.api.users[":userId"].auth["resend-password-reset"].$post({
+        param: { userId: where.userId },
       }),
     );
   }
