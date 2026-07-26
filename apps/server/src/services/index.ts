@@ -5,6 +5,7 @@ import { UserService } from "./user";
 import { BillingService } from "./billing";
 import { BillingAccessService } from "./billing-access";
 import { NotificationService } from "./notification";
+import { QueueService } from "./queue";
 
 interface ServicesConstructorParams {
   context: Context;
@@ -17,6 +18,7 @@ export class Services {
   public billing;
   public billingAccess;
   public notification;
+  public queue;
 
   public constructor({ context }: ServicesConstructorParams) {
     this.platformSetup = new PlatformSetupService({
@@ -38,5 +40,7 @@ export class Services {
     this.billingAccess = new BillingAccessService({ context });
 
     this.notification = new NotificationService({ context });
+
+    this.queue = new QueueService({ context });
   }
 }

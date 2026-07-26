@@ -7,7 +7,8 @@
   "nav": {
     "dashboard": "Panel",
     "billing": "Facturación",
-    "users": "Usuarios"
+    "users": "Usuarios",
+    "queues": "Colas"
   },
   "auth": {
     "signIn": {
@@ -102,6 +103,34 @@
     "resendPasswordReset": "Enviar restablecimiento de contraseña",
     "verificationSent": "Correo de verificación enviado.",
     "passwordResetSent": "Correo de restablecimiento enviado."
+  },
+  "adminQueues": {
+    "title": "Colas",
+    "description": "Supervisa los trabajos en segundo plano, revisa los fallos y reintenta el trabajo.",
+    "queueTitle": "Cola {{name}}",
+    "countsCaption": "Recuento de trabajos por estado",
+    "states": {
+      "waiting": "En espera",
+      "active": "Activos",
+      "completed": "Completados",
+      "failed": "Fallidos",
+      "delayed": "Aplazados",
+      "paused": "Pausados"
+    },
+    "failedTitle": "Trabajos fallidos",
+    "emptyTitle": "No hay trabajos fallidos",
+    "emptyDescription": "Todos los trabajos de esta cola se han procesado correctamente.",
+    "jobMeta": "{{attempts}} intentos · Trabajo {{id}}",
+    "unknownError": "Error desconocido",
+    "retry": "Reintentar",
+    "retryAll": "Reintentar todos",
+    "remove": "Eliminar",
+    "cancel": "Cancelar",
+    "removeTitle": "¿Eliminar este trabajo?",
+    "removeDescription": "Esto elimina el trabajo de la cola de forma permanente. Esta acción no se puede deshacer.",
+    "jobRetried": "Trabajo puesto en cola para reintentar.",
+    "jobRemoved": "Trabajo eliminado.",
+    "allRetried": "Trabajos fallidos puestos en cola para reintentar."
   },
   "validation": {
     "required": "Este campo es obligatorio",

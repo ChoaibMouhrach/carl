@@ -5,10 +5,12 @@ import { storageController } from "./storage";
 import { userController } from "./user";
 import { billingController } from "./billing";
 import { notificationController } from "./notification";
+import { queueController } from "./queue";
 
 export const controllers = new Hono<AppContext>()
   .route("/platform-setup", platformSetupController)
   .route("/storage", storageController)
   .route("/billing", billingController)
   .route("/notifications", notificationController)
-  .route("/users", userController);
+  .route("/users", userController)
+  .route("/queues", queueController);

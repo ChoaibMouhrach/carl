@@ -7,6 +7,7 @@ import { indexRoute } from "./index";
 import { adminAccountRoute } from "./admin/account";
 import { adminDashboardRoute } from "./admin/dashboard";
 import { adminLayoutRoute } from "./admin/layout";
+import { adminQueuesRoute } from "./admin/queues";
 import { adminUsersRoute } from "./admin/users";
 import { userAccountRoute } from "./user/account";
 import { userDashboardRoute } from "./user/dashboard";
@@ -21,6 +22,7 @@ export const routeTree = rootRoute.addChildren([
     adminDashboardRoute,
     adminAccountRoute,
     adminUsersRoute,
+    adminQueuesRoute,
   ]),
   userLayoutRoute.addChildren([
     userDashboardRoute,

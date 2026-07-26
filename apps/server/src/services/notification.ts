@@ -18,7 +18,7 @@ export class NotificationService extends BaseService {
 
     if (!user) return;
 
-    await this.context.repositories.notification.create({
+    const notification = await this.context.repositories.notification.create({
       body: input.body,
       data: input.data ?? {},
       title: input.title,
@@ -32,12 +32,15 @@ export class NotificationService extends BaseService {
       logoUrl: this.context.env.LOGO_URL,
     });
 
-    await this.context.queueHub.email.add({
-      from: "notifications",
-      html: emailHtml,
-      subject: input.title,
-      to: [user.email],
-    });
+    await this.context.queueHub.email.add(
+      {
+        from: "notifications",
+        html: emailHtml,
+        subject: input.title,
+        to: [user.email],
+      },
+      { idempotencyKey: `notification:${notification.notificationId}` },
+    );
   }
 
   public async list(input: { cursor?: number; userId: string }) {

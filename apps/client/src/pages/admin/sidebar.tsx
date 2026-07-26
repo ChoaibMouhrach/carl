@@ -15,7 +15,12 @@ import {
 import { Link, useLocation } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Logo, LogoWithText } from "@repo/ui/logo-mark";
-import { LayoutDashboardIcon, UsersIcon, type LucideIcon } from "lucide-react";
+import {
+  LayersIcon,
+  LayoutDashboardIcon,
+  UsersIcon,
+  type LucideIcon,
+} from "lucide-react";
 
 interface AdminSidebarProps {
   user: {
@@ -26,8 +31,8 @@ interface AdminSidebarProps {
 }
 
 interface NavigationItem {
-  labelKey: "nav.dashboard" | "nav.users";
-  to: "/admin/dashboard" | "/admin/users";
+  labelKey: "nav.dashboard" | "nav.users" | "nav.queues";
+  to: "/admin/dashboard" | "/admin/users" | "/admin/queues";
   icon: LucideIcon;
 }
 
@@ -41,6 +46,11 @@ const navigation: NavigationItem[] = [
     labelKey: "nav.users",
     to: "/admin/users",
     icon: UsersIcon,
+  },
+  {
+    labelKey: "nav.queues",
+    to: "/admin/queues",
+    icon: LayersIcon,
   },
 ];
 

@@ -7,7 +7,8 @@
   "nav": {
     "dashboard": "Dashboard",
     "billing": "Billing",
-    "users": "Users"
+    "users": "Users",
+    "queues": "Queues"
   },
   "auth": {
     "signIn": {
@@ -102,6 +103,34 @@
     "resendPasswordReset": "Send password reset",
     "verificationSent": "Verification email sent.",
     "passwordResetSent": "Password reset email sent."
+  },
+  "adminQueues": {
+    "title": "Queues",
+    "description": "Monitor background jobs, inspect failures, and retry work.",
+    "queueTitle": "{{name}} queue",
+    "countsCaption": "Job counts by state",
+    "states": {
+      "waiting": "Waiting",
+      "active": "Active",
+      "completed": "Completed",
+      "failed": "Failed",
+      "delayed": "Delayed",
+      "paused": "Paused"
+    },
+    "failedTitle": "Failed jobs",
+    "emptyTitle": "No failed jobs",
+    "emptyDescription": "Every job in this queue has processed cleanly.",
+    "jobMeta": "{{attempts}} attempts · Job {{id}}",
+    "unknownError": "Unknown error",
+    "retry": "Retry",
+    "retryAll": "Retry all",
+    "remove": "Remove",
+    "cancel": "Cancel",
+    "removeTitle": "Remove this job?",
+    "removeDescription": "This permanently removes the job from the queue. This action cannot be undone.",
+    "jobRetried": "Job queued for retry.",
+    "jobRemoved": "Job removed.",
+    "allRetried": "Failed jobs queued for retry."
   },
   "validation": {
     "required": "This field is required",

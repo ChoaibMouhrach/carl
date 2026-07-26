@@ -10,8 +10,14 @@ import { BaseMailer, type SendEmailProps } from "@server/lib/base-mailer";
 import {
   BaseQueue,
   BaseQueueHub,
+  type AddJobOptions,
   type EmailJob,
+  type FailedJob,
+  type ListFailedInput,
+  type ListFailedResult,
   type QueueConsumer,
+  type QueueJobCounts,
+  type RegisteredQueue,
 } from "@server/lib/base-queue";
 import { BaseRateLimiter } from "@server/lib/base-rate-limiter";
 import { BaseStorage } from "@server/lib/base-storage";
@@ -59,30 +65,127 @@ class TestStorage extends BaseStorage {
   public override async removeFile(_input: { key: string }): Promise<void> {}
 }
 
-class TestQueue<Input> extends BaseQueue<Input> {
+interface TestJob<Input> {
+  id: string;
+  data: Input;
+  attemptsMade: number;
+  failedReason: string | null;
+  status: "completed" | "failed";
+}
+
+export class TestQueue<Input> extends BaseQueue<Input> {
   private consumer?: QueueConsumer<Input>;
   private process: (input: Input) => Promise<void>;
+  private jobs = new Map<string, TestJob<Input>>();
+  private counter = 0;
 
   public constructor(init: { process: (input: Input) => Promise<void> }) {
     super();
     this.process = init.process;
   }
 
-  public override async add(input: Input): Promise<void> {
-    if (this.consumer) {
-      await this.consumer(input);
-      return;
-    }
+  public override async add(
+    input: Input,
+    options?: AddJobOptions,
+  ): Promise<void> {
+    const id = options?.idempotencyKey ?? `job-${(this.counter += 1)}`;
 
-    await this.process(input);
+    if (this.jobs.has(id)) return;
+
+    const job: TestJob<Input> = {
+      id,
+      data: input,
+      attemptsMade: 0,
+      failedReason: null,
+      status: "completed",
+    };
+    this.jobs.set(id, job);
+    await this.runJob(job);
   }
 
   public override async consume(consumer: QueueConsumer<Input>): Promise<void> {
     this.consumer = consumer;
   }
 
+  public override async getCounts(): Promise<QueueJobCounts> {
+    const failed = this.failedJobs().length;
+
+    return {
+      waiting: 0,
+      active: 0,
+      completed: this.jobs.size - failed,
+      failed,
+      delayed: 0,
+      paused: 0,
+    };
+  }
+
+  public override async listFailed(
+    input: ListFailedInput,
+  ): Promise<ListFailedResult> {
+    const failed = this.failedJobs();
+
+    return {
+      jobs: failed.slice(input.start, input.end + 1).map(toTestFailedJob),
+      total: failed.length,
+    };
+  }
+
+  public override async retry(jobId: string): Promise<boolean> {
+    const job = this.jobs.get(jobId);
+
+    if (!job) return false;
+
+    await this.runJob(job);
+
+    return true;
+  }
+
+  public override async retryAllFailed(): Promise<number> {
+    const failed = this.failedJobs();
+
+    for (const job of failed) {
+      await this.runJob(job);
+    }
+
+    return failed.length;
+  }
+
+  public override async remove(jobId: string): Promise<boolean> {
+    return this.jobs.delete(jobId);
+  }
+
   public override async close(): Promise<void> {}
+
+  private failedJobs(): TestJob<Input>[] {
+    return [...this.jobs.values()].filter((job) => job.status === "failed");
+  }
+
+  private async runJob(job: TestJob<Input>): Promise<void> {
+    const handler = this.consumer ?? this.process;
+    job.attemptsMade += 1;
+
+    try {
+      await handler(job.data);
+      job.status = "completed";
+      job.failedReason = null;
+    } catch (error) {
+      job.status = "failed";
+      job.failedReason = error instanceof Error ? error.message : String(error);
+    }
+  }
 }
+
+const toTestFailedJob = <Input>(job: TestJob<Input>): FailedJob => ({
+  id: job.id,
+  name: "send",
+  data: job.data,
+  failedReason: job.failedReason ?? "",
+  attemptsMade: job.attemptsMade,
+  timestamp: 0,
+  processedOn: null,
+  stacktrace: [],
+});
 
 export class TestQueueHub extends BaseQueueHub {
   public email: TestQueue<EmailJob>;
@@ -94,6 +197,10 @@ export class TestQueueHub extends BaseQueueHub {
         await init.mailer.email(input);
       },
     });
+  }
+
+  public override queues(): RegisteredQueue[] {
+    return [{ name: "email", queue: this.email }];
   }
 
   public override async close(): Promise<void> {}

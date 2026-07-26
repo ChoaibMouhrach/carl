@@ -7,7 +7,8 @@
   "nav": {
     "dashboard": "Tableau de bord",
     "billing": "Facturation",
-    "users": "Utilisateurs"
+    "users": "Utilisateurs",
+    "queues": "Files d'attente"
   },
   "auth": {
     "signIn": {
@@ -102,6 +103,34 @@
     "resendPasswordReset": "Envoyer la réinitialisation du mot de passe",
     "verificationSent": "E-mail de vérification envoyé.",
     "passwordResetSent": "E-mail de réinitialisation envoyé."
+  },
+  "adminQueues": {
+    "title": "Files d'attente",
+    "description": "Surveillez les tâches en arrière-plan, inspectez les échecs et relancez les traitements.",
+    "queueTitle": "File {{name}}",
+    "countsCaption": "Nombre de tâches par état",
+    "states": {
+      "waiting": "En attente",
+      "active": "Actives",
+      "completed": "Terminées",
+      "failed": "Échouées",
+      "delayed": "Différées",
+      "paused": "En pause"
+    },
+    "failedTitle": "Tâches échouées",
+    "emptyTitle": "Aucune tâche échouée",
+    "emptyDescription": "Toutes les tâches de cette file ont été traitées correctement.",
+    "jobMeta": "{{attempts}} tentatives · Tâche {{id}}",
+    "unknownError": "Erreur inconnue",
+    "retry": "Relancer",
+    "retryAll": "Tout relancer",
+    "remove": "Supprimer",
+    "cancel": "Annuler",
+    "removeTitle": "Supprimer cette tâche ?",
+    "removeDescription": "Cette action supprime définitivement la tâche de la file d'attente. Elle est irréversible.",
+    "jobRetried": "Tâche remise en file pour relance.",
+    "jobRemoved": "Tâche supprimée.",
+    "allRetried": "Tâches échouées remises en file pour relance."
   },
   "validation": {
     "required": "Ce champ est requis",
