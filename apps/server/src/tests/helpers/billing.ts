@@ -139,6 +139,7 @@ class TestRateLimiter extends BaseRateLimiter {
 
 export class TestBilling extends BaseBilling {
   public override readonly provider = "stripe";
+  public checkoutSessionRequests = 0;
   public cancelledSubscriptionIds: string[] = [];
   public changedSubscriptions: Array<{
     billingInterval: "monthly" | "yearly";
@@ -156,6 +157,7 @@ export class TestBilling extends BaseBilling {
   public providerEventId = "evt_test";
   public providerSubscriptionId: string | null = null;
   public providerSubscriptionIds: string[] = [];
+  public retrievedCheckoutSessionIds: string[] = [];
   public snapshot: BillingSubscriptionSnapshot | null = null;
   public snapshotsBySubscriptionId = new Map<
     string,
@@ -174,11 +176,21 @@ export class TestBilling extends BaseBilling {
     providerCheckoutSessionId: string;
     url: string;
   }> {
+    this.checkoutSessionRequests += 1;
+
     return {
-      expiresAt: new Date(),
+      expiresAt: new Date(Date.now() + 5 * 60 * 1_000),
       providerCheckoutSessionId: "cs_test",
       url: "https://billing.test/checkout",
     };
+  }
+
+  public override async getCheckoutSession(input: {
+    providerCheckoutSessionId: string;
+  }): Promise<{ url: string | null }> {
+    this.retrievedCheckoutSessionIds.push(input.providerCheckoutSessionId);
+
+    return { url: "https://billing.test/checkout" };
   }
 
   public override async createPortalSession(): Promise<{ url: string }> {

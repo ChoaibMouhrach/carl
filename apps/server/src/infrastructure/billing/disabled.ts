@@ -11,6 +11,10 @@ export class DisabledBilling extends BaseBilling {
     return this.unavailable();
   }
 
+  public override getCheckoutSession(): Promise<never> {
+    return this.unavailable();
+  }
+
   public override createPortalSession(): Promise<never> {
     return this.unavailable();
   }

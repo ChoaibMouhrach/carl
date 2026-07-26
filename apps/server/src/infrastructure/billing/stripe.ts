@@ -86,6 +86,16 @@ export class StripeBilling extends BaseBilling {
     };
   }
 
+  public override async getCheckoutSession(input: {
+    providerCheckoutSessionId: string;
+  }): Promise<{ url: string | null }> {
+    const session = await this.stripe.checkout.sessions.retrieve(
+      input.providerCheckoutSessionId,
+    );
+
+    return { url: session.url };
+  }
+
   public override async createPortalSession(input: {
     providerCustomerId: string;
   }): Promise<{ url: string }> {

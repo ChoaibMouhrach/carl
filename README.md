@@ -192,6 +192,20 @@ STRIPE_WEBHOOK_SECRET=
 
 </details>
 
+## Stripe Customer Portal
+
+The app uses Stripe Checkout for a customer's first subscription and provides
+plan changes, cancellation, and resumption in the billing page. Stripe Customer
+Portal is used for invoice history and payment-method management. Configure the
+portal in both Stripe test mode and live mode before enabling billing in an
+environment:
+
+1. Enable invoice history and payment method updates.
+2. Set the portal return URL to `/app/user/billing`.
+
+For local webhook forwarding, run `bun run stripe:listen`, copy the printed
+`whsec_...` value into `STRIPE_WEBHOOK_SECRET`, and restart the server.
+
 ## Scripts
 
 Run from the repo root; Turborepo fans them out to each workspace.
@@ -209,6 +223,7 @@ Run from the repo root; Turborepo fans them out to each workspace.
 | `bun run db:generate`     | Generate a Drizzle migration from schema changes |
 | `bun run db:migrate`      | Apply pending migrations                         |
 | `bun run db:studio`       | Open Drizzle Studio                              |
+| `bun run stripe:listen`   | Forward Stripe CLI webhooks to the local server  |
 | `bun run containers:up`   | `docker compose up` (Postgres + Redis)           |
 | `bun run containers:down` | `docker compose down`                            |
 

@@ -121,10 +121,10 @@
   "billing": {
     "current": {
       "title": "Forfait actuel",
-      "description": "Votre abonnement est géré via Stripe.",
+      "description": "Modifiez ou annulez votre forfait ici. Gérez les moyens de paiement et les factures en toute sécurité avec Stripe.",
       "accessEnds": "Votre accès prend fin le {{date}}.",
       "switching": "Passage à {{plan}} ({{interval}}) au prochain renouvellement.",
-      "manageBilling": "Gérer la facturation",
+      "manageBilling": "Gérer les paiements et factures",
       "resume": "Reprendre",
       "cancel": "Annuler l'abonnement",
       "dialog": {

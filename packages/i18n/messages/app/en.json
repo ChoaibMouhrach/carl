@@ -121,10 +121,10 @@
   "billing": {
     "current": {
       "title": "Current plan",
-      "description": "Your subscription is managed through Stripe.",
+      "description": "Change or cancel your plan here. Manage payment methods and invoices securely through Stripe.",
       "accessEnds": "Your access ends on {{date}}.",
       "switching": "Switching to {{plan}} ({{interval}}) at next renewal.",
-      "manageBilling": "Manage billing",
+      "manageBilling": "Manage payments and invoices",
       "resume": "Resume",
       "cancel": "Cancel subscription",
       "dialog": {

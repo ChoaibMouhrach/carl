@@ -121,10 +121,10 @@
   "billing": {
     "current": {
       "title": "Plan actual",
-      "description": "Tu suscripción se gestiona a través de Stripe.",
+      "description": "Cambia o cancela tu plan aquí. Gestiona los métodos de pago y las facturas de forma segura a través de Stripe.",
       "accessEnds": "Tu acceso finaliza el {{date}}.",
       "switching": "Cambio a {{plan}} ({{interval}}) en la próxima renovación.",
-      "manageBilling": "Gestionar facturación",
+      "manageBilling": "Gestionar pagos y facturas",
       "resume": "Reanudar",
       "cancel": "Cancelar suscripción",
       "dialog": {

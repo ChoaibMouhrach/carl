@@ -48,6 +48,10 @@ export abstract class BaseBilling {
     url: string;
   }>;
 
+  public abstract getCheckoutSession(input: {
+    providerCheckoutSessionId: string;
+  }): Promise<{ url: string | null }>;
+
   public abstract createPortalSession(input: {
     providerCustomerId: string;
   }): Promise<{ url: string }>;

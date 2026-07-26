@@ -95,7 +95,13 @@ test("checkout creates no subscription until Stripe confirms completion", async 
   });
 
   try {
-    const context = createContext(connection.db, connection.pool, env);
+    const testBilling = new TestBilling();
+    const context = createContext(
+      connection.db,
+      connection.pool,
+      env,
+      testBilling,
+    );
     const user = await context.repositories.user.create({
       email: "subscriber@example.com",
       emailVerifiedAt: new Date(),
@@ -111,6 +117,20 @@ test("checkout creates no subscription until Stripe confirms completion", async 
     });
 
     expect(checkout).toEqual({ url: "https://billing.test/checkout" });
+
+    const portal = await billing.createPortalSession({ userId: user.userId });
+    expect(portal).toEqual({ url: "https://billing.test/portal" });
+
+    const resumedCheckout = await billing.createCheckoutSession({
+      billingInterval: "monthly",
+      email: user.email,
+      planKey: "starter",
+      userId: user.userId,
+    });
+
+    expect(resumedCheckout).toEqual({ url: "https://billing.test/checkout" });
+    expect(testBilling.checkoutSessionRequests).toBe(1);
+    expect(testBilling.retrievedCheckoutSessionIds).toEqual(["cs_test"]);
 
     const customers = await connection.db.select().from(billingCustomersTable);
     const attempts = await connection.db.select().from(checkoutAttemptsTable);

@@ -37,7 +37,7 @@ export class BillingService extends BaseService {
     email: string;
     planKey: BillingPlanKey;
     userId: string;
-  }) {
+  }): Promise<{ url: string }> {
     const attempt = await this.context.repositories.transaction(
       async ({ tx }) => {
         await tx.billing.acquireUserLock({ userId: input.userId });
@@ -58,21 +58,56 @@ export class BillingService extends BaseService {
         });
 
         if (existingAttempt) {
+          if (existingAttempt.providerCheckoutSessionId) {
+            return { existingAttempt };
+          }
+
           throw new BadRequestError({
             message: "A checkout session is already active for this account.",
             code: "checkoutActive",
           });
         }
 
-        return await tx.billing.createCheckoutAttempt({
+        const createdAttempt = await tx.billing.createCheckoutAttempt({
           billingInterval: input.billingInterval,
           expiresAt: new Date(Date.now() + 5 * 60 * 1_000),
           planKey: input.planKey,
           provider: this.context.billing.provider,
           userId: input.userId,
         });
+
+        return { createdAttempt };
       },
     );
+
+    if (attempt.existingAttempt) {
+      const providerCheckoutSessionId =
+        attempt.existingAttempt.providerCheckoutSessionId;
+
+      if (!providerCheckoutSessionId) {
+        throw new Error("Active checkout attempt has no Stripe session.");
+      }
+
+      const checkoutSession = await this.context.billing.getCheckoutSession({
+        providerCheckoutSessionId,
+      });
+
+      if (checkoutSession.url) {
+        return { url: checkoutSession.url };
+      }
+
+      await this.context.repositories.billing.removeCheckoutAttempt({
+        checkoutAttemptId: attempt.existingAttempt.checkoutAttemptId,
+      });
+
+      return await this.createCheckoutSession(input);
+    }
+
+    const createdAttempt = attempt.createdAttempt;
+
+    if (!createdAttempt) {
+      throw new Error("Checkout attempt was not created.");
+    }
 
     try {
       const customer = await this.getOrCreateCustomer({
@@ -82,13 +117,13 @@ export class BillingService extends BaseService {
       const session = await this.context.billing.createCheckoutSession({
         billingInterval: input.billingInterval,
         customerId: customer.providerCustomerId,
-        idempotencyKey: `checkout-attempt:${attempt.checkoutAttemptId}`,
+        idempotencyKey: `checkout-attempt:${createdAttempt.checkoutAttemptId}`,
         planKey: input.planKey,
         userId: input.userId,
       });
 
       await this.context.repositories.billing.setCheckoutSession({
-        checkoutAttemptId: attempt.checkoutAttemptId,
+        checkoutAttemptId: createdAttempt.checkoutAttemptId,
         expiresAt: session.expiresAt,
         providerCheckoutSessionId: session.providerCheckoutSessionId,
       });
@@ -96,7 +131,7 @@ export class BillingService extends BaseService {
       return { url: session.url };
     } catch (error: unknown) {
       await this.context.repositories.billing.removeCheckoutAttempt({
-        checkoutAttemptId: attempt.checkoutAttemptId,
+        checkoutAttemptId: createdAttempt.checkoutAttemptId,
       });
 
       throw error;
