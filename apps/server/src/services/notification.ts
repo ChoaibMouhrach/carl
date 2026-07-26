@@ -1,21 +1,8 @@
 import type { NotificationType } from "@repo/constants/notifications";
+import { renderNotification } from "@server/emails";
 import { BaseService } from "@server/lib/base-service";
 
 const notificationPageSize = 20;
-
-const htmlEntities: Record<string, string> = {
-  '"': "&quot;",
-  "&": "&amp;",
-  "'": "&#39;",
-  "<": "&lt;",
-  ">": "&gt;",
-};
-
-const escapeHtml = (value: string): string =>
-  value.replace(
-    /[&<>"']/g,
-    (character) => htmlEntities[character] ?? character,
-  );
 
 export class NotificationService extends BaseService {
   public async send(input: {
@@ -39,9 +26,15 @@ export class NotificationService extends BaseService {
       userId: input.userId,
     });
 
+    const emailHtml = await renderNotification({
+      title: input.title,
+      body: input.body,
+      logoUrl: this.context.env.LOGO_URL,
+    });
+
     await this.context.queueHub.email.add({
       from: "notifications",
-      html: `<p>${escapeHtml(input.body)}</p>`,
+      html: emailHtml,
       subject: input.title,
       to: [user.email],
     });

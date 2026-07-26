@@ -3,6 +3,11 @@ import {
   EMAIL_ADDRESS_VERIFICATION_EXPIRATION_DURATION_MS,
   RESET_PASSWORD_EXPIRATION_DURATION_MS,
 } from "@server/config/constants";
+import {
+  renderResetPassword,
+  renderSignupAttempt,
+  renderVerifyEmail,
+} from "@server/emails";
 import { AppRedirect } from "@server/http/utils";
 import { BaseService } from "@server/lib/base-service";
 import {
@@ -92,11 +97,15 @@ export class AuthService extends BaseService {
     );
 
     if (outcome.kind === "verified_existing") {
+      const emailHtml = await renderSignupAttempt({
+        logoUrl: this.context.env.LOGO_URL,
+      });
+
       await this.context.queueHub.email.add({
         from: "auth",
         to: [outcome.email],
         subject: "Someone tried to sign up with your email",
-        html: `<p>Someone attempted to create an account with this email address. If it wasn't you, no action is required. If it was you, sign in or reset your password instead.</p>`,
+        html: emailHtml,
       });
       return;
     }
@@ -107,11 +116,16 @@ export class AuthService extends BaseService {
     );
     url.searchParams.set("token", outcome.verificationToken);
 
+    const emailHtml = await renderVerifyEmail({
+      url: url.toString(),
+      logoUrl: this.context.env.LOGO_URL,
+    });
+
     await this.context.queueHub.email.add({
       from: "auth",
       to: [outcome.email],
       subject: "Email verification",
-      html: `<a href="${url.toString()}">Verify email address</a>`,
+      html: emailHtml,
     });
   }
 
@@ -271,11 +285,16 @@ export class AuthService extends BaseService {
     const url = new URL("/reset-password", this.context.env.CLIENT_URL);
     url.searchParams.set("token", outcome.token);
 
+    const emailHtml = await renderResetPassword({
+      url: url.toString(),
+      logoUrl: this.context.env.LOGO_URL,
+    });
+
     await this.context.queueHub.email.add({
       from: "auth",
       to: [outcome.email],
       subject: "Reset password request",
-      html: `<a href="${url.toString()}">Reset password</a>`,
+      html: emailHtml,
     });
   }
 

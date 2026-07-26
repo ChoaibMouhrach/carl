@@ -72,6 +72,9 @@ export const initENV = () => {
     // QUEUE
     REDIS_CONNECTION_STRING: `redis://:${encodeURIComponent(env.REDIS_PASSWORD)}@${env.REDIS_HOST}:${env.REDIS_PORT}`,
 
+    // ASSETS — the marketing site (served at the client origin's root) hosts /logo.png
+    LOGO_URL: new URL("/logo.png", env.CLIENT_URL).toString(),
+
     // NODE ENV
     IS_DEVELOPMENT: env.NODE_ENV === "development",
     IS_PRODUCTION: env.NODE_ENV === "production",
