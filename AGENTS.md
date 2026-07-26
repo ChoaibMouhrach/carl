@@ -86,6 +86,7 @@ The provider-specific hub (for example, a BullMQ hub) wires its concrete queues 
 - Server state: `useQuery` / `useMutation` from TanStack Query. No local state for server data.
 - After a successful mutation, invalidate the relevant query key via `queryClient.invalidateQueries`.
 - Loading state pattern: `disabled={mutation.isPending}` + `{mutation.isPending && <Spinner />}` inline in the button — never a separate loading variable.
+- For paginated or filtered list queries, use `placeholderData: (previousData) => previousData` when retaining the previous result during a refetch improves continuity.
 
 **Forms**
 
@@ -115,6 +116,21 @@ pages/user/billing/
 ```
 
 When creating or editing pages, always check if there is already a pattern to follow in the existing pages before deciding on structure.
+
+## Management Pages
+
+Management pages (lists of users, records, subscriptions, and similar resources) follow these rules:
+
+- `page.tsx` is shell-only: page layout, title, description, and the main feature component.
+- The main feature component owns route search params, queries, mutations, query invalidation, and composition.
+- Split filters, tables or lists, and row actions into sub-components. Sub-components receive props and do not fetch server data.
+- Put the main content inside `Card` and `CardContent`.
+- Validate all list state in the route search schema: page, search text, filters, sorting, and similar controls.
+- Use the shared `Search` component for text search. It debounces input and updates route search params; changing search resets `page` to `1`.
+- Filters use shadcn controls and update route search params; changing a filter resets `page` to `1`.
+- Pagination always renders, uses shadcn pagination primitives, and updates the `page` route search param.
+- Disable Previous and Next when there is no adjacent page using the component's native disabled state.
+- Server list endpoints must validate and apply every URL-backed filter in the repository query. Never filter a paginated result set only on the client.
 
 ## Client Routing
 
