@@ -1,6 +1,6 @@
-@import "@repo/ui/globals.css";
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@repo/ui/tailwind.css";
+@import "@repo/ui/globals.css";
 @import "@fontsource-variable/inter";
 @source "../../../packages/ui/src";
