@@ -95,6 +95,30 @@
       "description": "Les informations de votre compte",
       "email": "E-mail"
     },
+    "emailChange": {
+      "newEmail": "Nouvelle adresse e-mail",
+      "submit": "Modifier l'adresse e-mail",
+      "requestedToast": "Consultez votre e-mail actuel pour approuver cette modification."
+    },
+    "sessions": {
+      "title": "Sessions et appareils",
+      "description": "Consultez les appareils connectés et supprimez les accès dont vous n'avez plus besoin.",
+      "current": "Appareil actuel",
+      "unknownDevice": "Appareil inconnu",
+      "unknownIp": "Adresse IP inconnue",
+      "signedIn": "Connecté le {{date}}",
+      "ipAddress": "Adresse IP : {{ip}}",
+      "signOut": "Se déconnecter",
+      "signOutOthers": "Déconnecter les autres appareils",
+      "signedOutToast": "Appareil déconnecté.",
+      "othersSignedOutToast": "Les autres appareils sont déconnectés.",
+      "dialog": {
+        "title": "Déconnecter les autres appareils ?",
+        "description": "Cela mettra fin à toutes les autres sessions actives. Votre session actuelle restera active.",
+        "keep": "Garder les appareils connectés",
+        "confirm": "Déconnecter les autres appareils"
+      }
+    },
     "language": {
       "title": "Langue",
       "description": "Choisissez la langue utilisée dans l'application."

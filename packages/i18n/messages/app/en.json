@@ -95,6 +95,30 @@
       "description": "Your account information",
       "email": "Email"
     },
+    "emailChange": {
+      "newEmail": "New email address",
+      "submit": "Change email address",
+      "requestedToast": "Check your current email to approve this change."
+    },
+    "sessions": {
+      "title": "Sessions and devices",
+      "description": "Review where you are signed in and end access you no longer need.",
+      "current": "Current device",
+      "unknownDevice": "Unknown device",
+      "unknownIp": "Unknown IP address",
+      "signedIn": "Signed in {{date}}",
+      "ipAddress": "IP address: {{ip}}",
+      "signOut": "Sign out",
+      "signOutOthers": "Sign out other devices",
+      "signedOutToast": "Device signed out.",
+      "othersSignedOutToast": "Other devices signed out.",
+      "dialog": {
+        "title": "Sign out other devices?",
+        "description": "This will end every other active session. Your current session will stay active.",
+        "keep": "Keep devices signed in",
+        "confirm": "Sign out other devices"
+      }
+    },
     "language": {
       "title": "Language",
       "description": "Choose the language used across the app."

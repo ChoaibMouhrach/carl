@@ -11,6 +11,7 @@ import {
 } from "@server/infrastructure/database/schemas";
 import type { BaseQueueHub } from "@server/lib/base-queue";
 import {
+  renderConfirmEmailChange,
   renderResetPassword,
   renderSignupAttempt,
   renderVerifyEmail,
@@ -72,6 +73,24 @@ export const createAuth = (input: {
           subject: "Verify your email address",
           to: [user.email],
         });
+      },
+    },
+    user: {
+      changeEmail: {
+        enabled: true,
+        sendChangeEmailConfirmation: async ({ newEmail, url, user }) => {
+          const html = await renderConfirmEmailChange({
+            newEmail,
+            url,
+            logoUrl: input.env.LOGO_URL,
+          });
+          await input.queueHub.email.add({
+            from: "auth",
+            html,
+            subject: "Confirm your email address change",
+            to: [user.email],
+          });
+        },
       },
     },
     plugins: [admin()],

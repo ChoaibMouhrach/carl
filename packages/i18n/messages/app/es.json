@@ -95,6 +95,30 @@
       "description": "La información de tu cuenta",
       "email": "Correo electrónico"
     },
+    "emailChange": {
+      "newEmail": "Nueva dirección de correo electrónico",
+      "submit": "Cambiar dirección de correo electrónico",
+      "requestedToast": "Revisa tu correo actual para aprobar este cambio."
+    },
+    "sessions": {
+      "title": "Sesiones y dispositivos",
+      "description": "Revisa dónde has iniciado sesión y elimina los accesos que ya no necesites.",
+      "current": "Dispositivo actual",
+      "unknownDevice": "Dispositivo desconocido",
+      "unknownIp": "Dirección IP desconocida",
+      "signedIn": "Sesión iniciada {{date}}",
+      "ipAddress": "Dirección IP: {{ip}}",
+      "signOut": "Cerrar sesión",
+      "signOutOthers": "Cerrar sesión en otros dispositivos",
+      "signedOutToast": "Sesión del dispositivo cerrada.",
+      "othersSignedOutToast": "Sesiones de otros dispositivos cerradas.",
+      "dialog": {
+        "title": "¿Cerrar sesión en otros dispositivos?",
+        "description": "Esto cerrará todas las demás sesiones activas. Tu sesión actual seguirá activa.",
+        "keep": "Mantener los dispositivos conectados",
+        "confirm": "Cerrar sesión en otros dispositivos"
+      }
+    },
     "language": {
       "title": "Idioma",
       "description": "Elige el idioma utilizado en la aplicación."
