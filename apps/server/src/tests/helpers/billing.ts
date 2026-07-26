@@ -172,6 +172,7 @@ export class TestQueue<Input> extends BaseQueue<Input> {
     } catch (error) {
       job.status = "failed";
       job.failedReason = error instanceof Error ? error.message : String(error);
+      throw error;
     }
   }
 }

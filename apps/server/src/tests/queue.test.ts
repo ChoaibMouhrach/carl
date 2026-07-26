@@ -19,7 +19,9 @@ test("failed jobs are listed and clear once retried", async () => {
     const context = createContext(db, pool, initENV(), undefined, mailer);
     const queue = new QueueService({ context });
 
-    await context.queueHub.email.add(notificationEmail);
+    await expect(
+      context.queueHub.email.add(notificationEmail),
+    ).rejects.toThrow();
 
     const failed = await queue.listFailed({ queue: "email", page: 1 });
     expect(failed.jobs).toHaveLength(1);
