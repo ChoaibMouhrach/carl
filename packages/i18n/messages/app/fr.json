@@ -46,7 +46,17 @@
     "emailVerified": {
       "title": "E-mail vérifié",
       "description": "Votre e-mail {{email}} a été vérifié avec succès. Vous pouvez maintenant vous connecter et commencer.",
-      "signIn": "Se connecter"
+      "signIn": "Se connecter",
+      "resend": "Envoyer un nouveau lien de vérification",
+      "resendToast": "Si cet e-mail est en attente de vérification, nous avons envoyé un nouveau lien.",
+      "expired": {
+        "title": "Lien de vérification expiré",
+        "description": "Ce lien de vérification pour {{email}} a expiré. Demandez-en un nouveau pour continuer."
+      },
+      "invalid": {
+        "title": "Lien de vérification invalide",
+        "description": "Ce lien de vérification pour {{email}} est invalide ou a déjà été utilisé. Demandez-en un nouveau pour continuer."
+      }
     }
   },
   "setup": {

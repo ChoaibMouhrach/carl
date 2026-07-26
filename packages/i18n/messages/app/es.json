@@ -46,7 +46,17 @@
     "emailVerified": {
       "title": "Correo verificado",
       "description": "Tu correo {{email}} se ha verificado correctamente. Ya puedes iniciar sesión y empezar.",
-      "signIn": "Iniciar sesión"
+      "signIn": "Iniciar sesión",
+      "resend": "Enviar un nuevo enlace de verificación",
+      "resendToast": "Si este correo está pendiente de verificación, enviamos un nuevo enlace.",
+      "expired": {
+        "title": "El enlace de verificación ha caducado",
+        "description": "Este enlace de verificación para {{email}} ha caducado. Solicita uno nuevo para continuar."
+      },
+      "invalid": {
+        "title": "El enlace de verificación no es válido",
+        "description": "Este enlace de verificación para {{email}} no es válido o ya se ha usado. Solicita uno nuevo para continuar."
+      }
     }
   },
   "setup": {

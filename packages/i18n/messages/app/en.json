@@ -46,7 +46,17 @@
     "emailVerified": {
       "title": "Email Verified",
       "description": "Your email {{email}} has been successfully verified. You're all set to sign in and get started.",
-      "signIn": "Sign In"
+      "signIn": "Sign In",
+      "resend": "Send a new verification link",
+      "resendToast": "If this email is awaiting verification, we sent a new link.",
+      "expired": {
+        "title": "Verification link expired",
+        "description": "This verification link for {{email}} has expired. Request a new one to continue."
+      },
+      "invalid": {
+        "title": "Verification link invalid",
+        "description": "This verification link for {{email}} is invalid or has already been used. Request a new one to continue."
+      }
     }
   },
   "setup": {

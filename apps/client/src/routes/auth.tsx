@@ -34,6 +34,7 @@ export const emailVerifiedRoute = createRoute({
   path: "/email-verified",
   validateSearch: z.object({
     email: z.email(),
+    error: z.string().optional(),
   }),
 });
 

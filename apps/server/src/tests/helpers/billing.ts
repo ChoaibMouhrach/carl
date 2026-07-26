@@ -27,13 +27,15 @@ class TestLogger extends BaseLogger {
 }
 
 export class TestMailer extends BaseMailer {
+  public emails: SendEmailProps<string>[] = [];
   public emailsSent = 0;
   public sentAt: number[] = [];
   public shouldFail = false;
 
   public override async email<From extends string>(
-    _props: SendEmailProps<From>,
+    props: SendEmailProps<From>,
   ): Promise<void> {
+    this.emails.push(props);
     this.emailsSent += 1;
     this.sentAt.push(Date.now());
 
