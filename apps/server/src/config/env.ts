@@ -46,6 +46,7 @@ const schema = z
     // Mail
     RESEND_API_KEY: z.string().nonempty(),
     MAIL_DOMAIN: z.string().nonempty(),
+    MAIL_RATE_LIMIT_PER_SECOND: z.coerce.number().positive().default(2),
 
     // Billing
     STRIPE_SECRET_KEY: z.string().nonempty().optional(),

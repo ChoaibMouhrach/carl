@@ -6,6 +6,7 @@ import type { BaseLogger } from "./lib/base-logger";
 import type { BaseMailer } from "./lib/base-mailer";
 import { DevMailer } from "./infrastructure/mailer/dev";
 import { ResendMailer } from "./infrastructure/mailer/resend";
+import { RateLimitedMailer } from "./infrastructure/mailer/rate-limited";
 import type { BaseStorage } from "./lib/base-storage";
 import { S3rverStorage } from "./infrastructure/storage/s3rver";
 import { S3Storage } from "./infrastructure/storage/s3";
@@ -37,13 +38,20 @@ export const initContext = async () => {
     dbConnection: dbConnection,
   });
 
-  const mailer: BaseMailer = env.IS_PRODUCTION
+  const baseMailer: BaseMailer = env.IS_PRODUCTION
     ? new ResendMailer({
         apiKey: env.RESEND_API_KEY,
         domain: env.MAIL_DOMAIN,
       })
     : new DevMailer({
         logger,
+      });
+
+  const mailer: BaseMailer = env.IS_DEVELOPMENT
+    ? baseMailer
+    : new RateLimitedMailer({
+        intervalMs: 1_000 / env.MAIL_RATE_LIMIT_PER_SECOND,
+        mailer: baseMailer,
       });
 
   const storage: BaseStorage = env.IS_PRODUCTION
