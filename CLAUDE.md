@@ -127,6 +127,10 @@ Rules:
 - Add a comment only when it records a non-obvious _why_ the code itself cannot express (a real constraint, workaround, or gotcha), and keep it to one terse line.
 - Never leave AI-narration, TODO, or placeholder commentary in committed code.
 
+## Code Style
+
+- Don't inline an `await`ed call as an argument to another call. Bind the result to a descriptive `const` on its own line first, then pass the variable. Prefer `const emailHtml = await renderX(...);` followed by `email.add({ html: emailHtml })` over `email.add({ html: await renderX(...) })`.
+
 ## Testing Rules
 
 When writing tests, follow these rules strictly:
