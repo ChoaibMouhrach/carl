@@ -34,6 +34,7 @@ const schema = z
     RATE_LIMIT_KEY_SECRET: z.string().min(32),
     TRUST_PROXY: z.stringbool().default(false),
     QUEUE_CONCURRENCY: z.coerce.number().int().positive().default(5),
+    QUEUE_BACKLOG_THRESHOLD: z.coerce.number().int().positive().default(100),
 
     // S3
     S3_ENDPOINT: z.url(),

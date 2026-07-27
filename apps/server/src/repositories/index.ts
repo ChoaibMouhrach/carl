@@ -4,6 +4,7 @@ import { SettingRepository } from "./setting";
 import { FileRepository } from "./file";
 import { BillingRepository } from "./billing";
 import { NotificationRepository } from "./notification";
+import { HealthRepository } from "./health";
 
 interface RepositoriesConstructorProps {
   dbConnection: DBConnection;
@@ -18,12 +19,17 @@ export class Repositories {
   public file;
   public billing;
   public notification;
+  public health;
 
   public constructor({ dbConnection }: RepositoriesConstructorProps) {
     this.pool = dbConnection.pool;
     this.db = dbConnection.db;
 
     this.user = new UserRepository({
+      db: dbConnection.db,
+    });
+
+    this.health = new HealthRepository({
       db: dbConnection.db,
     });
 

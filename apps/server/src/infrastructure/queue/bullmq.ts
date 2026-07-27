@@ -1,6 +1,7 @@
 import { Queue, Worker } from "bullmq";
 import IORedis from "ioredis";
 import type { BaseLogger } from "@server/lib/base-logger";
+import type { BaseErrorMonitor } from "@server/lib/base-error-monitor";
 import {
   BaseQueue,
   BaseQueueHub,
@@ -16,8 +17,12 @@ import {
 const emailQueueName = "email";
 const emailJobName = "send";
 
+const FAILED_JOB_RETENTION_SECONDS = 60 * 60 * 24 * 7;
+const FAILED_JOB_RETENTION_COUNT = 5_000;
+
 interface BullQueueInit {
   concurrency: number;
+  errorMonitor: BaseErrorMonitor;
   jobName: string;
   logger: BaseLogger;
   name: string;
@@ -26,6 +31,7 @@ interface BullQueueInit {
 
 class BullQueue<Input> extends BaseQueue<Input> {
   private concurrency: number;
+  private errorMonitor: BaseErrorMonitor;
   private jobName: string;
   private logger: BaseLogger;
   private name: string;
@@ -39,6 +45,7 @@ class BullQueue<Input> extends BaseQueue<Input> {
     super();
 
     this.concurrency = init.concurrency;
+    this.errorMonitor = init.errorMonitor;
     this.jobName = init.jobName;
     this.logger = init.logger;
     this.name = init.name;
@@ -57,7 +64,11 @@ class BullQueue<Input> extends BaseQueue<Input> {
             type: "exponential",
           },
           removeOnComplete: 1_000,
-          removeOnFail: false,
+          // Failed jobs are the dead-letter store — kept for inspection/retry, then aged out.
+          removeOnFail: {
+            age: FAILED_JOB_RETENTION_SECONDS,
+            count: FAILED_JOB_RETENTION_COUNT,
+          },
         },
       },
     );
@@ -98,6 +109,21 @@ class BullQueue<Input> extends BaseQueue<Input> {
         jobId: job?.id,
         queue: this.name,
       });
+
+      const attempts = job?.opts.attempts ?? 1;
+
+      if (job && job.attemptsMade >= attempts) {
+        this.errorMonitor.captureException(error, {
+          tags: {
+            signal: "job_failed",
+            queue: this.name,
+          },
+          extra: {
+            attemptsMade: job.attemptsMade,
+            jobId: job.id,
+          },
+        });
+      }
     });
 
     this.worker.on("error", (error) => {
@@ -190,6 +216,7 @@ class BullQueue<Input> extends BaseQueue<Input> {
 
 interface EmailQueueInit {
   concurrency: number;
+  errorMonitor: BaseErrorMonitor;
   logger: BaseLogger;
   redisUrl: string;
 }

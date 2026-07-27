@@ -10,5 +10,7 @@ export abstract class BaseRateLimiter {
   public abstract platformSetup: MiddlewareHandler<AppContext>;
   public abstract storage: MiddlewareHandler<AuthAppContext>;
 
+  public abstract ping(): Promise<void>;
+
   public abstract close(): Promise<void>;
 }

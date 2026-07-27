@@ -117,6 +117,12 @@ export const initApp = async (params: initAppParams) => {
     app.get("/docs", Scalar({ url: "/openapi", theme: "deepSpace" }));
   }
 
+  app.get("/health", async (context) => {
+    const report = await context.get("services").health.check();
+
+    return context.json(report, report.status === "unhealthy" ? 503 : 200);
+  });
+
   app.get("/", (context) => {
     const cookieLocale = getCookie(context, "NEXT_LOCALE");
 

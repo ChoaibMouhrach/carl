@@ -182,6 +182,10 @@ export class RedisRateLimiter extends BaseRateLimiter {
     });
   }
 
+  public override async ping(): Promise<void> {
+    await this.client.ping();
+  }
+
   public override async close(): Promise<void> {
     await this.client.quit();
   }

@@ -38,6 +38,7 @@ export class TestMailer extends BaseMailer {
   public emailsSent = 0;
   public sentAt: number[] = [];
   public shouldFail = false;
+  public verifyShouldFail = false;
 
   public override async email<From extends string>(
     props: SendEmailProps<From>,
@@ -48,6 +49,12 @@ export class TestMailer extends BaseMailer {
 
     if (this.shouldFail) {
       throw new Error("Test mailer failed.");
+    }
+  }
+
+  public override async verify(): Promise<void> {
+    if (this.verifyShouldFail) {
+      throw new Error("Test mailer verification failed.");
     }
   }
 }
@@ -242,6 +249,8 @@ class TestRateLimiter extends BaseRateLimiter {
   ) => {
     await next();
   };
+
+  public override async ping(): Promise<void> {}
 
   public override async close(): Promise<void> {}
 }

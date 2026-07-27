@@ -31,4 +31,12 @@ export class ResendMailer extends BaseMailer {
       throw new Error(`Resend email failed: ${error.message}`);
     }
   }
+
+  public override async verify(): Promise<void> {
+    const { error } = await this.client.domains.list();
+
+    if (error) {
+      throw new Error(`Resend verification failed: ${error.message}`);
+    }
+  }
 }

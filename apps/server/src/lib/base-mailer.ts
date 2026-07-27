@@ -13,4 +13,6 @@ export abstract class BaseMailer {
   public abstract email<From extends string>(
     props: SendEmailProps<From>,
   ): Promise<void>;
+
+  public abstract verify(): Promise<void>;
 }

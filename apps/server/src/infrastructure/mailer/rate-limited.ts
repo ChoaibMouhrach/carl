@@ -40,4 +40,8 @@ export class RateLimitedMailer extends BaseMailer {
 
     await send;
   }
+
+  public override verify(): Promise<void> {
+    return this.mailer.verify();
+  }
 }

@@ -14,4 +14,6 @@ export class DevMailer extends BaseMailer {
   ) {
     this.logger.info(props);
   }
+
+  public override async verify(): Promise<void> {}
 }

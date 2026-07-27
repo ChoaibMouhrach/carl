@@ -147,9 +147,13 @@ All apps read a single root `.env`. Copy `.env.example` and fill it in.
 | `RATE_LIMIT_KEY_SECRET`                                                               | Secret used to hash rate-limit keys                             |
 | `TRUST_PROXY`                                                                         | `true` when running behind a reverse proxy (for client IPs)     |
 | `QUEUE_CONCURRENCY`                                                                   | Max concurrent background jobs                                  |
+| `QUEUE_BACKLOG_THRESHOLD`                                                             | Waiting-jobs count that triggers a backlog alert (default 100)  |
 | `S3_ENDPOINT` / `REGION` / `ACCESS_KEY` / `SECRET_KEY` / `BUCKET_NAME` / `PUBLIC_URL` | Object storage (leave blank to use the disabled stub)           |
 | `RESEND_API_KEY` / `MAIL_DOMAIN`                                                      | Transactional email (blank → disabled stub)                     |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`                                         | Billing (blank → disabled stub)                                 |
+| `SENTRY_DSN` / `SENTRY_TRACES_SAMPLE_RATE`                                            | Server error tracking → Better Stack (blank → disabled stub)    |
+| `VITE_SENTRY_DSN`                                                                     | Dashboard (SPA) error tracking → Better Stack (blank → off)     |
+| `NEXT_PUBLIC_SENTRY_DSN`                                                              | Marketing site error tracking → Better Stack (blank → off)      |
 
 Run `bun run check:env` to validate that your `.env` satisfies every app's schema.
 
@@ -176,6 +180,7 @@ REDIS_PASSWORD=
 RATE_LIMIT_KEY_SECRET=change-me
 TRUST_PROXY=false
 QUEUE_CONCURRENCY=5
+QUEUE_BACKLOG_THRESHOLD=100
 
 # Optional integrations — leave blank to run against the disabled stubs
 S3_ENDPOINT=
@@ -188,6 +193,12 @@ RESEND_API_KEY=
 MAIL_DOMAIN=
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
+
+# Observability (Sentry SDK → Better Stack) — leave blank to disable
+SENTRY_DSN=
+SENTRY_TRACES_SAMPLE_RATE=1
+VITE_SENTRY_DSN=
+NEXT_PUBLIC_SENTRY_DSN=
 ```
 
 </details>
@@ -205,6 +216,71 @@ environment:
 
 For local webhook forwarding, run `bun run stripe:listen`, copy the printed
 `whsec_...` value into `STRIPE_WEBHOOK_SECRET`, and restart the server.
+
+## Observability
+
+Error tracking, uptime, and alerting run on [Better Stack](https://betterstack.com/docs/getting-started/welcome/).
+Errors are sent through the Sentry SDK pointed at Better Stack's ingest endpoint —
+no Sentry account is involved. Everything is off until you set the DSNs, so the
+template runs clean locally.
+
+**What the code does:** the server exposes `GET /health` (a readiness probe) and
+forwards three failure signals into Better Stack Errors, each tagged so you can
+alert on it.
+
+The probe checks Postgres, Redis, and the mail provider (Resend), returning a
+tiered status. Postgres and Redis are **critical** — if either is down the app
+can't serve, so `status` is `unhealthy` and the endpoint returns **`503`**. The
+mail provider is **advisory** — if only email is unreachable the app still works
+(jobs retry), so `status` is `degraded` but the endpoint stays **`200`**. All
+green is `200 {status:"ok"}`.
+
+```jsonc
+// 200 — degraded example (email provider unreachable, app still serving)
+{
+  "status": "degraded",
+  "checks": { "database": "ok", "redis": "ok", "email": "down" },
+}
+```
+
+Signals forwarded into Better Stack Errors:
+
+| Signal                 | Where it fires                                          | Tags                                   |
+| ---------------------- | ------------------------------------------------------- | -------------------------------------- |
+| Unhandled 500s         | HTTP `onError`                                          | —                                      |
+| Stripe webhook failure | `POST /api/billing/webhooks/stripe` failing             | `signal=stripe_webhook`                |
+| Failed background job  | A job that exhausts all retries                         | `signal=job_failed`, `queue=<name>`    |
+| Queue backlog          | Waiting jobs ≥ `QUEUE_BACKLOG_THRESHOLD` (checked ~60s) | `signal=queue_backlog`, `queue=<name>` |
+
+### Set it up in Better Stack
+
+1. **Create an application per surface** (server, dashboard, marketing site) under
+   **Errors → Applications**. Open each app's **Ingest** tab, copy the DSN, and set
+   `SENTRY_DSN` / `VITE_SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN`. Restart / rebuild.
+   Trigger a test error and confirm it lands under **Errors**.
+2. **Uptime monitor** — under **Monitors**, create an HTTP monitor for
+   `https://<your-api-host>/health`, expecting status `200`. Non-`200` (the `503`
+   returned when Postgres or Redis is unreachable) triggers a downtime alert. To
+   also be paged when only email is degraded, add a second monitor that additionally
+   requires the response body to contain `"status":"ok"` — that one fires on both
+   `unhealthy` and `degraded`.
+3. **Alert policies** — in the server application's **Errors** view, create one alert
+   policy per signal, filtering on its tag (`signal:stripe_webhook`,
+   `signal:job_failed`, `signal:queue_backlog`), and attach an on-call / notification
+   channel to each.
+
+`QUEUE_BACKLOG_THRESHOLD` tunes how many waiting jobs count as a backlog.
+
+### Failed jobs (dead-letter handling)
+
+There is no separate dead-letter queue — BullMQ's **failed set** is the dead-letter
+store. A job retries with exponential backoff (`attempts: 5`); once exhausted it
+lands in the failed set, fires the `signal=job_failed` alert, and is retained for
+inspection and re-drive (`age`/`count` limits in
+`infrastructure/queue/bullmq.ts`, then aged out). Inspect, retry, or purge failed
+jobs through `QueueService` (`listFailed`, `retry`, `retryAllFailed`, `remove`).
+If a product later needs an isolated dead-letter queue, add a second queue and
+enqueue exhausted jobs to it from the worker's `failed` handler.
 
 ## Scripts
 
