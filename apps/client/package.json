@@ -7,6 +7,9 @@
     "dev": "vite --host",
     "build": "tsc -b && vite build",
     "test": "bun test tests",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "e2e:report": "playwright show-report",
     "typecheck": "tsc -b --noEmit",
     "check:env": "bun --env-file=../../.env run src/config/env.ts",
     "lint": "eslint .",
@@ -44,6 +47,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.62.0",
     "@tanstack/router-plugin": "^1.164.0",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",
