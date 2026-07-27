@@ -391,3 +391,5 @@ The detailed, enforced conventions live in [`AGENTS.md`](AGENTS.md) /
   components; route files are one-line wiring.
 - **Comments** — the codebase is intentionally near comment-free; add a comment
   only for a non-obvious _why_.
+
+---
