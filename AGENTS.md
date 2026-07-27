@@ -65,6 +65,15 @@ The provider-specific hub (for example, a BullMQ hub) wires its concrete queues 
 - App-wide types and constants go here, not scattered across files.
 - Things shared between client and server go in `packages/` (e.g. `@repo/constants`).
 
+## Environment Variables
+
+The env schema lives in `apps/server/src/config/env.ts`. When you add a new key to it (or to any env schema), update both of these files in the same change:
+
+- `.env.example` — document the key with an empty value, grouped under the section header of related keys.
+- `.env.ci` — give the key a deterministic, non-secret value so the CI `check` job boots and runs tests. Never put a real secret here.
+
+A key missing from `.env.ci` fails CI at env-parse time before any test runs; a key missing from `.env.example` leaves setup undocumented. Keep both in sync with the schema.
+
 ## Client Architecture
 
 ## UI Components
