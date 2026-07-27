@@ -30,6 +30,7 @@ export const initServer = async () => {
       try {
         await billing.reconcile();
       } catch (error: unknown) {
+        context.errorMonitor.captureException(error);
         await context.logger.info({ error: String(error) });
       } finally {
         isReconciling = false;
@@ -64,6 +65,7 @@ export const initServer = async () => {
       stopHttpServer?.();
       await context.rateLimiter.close();
       await context.queueHub.close();
+      await context.errorMonitor.flush();
     },
   };
 };

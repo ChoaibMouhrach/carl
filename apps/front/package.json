@@ -13,6 +13,7 @@
     "@repo/constants": "workspace:*",
     "@repo/i18n": "workspace:*",
     "@repo/ui": "workspace:*",
+    "@sentry/browser": "^10.68.0",
     "lucide-react": "^1.17.0",
     "next": "16.2.7",
     "next-intl": "^4.3.15",

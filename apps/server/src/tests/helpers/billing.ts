@@ -22,6 +22,7 @@ import {
 import { BaseRateLimiter } from "@server/lib/base-rate-limiter";
 import { BaseStorage } from "@server/lib/base-storage";
 import { Repositories } from "@server/repositories";
+import { DisabledErrorMonitor } from "@server/infrastructure/error-monitor/disabled";
 import { getStripePriceId } from "@repo/constants/billing";
 import type { AppContext, AuthAppContext } from "@server/app";
 import type { MiddlewareHandler } from "hono";
@@ -430,6 +431,7 @@ export const createContext = (
     auth: createAuth({ db, env, queueHub }),
     billing,
     env,
+    errorMonitor: new DisabledErrorMonitor(),
     logger: new TestLogger(),
     mailer,
     queueHub,

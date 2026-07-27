@@ -80,6 +80,14 @@ export const initApp = async (params: initAppParams) => {
         );
       }
 
+      const tags: Record<string, string> = {};
+
+      if (context.req.path.endsWith("/webhooks/stripe")) {
+        tags["signal"] = "stripe_webhook";
+      }
+
+      params.context.errorMonitor.captureException(error, { tags });
+
       console.error(error);
 
       return context.json(

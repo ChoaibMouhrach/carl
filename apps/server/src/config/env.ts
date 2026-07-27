@@ -51,6 +51,10 @@ const schema = z
     // Billing
     STRIPE_SECRET_KEY: z.string().nonempty().optional(),
     STRIPE_WEBHOOK_SECRET: z.string().nonempty().optional(),
+
+    // Error monitoring
+    SENTRY_DSN: z.url().optional(),
+    SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(1),
   })
   .refine(
     (env) =>

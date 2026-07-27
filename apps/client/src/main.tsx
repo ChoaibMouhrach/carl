@@ -10,6 +10,9 @@ import { routeTree } from "./routes/router";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "./components/theme-provider";
 import { ROUTER_BASEPATH } from "./config/constants";
+import { initSentry } from "./lib/sentry";
+
+initSentry();
 
 const router = createRouter({ routeTree, basepath: ROUTER_BASEPATH });
 

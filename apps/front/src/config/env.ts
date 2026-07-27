@@ -7,11 +7,10 @@ config({
 
 const schema = z.object({
   NEXT_PUBLIC_CLIENT_URL: z.url(),
+  NEXT_PUBLIC_SENTRY_DSN: z.url().optional(),
 });
 
-const parsed = schema.parse({
-  NEXT_PUBLIC_CLIENT_URL: process.env["NEXT_PUBLIC_CLIENT_URL"],
-});
+const parsed = schema.parse(process.env);
 
 export const env = {
   ...parsed,

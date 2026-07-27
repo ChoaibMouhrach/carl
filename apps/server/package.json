@@ -49,6 +49,7 @@
     "@repo/constants": "workspace:*",
     "@repo/i18n": "workspace:*",
     "@scalar/hono-api-reference": "^0.10.5",
+    "@sentry/node": "^10.68.0",
     "better-auth": "^1.6.25",
     "bullmq": "^5.80.8",
     "dotenv": "^17.2.4",

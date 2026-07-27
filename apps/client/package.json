@@ -23,6 +23,7 @@
     "@repo/constants": "workspace:*",
     "@repo/i18n": "workspace:*",
     "@repo/ui": "workspace:*",
+    "@sentry/browser": "^10.68.0",
     "@tailwindcss/vite": "^4.2.1",
     "@tanstack/react-query": "^5.90.21",
     "better-auth": "^1.6.25",
