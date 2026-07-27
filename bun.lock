@@ -49,7 +49,6 @@
       },
       "devDependencies": {
         "@eslint/js": "^9.39.1",
-        "@playwright/test": "^1.62.0",
         "@tanstack/router-plugin": "^1.164.0",
         "@types/node": "^24.10.1",
         "@types/react": "^19.2.5",
@@ -63,6 +62,22 @@
         "typescript": "~5.9.3",
         "typescript-eslint": "^8.46.4",
         "vite": "^7.2.4",
+      },
+    },
+    "apps/e2e": {
+      "name": "@repo/e2e",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@eslint/js": "^9.39.1",
+        "@playwright/test": "^1.62.0",
+        "@repo/server": "workspace:*",
+        "@types/node": "^24.10.1",
+        "dotenv": "^17.2.4",
+        "eslint": "^9.39.1",
+        "globals": "^16.5.0",
+        "prettier": "^3.8.1",
+        "typescript": "~5.9.3",
+        "typescript-eslint": "^8.46.4",
       },
     },
     "apps/front": {
@@ -836,6 +851,8 @@
     "@repo/client": ["@repo/client@workspace:apps/client"],
 
     "@repo/constants": ["@repo/constants@workspace:packages/constants"],
+
+    "@repo/e2e": ["@repo/e2e@workspace:apps/e2e"],
 
     "@repo/front": ["@repo/front@workspace:apps/front"],
 

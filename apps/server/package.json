@@ -4,6 +4,10 @@
   "types": "src/index.ts",
   "type": "module",
   "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing/e2e-seed": "./src/testing/e2e-seed.ts"
+  },
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "format": "prettier --write .",

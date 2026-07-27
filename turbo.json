@@ -35,6 +35,13 @@
     },
     "format": {
       "cache": false
+    },
+    "e2e": {
+      "cache": false
+    },
+    "e2e:gen": {
+      "cache": false,
+      "persistent": true
     }
   }
 }

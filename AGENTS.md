@@ -6,6 +6,7 @@ At the start of each conversation, read the following package.json files to unde
 - `apps/server/package.json`
 - `apps/client/package.json`
 - `apps/front/package.json`
+- `apps/e2e/package.json`
 
 ## Server Architecture
 
@@ -200,6 +201,18 @@ When writing tests, follow these rules strictly:
 - No hacks or workarounds to make tests pass. If a test is hard to write, fix the approach, not the test.
 - No skipping validations — test the actual behavior, not a simplified version of it.
 - Quality over quantity. Fewer thorough tests beat many shallow ones.
+
+## End-to-End Tests
+
+End-to-end tests live in `apps/e2e` (a standalone Playwright package), never in `apps/client`. They drive the real app in a browser against a running stack (`bun run containers:up` + `bun dev`). See `apps/e2e/README.md`.
+
+- Import `test`/`expect` from `../fixtures`, not `@playwright/test`, so the `seed` fixture is available. Name spec files `*.test.ts` under `tests/`.
+- Seed data through the `seed` fixture (`createVerifiedUser`, `getPasswordResetToken`), backed by `@repo/server/testing/e2e-seed`. Never hardcode a user, password, or reset token, and never read a real inbox. Each test creates its own user with a unique email and is independent of the others.
+- Form inputs use `getByLabel`. Never `getByRole("textbox")` — it does not match `<input type="password">` and fails silently on password fields. Buttons and links use `getByRole`.
+  - Exception: the sign-in password field's label embeds the "Forgot password?" link and is ambiguous, so target it with `#password`.
+- Assert on behavior — `toHaveURL(...)` and reaching auth-protected pages — not on translated copy or transient toasts.
+- Clean up whatever `playwright codegen` emits: drop stray `.click()`/`.press(...)` cruft and hardcoded hosts (use the config `baseURL`, e.g. `page.goto("/app/sign-in")`), and give every test a descriptive name — never `test("test", ...)`.
+- Seeding logic belongs in the server's exported `testing/e2e-seed` surface, not as raw SQL in the test package. Extend that module when a new flow needs seeding.
 
 ## Git
 

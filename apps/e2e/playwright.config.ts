@@ -1,9 +1,9 @@
+import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
-
-const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:5173";
+import { CLIENT_URL } from "./config";
 
 export default defineConfig({
-  testDir: "./e2e",
+  testDir: "./tests",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -11,7 +11,7 @@ export default defineConfig({
   reporter: process.env.CI ? "html" : "list",
 
   use: {
-    baseURL: BASE_URL,
+    baseURL: CLIENT_URL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
@@ -23,11 +23,12 @@ export default defineConfig({
     },
   ],
 
-  // Starts the client dev server; reuses a full `bun dev` stack if one is
-  // already running. The API server must be up for flows that hit the backend.
+  // Starts the client dev server; reuses a running one. The API server and
+  // database must be up separately (bun run containers:up + the server dev).
   webServer: {
     command: "bun run dev",
-    url: BASE_URL,
+    cwd: path.resolve(__dirname, "../client"),
+    url: CLIENT_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

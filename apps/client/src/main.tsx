@@ -28,7 +28,7 @@ createRoot(document.getElementById("root")!).render(
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
       </QueryClientProvider>
-      <Toaster />
+      <Toaster duration={3000} />
     </ThemeProvider>
   </StrictMode>,
 );

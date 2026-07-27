@@ -6,7 +6,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
-  globalIgnores(["dist", "playwright-report", "test-results"]),
+  globalIgnores(["dist"]),
   {
     files: ["**/*.{ts,tsx}"],
     extends: [
@@ -18,15 +18,6 @@ export default defineConfig([
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
-    },
-  },
-  {
-    files: ["e2e/**/*.ts", "playwright.config.ts"],
-    languageOptions: {
-      globals: globals.node,
-    },
-    rules: {
-      "react-refresh/only-export-components": "off",
     },
   },
 ]);
