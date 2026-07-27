@@ -4,10 +4,20 @@ export type EmailSender = "auth" | "notifications";
 
 export type EmailJob = SendEmailProps<EmailSender>;
 
+export type MaintenanceJob =
+  | { type: "reconcile-billing" }
+  | { type: "check-queue-backlog" };
+
 export type QueueConsumer<Input> = (input: Input) => Promise<void>;
 
 export interface AddJobOptions {
   idempotencyKey?: string;
+}
+
+export interface ScheduleJobOptions<Input> {
+  schedulerId: string;
+  pattern: string;
+  data: Input;
 }
 
 export interface QueueJobCounts {
@@ -43,6 +53,8 @@ export interface ListFailedResult {
 export abstract class BaseQueue<Input> {
   public abstract add(input: Input, options?: AddJobOptions): Promise<void>;
 
+  public abstract schedule(options: ScheduleJobOptions<Input>): Promise<void>;
+
   public abstract consume(consumer: QueueConsumer<Input>): Promise<void>;
 
   public abstract getCounts(): Promise<QueueJobCounts>;
@@ -65,6 +77,7 @@ export interface RegisteredQueue {
 
 export abstract class BaseQueueHub {
   public abstract email: BaseQueue<EmailJob>;
+  public abstract maintenance: BaseQueue<MaintenanceJob>;
 
   public abstract queues(): RegisteredQueue[];
 

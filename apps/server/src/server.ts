@@ -1,10 +1,9 @@
 import { initApp } from "./app";
 import { initContext } from "./context";
-import { BillingService } from "./services/billing";
 import { Workers } from "./workers";
 
-const BILLING_RECONCILIATION_INTERVAL_MS = 60 * 60 * 1_000;
-const QUEUE_BACKLOG_CHECK_INTERVAL_MS = 60 * 1_000;
+const RECONCILE_BILLING_CRON = "0 * * * *";
+const CHECK_QUEUE_BACKLOG_CRON = "* * * * *";
 
 export const initServer = async () => {
   const context = await initContext();
@@ -19,75 +18,19 @@ export const initServer = async () => {
     return c.html(await Bun.file("./client/index.html").text());
   });
 
+  await context.queueHub.maintenance.schedule({
+    schedulerId: "check-queue-backlog",
+    pattern: CHECK_QUEUE_BACKLOG_CRON,
+    data: { type: "check-queue-backlog" },
+  });
+
   if (context.env.STRIPE_SECRET_KEY && context.env.STRIPE_WEBHOOK_SECRET) {
-    const billing = new BillingService({ context });
-    let isReconciling = false;
-
-    const reconcile = async () => {
-      if (isReconciling) return;
-
-      isReconciling = true;
-
-      try {
-        await billing.reconcile();
-      } catch (error: unknown) {
-        context.errorMonitor.captureException(error);
-        await context.logger.info({ error: String(error) });
-      } finally {
-        isReconciling = false;
-      }
-    };
-
-    void reconcile();
-
-    setInterval(() => {
-      void reconcile();
-    }, BILLING_RECONCILIATION_INTERVAL_MS);
+    await context.queueHub.maintenance.schedule({
+      schedulerId: "reconcile-billing",
+      pattern: RECONCILE_BILLING_CRON,
+      data: { type: "reconcile-billing" },
+    });
   }
-
-  let isCheckingBacklog = false;
-
-  const checkQueueBacklog = async () => {
-    if (isCheckingBacklog) return;
-
-    isCheckingBacklog = true;
-
-    try {
-      const threshold = context.env.QUEUE_BACKLOG_THRESHOLD;
-
-      for (const { name, queue } of context.queueHub.queues()) {
-        const counts = await queue.getCounts();
-
-        if (counts.waiting < threshold) continue;
-
-        context.errorMonitor.captureException(
-          new Error(`Queue backlog threshold exceeded: ${name}`),
-          {
-            tags: { signal: "queue_backlog", queue: name },
-            extra: { ...counts, threshold },
-          },
-        );
-
-        void context.logger.info({
-          signal: "queue_backlog",
-          queue: name,
-          threshold,
-          ...counts,
-        });
-      }
-    } catch (error: unknown) {
-      context.errorMonitor.captureException(error);
-      await context.logger.info({ error: String(error) });
-    } finally {
-      isCheckingBacklog = false;
-    }
-  };
-
-  void checkQueueBacklog();
-
-  setInterval(() => {
-    void checkQueueBacklog();
-  }, QUEUE_BACKLOG_CHECK_INTERVAL_MS);
 
   return {
     serve: () => {

@@ -9,13 +9,19 @@ import {
   type EmailJob,
   type ListFailedInput,
   type ListFailedResult,
+  type MaintenanceJob,
   type QueueConsumer,
   type QueueJobCounts,
   type RegisteredQueue,
+  type ScheduleJobOptions,
 } from "@server/lib/base-queue";
 
 const emailQueueName = "email";
 const emailJobName = "send";
+
+const maintenanceQueueName = "maintenance";
+const maintenanceJobName = "run";
+const maintenanceConcurrency = 1;
 
 const FAILED_JOB_RETENTION_SECONDS = 60 * 60 * 24 * 7;
 const FAILED_JOB_RETENTION_COUNT = 5_000;
@@ -81,6 +87,16 @@ class BullQueue<Input> extends BaseQueue<Input> {
     await this.queue.add(this.jobName, input, {
       jobId: options?.idempotencyKey,
     });
+  }
+
+  public override async schedule(
+    options: ScheduleJobOptions<Input>,
+  ): Promise<void> {
+    await this.queue.upsertJobScheduler(
+      options.schedulerId,
+      { pattern: options.pattern },
+      { name: this.jobName, data: options.data },
+    );
   }
 
   public override async consume(consumer: QueueConsumer<Input>): Promise<void> {
@@ -227,12 +243,35 @@ export class EmailQueue extends BullQueue<EmailJob> {
   }
 }
 
+interface MaintenanceQueueInit {
+  errorMonitor: BaseErrorMonitor;
+  logger: BaseLogger;
+  redisUrl: string;
+}
+
+export class MaintenanceQueue extends BullQueue<MaintenanceJob> {
+  public constructor(init: MaintenanceQueueInit) {
+    super({
+      ...init,
+      concurrency: maintenanceConcurrency,
+      jobName: maintenanceJobName,
+      name: maintenanceQueueName,
+    });
+  }
+}
+
 export class QueueHub extends BaseQueueHub {
   public email: EmailQueue;
+  public maintenance: MaintenanceQueue;
 
   public constructor(init: EmailQueueInit) {
     super();
     this.email = new EmailQueue(init);
+    this.maintenance = new MaintenanceQueue({
+      errorMonitor: init.errorMonitor,
+      logger: init.logger,
+      redisUrl: init.redisUrl,
+    });
   }
 
   public override queues(): RegisteredQueue[] {
@@ -241,5 +280,6 @@ export class QueueHub extends BaseQueueHub {
 
   public override async close(): Promise<void> {
     await this.email.close();
+    await this.maintenance.close();
   }
 }

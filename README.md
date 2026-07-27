@@ -245,12 +245,12 @@ green is `200 {status:"ok"}`.
 
 Signals forwarded into Better Stack Errors:
 
-| Signal                 | Where it fires                                          | Tags                                   |
-| ---------------------- | ------------------------------------------------------- | -------------------------------------- |
-| Unhandled 500s         | HTTP `onError`                                          | —                                      |
-| Stripe webhook failure | `POST /api/billing/webhooks/stripe` failing             | `signal=stripe_webhook`                |
-| Failed background job  | A job that exhausts all retries                         | `signal=job_failed`, `queue=<name>`    |
-| Queue backlog          | Waiting jobs ≥ `QUEUE_BACKLOG_THRESHOLD` (checked ~60s) | `signal=queue_backlog`, `queue=<name>` |
+| Signal                 | Where it fires                                                 | Tags                                   |
+| ---------------------- | -------------------------------------------------------------- | -------------------------------------- |
+| Unhandled 500s         | HTTP `onError`                                                 | —                                      |
+| Stripe webhook failure | `POST /api/billing/webhooks/stripe` failing                    | `signal=stripe_webhook`                |
+| Failed background job  | A job that exhausts all retries                                | `signal=job_failed`, `queue=<name>`    |
+| Queue backlog          | Waiting jobs ≥ `QUEUE_BACKLOG_THRESHOLD` (checked each minute) | `signal=queue_backlog`, `queue=<name>` |
 
 ### Set it up in Better Stack
 
@@ -270,6 +270,15 @@ Signals forwarded into Better Stack Errors:
    channel to each.
 
 `QUEUE_BACKLOG_THRESHOLD` tunes how many waiting jobs count as a backlog.
+
+### Scheduled maintenance
+
+Periodic tasks — the backlog check (every minute) and Stripe reconciliation
+(hourly, only when Stripe is configured) — run as **BullMQ job schedulers**
+consumed by the maintenance worker, not `setInterval`. A scheduled occurrence is
+processed by exactly one worker across the cluster, so running multiple server
+instances does not duplicate the work or the alerts. Schedules are registered in
+`server.ts`; the handlers live in `workers/maintenance.ts`.
 
 ### Failed jobs (dead-letter handling)
 

@@ -18,6 +18,21 @@ export class QueueService extends BaseService {
     return { queues };
   }
 
+  public async getBacklogged(input: { threshold: number }) {
+    const registered = this.context.queueHub.queues();
+
+    const backlogged = await Promise.all(
+      registered.map(async (entry) => ({
+        name: entry.name,
+        counts: await entry.queue.getCounts(),
+      })),
+    );
+
+    return backlogged.filter(
+      (entry) => entry.counts.waiting >= input.threshold,
+    );
+  }
+
   public async listFailed(input: { queue: string; page: number }) {
     const { queue } = this.findQueue(input.queue);
 

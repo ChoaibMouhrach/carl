@@ -15,9 +15,11 @@ import {
   type FailedJob,
   type ListFailedInput,
   type ListFailedResult,
+  type MaintenanceJob,
   type QueueConsumer,
   type QueueJobCounts,
   type RegisteredQueue,
+  type ScheduleJobOptions,
 } from "@server/lib/base-queue";
 import { BaseRateLimiter } from "@server/lib/base-rate-limiter";
 import { BaseStorage } from "@server/lib/base-storage";
@@ -82,6 +84,7 @@ interface TestJob<Input> {
 }
 
 export class TestQueue<Input> extends BaseQueue<Input> {
+  public waiting = 0;
   private consumer?: QueueConsumer<Input>;
   private process: (input: Input) => Promise<void>;
   private jobs = new Map<string, TestJob<Input>>();
@@ -111,6 +114,10 @@ export class TestQueue<Input> extends BaseQueue<Input> {
     await this.runJob(job);
   }
 
+  public override async schedule(
+    _options: ScheduleJobOptions<Input>,
+  ): Promise<void> {}
+
   public override async consume(consumer: QueueConsumer<Input>): Promise<void> {
     this.consumer = consumer;
   }
@@ -119,7 +126,7 @@ export class TestQueue<Input> extends BaseQueue<Input> {
     const failed = this.failedJobs().length;
 
     return {
-      waiting: 0,
+      waiting: this.waiting,
       active: 0,
       completed: this.jobs.size - failed,
       failed,
@@ -198,6 +205,7 @@ const toTestFailedJob = <Input>(job: TestJob<Input>): FailedJob => ({
 
 export class TestQueueHub extends BaseQueueHub {
   public email: TestQueue<EmailJob>;
+  public maintenance: TestQueue<MaintenanceJob>;
 
   public constructor(init: { mailer: BaseMailer }) {
     super();
@@ -205,6 +213,9 @@ export class TestQueueHub extends BaseQueueHub {
       process: async (input) => {
         await init.mailer.email(input);
       },
+    });
+    this.maintenance = new TestQueue<MaintenanceJob>({
+      process: async () => {},
     });
   }
 
@@ -258,6 +269,7 @@ class TestRateLimiter extends BaseRateLimiter {
 export class TestBilling extends BaseBilling {
   public override readonly provider = "stripe";
   public checkoutSessionRequests = 0;
+  public listSubscriptionIdsCalls = 0;
   public cancelledSubscriptionIds: string[] = [];
   public changedSubscriptions: Array<{
     billingInterval: "monthly" | "yearly";
@@ -400,6 +412,8 @@ export class TestBilling extends BaseBilling {
   }
 
   public override async listSubscriptionIds(): Promise<string[]> {
+    this.listSubscriptionIdsCalls += 1;
+
     if (this.providerSubscriptionIds.length > 0) {
       return this.providerSubscriptionIds;
     }
