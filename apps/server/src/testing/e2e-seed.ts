@@ -41,6 +41,46 @@ export interface SeededSessionCookie {
   value: string;
 }
 
+export const ensureE2EPlatformSetup = async (
+  config: SeedConfig,
+): Promise<void> => {
+  const checkResponse = await fetch(`${config.apiUrl}/api/platform-setup`);
+
+  if (!checkResponse.ok) {
+    throw new Error(`setup check failed (${checkResponse.status})`);
+  }
+
+  const check: unknown = await checkResponse.json();
+
+  if (
+    typeof check === "object" &&
+    check !== null &&
+    "setupDone" in check &&
+    check.setupDone === true
+  ) {
+    return;
+  }
+
+  const suffix = crypto.randomUUID();
+  const setupResponse = await fetch(`${config.apiUrl}/api/platform-setup`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: config.webOrigin,
+    },
+    body: JSON.stringify({
+      email: `e2e-admin-${suffix}@example.com`,
+      name: "E2E Administrator",
+      password: `E2E-${suffix}@Aa1`,
+    }),
+  });
+
+  if (!setupResponse.ok) {
+    const body = await setupResponse.text();
+    throw new Error(`platform setup failed (${setupResponse.status}): ${body}`);
+  }
+};
+
 export const resetE2EAuthRateLimits = async (
   config: SeedConfig,
 ): Promise<void> => {
@@ -301,7 +341,7 @@ export const createSessionCookie = async (
 
     return {
       name: "better-auth.session_token",
-      value: encodeURIComponent(`${token}.${signature}`),
+      value: `${token}.${signature}`,
     };
   } finally {
     await connection.pool.end();

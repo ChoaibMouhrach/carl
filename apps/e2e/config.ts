@@ -18,7 +18,7 @@ const WEB_ORIGIN = process.env.CLIENT_URL ?? "http://localhost:5173";
 
 export const CLIENT_URL = process.env.E2E_BASE_URL ?? WEB_ORIGIN;
 
-const API_URL = process.env.VITE_API_URL ?? "http://localhost:3002";
+export const API_URL = process.env.VITE_API_URL ?? "http://localhost:3002";
 
 export const seedConfig = (): SeedConfig => ({
   apiUrl: API_URL,
