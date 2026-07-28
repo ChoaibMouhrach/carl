@@ -13,6 +13,7 @@ import {
   getEmailVerificationStatus,
   getPasswordResetToken,
   getUserEmail,
+  resetE2EAuthRateLimits,
   userExists,
   type CreateOnboardedUserInput,
   type CreateVerifiedUserInput,
@@ -60,7 +61,16 @@ const createUserInput = (
   name: input?.name ?? faker.person.fullName(),
 });
 
-export const test = base.extend<{ seed: Seed }>({
+export const test = base.extend<{ seed: Seed; resetRateLimits: void }>({
+  // Auth endpoints are IP-rate-limited; clear the budget before every test so
+  // the shared localhost IP does not leak limits between tests.
+  resetRateLimits: [
+    async ({}, use) => {
+      await resetE2EAuthRateLimits(seedConfig());
+      await use();
+    },
+    { auto: true },
+  ],
   seed: async ({}, use) => {
     const config = seedConfig();
 
