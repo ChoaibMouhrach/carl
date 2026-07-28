@@ -1,4 +1,5 @@
 import { and, desc, eq, like } from "drizzle-orm";
+import { signJWT } from "better-auth/crypto";
 import { initDB } from "../infrastructure/database/client";
 import {
   userTable,
@@ -9,6 +10,7 @@ const RESET_PASSWORD_PREFIX = "reset-password:";
 
 export interface SeedConfig {
   apiUrl: string;
+  authSecret: string;
   databaseUrl: string;
   webOrigin: string;
 }
@@ -24,6 +26,46 @@ export interface SeededUser {
   email: string;
   password: string;
 }
+
+export const createEmailVerificationUrl = async (
+  config: SeedConfig,
+  input: { callbackUrl: string; email: string },
+): Promise<string> => {
+  const token = await signJWT(
+    { email: input.email.toLowerCase() },
+    config.authSecret,
+  );
+  const verificationUrl = new URL("/api/auth/verify-email", config.apiUrl);
+  verificationUrl.searchParams.set("token", token);
+  verificationUrl.searchParams.set("callbackURL", input.callbackUrl);
+
+  return verificationUrl.toString();
+};
+
+export const getEmailVerificationStatus = async (
+  config: SeedConfig,
+  email: string,
+): Promise<boolean> => {
+  const connection = await initDB({
+    connectionCredentials: config.databaseUrl,
+  });
+
+  try {
+    const [user] = await connection.db
+      .select({ emailVerified: userTable.emailVerified })
+      .from(userTable)
+      .where(eq(userTable.email, email))
+      .limit(1);
+
+    if (!user) {
+      throw new Error(`no user for ${email}`);
+    }
+
+    return user.emailVerified;
+  } finally {
+    await connection.pool.end();
+  }
+};
 
 export const createVerifiedUser = async (
   config: SeedConfig,

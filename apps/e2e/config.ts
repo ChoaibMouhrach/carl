@@ -22,6 +22,7 @@ const API_URL = process.env.VITE_API_URL ?? "http://localhost:3002";
 
 export const seedConfig = (): SeedConfig => ({
   apiUrl: API_URL,
+  authSecret: required("BETTER_AUTH_SECRET"),
   webOrigin: WEB_ORIGIN,
   databaseUrl: `postgresql://${required("POSTGRES_USER")}:${encodeURIComponent(
     required("POSTGRES_PASS"),
