@@ -1,0 +1,37 @@
+name: CI setup
+description: Install Bun, write the CI env, start service containers, and install dependencies.
+
+runs:
+  using: composite
+  steps:
+    - uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: 1.3.5
+
+    # compose.yml interpolates these, so the env must exist before it starts.
+    - name: Create test env
+      shell: bash
+      run: cp .env.ci .env
+
+    - name: Start containers
+      shell: bash
+      run: docker compose --env-file .env up -d
+
+    - name: Wait for services
+      shell: bash
+      run: |
+        for i in $(seq 1 30); do
+          pg_ready=$(docker exec saas-template-postgres pg_isready -U postgres 2>/dev/null && echo ok || true)
+          redis_ready=$(docker exec saas-template-redis redis-cli -a test-redis-password ping 2>/dev/null || true)
+          if [ -n "$pg_ready" ] && echo "$redis_ready" | grep -q PONG; then
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "Services did not become ready" >&2
+        docker compose logs
+        exit 1
+
+    - name: Install dependencies
+      shell: bash
+      run: bun install --frozen-lockfile
