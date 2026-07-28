@@ -5,8 +5,10 @@ import { UserApi } from "./user";
 import { BillingApi } from "./billing";
 import { NotificationApi } from "./notification";
 import { QueueApi } from "./queue";
+import { AccountApi } from "./account";
 
 class Api {
+  public account = new AccountApi();
   public auth = new AuthApi();
   public platformSetup = new PlatformSetupApi();
   public storage = new StorageApi();

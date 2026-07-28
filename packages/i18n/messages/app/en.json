@@ -18,6 +18,10 @@
       "password": "Password",
       "forgotPassword": "Forgot password?",
       "submit": "Sign In",
+      "resendVerification": "Send again",
+      "verificationSent": "Verification email sent",
+      "verificationSentDescription": "We sent a new verification link to {{email}}. Check your inbox.",
+      "verificationResent": "A new verification link was sent.",
       "createAccount": "Create an account"
     },
     "signUp": {
@@ -137,7 +141,8 @@
     "email": "Enter a valid email address",
     "minLength": "Must be at least {{min}} characters",
     "maxLength": "Must be at most {{max}} characters",
-    "passwordsMatch": "Passwords don't match"
+    "passwordsMatch": "Passwords don't match",
+    "accountDeletionConfirmation": "Type \"confirm\" to continue"
   },
   "settings": {
     "title": "Settings",
@@ -174,6 +179,18 @@
     "language": {
       "title": "Language",
       "description": "Choose the language used across the app."
+    },
+    "deleteAccount": {
+      "title": "Delete account",
+      "description": "Permanently delete your account and all associated data.",
+      "trigger": "Delete account",
+      "dialog": {
+        "title": "Delete your account?",
+        "description": "This action cannot be undone. Type \"{{confirmation}}\" to continue.",
+        "label": "Confirmation",
+        "cancel": "Cancel",
+        "confirm": "Permanently delete account"
+      }
     }
   },
   "password": {
@@ -249,7 +266,7 @@
     "permissionDenied": "You don't have permission to do that.",
     "setupAlreadyCompleted": "Setup has already been completed.",
     "invalidCredentials": "Incorrect email or password.",
-    "emailNotVerified": "Your email address hasn't been verified yet. Please sign up again to receive a new verification link.",
+    "emailNotVerified": "Your email address hasn't been verified yet.",
     "passwordResetInvalid": "This password reset link is invalid or has already been used.",
     "passwordResetExpired": "This password reset link has expired. Please request a new one.",
     "sessionInvalid": "Your session is invalid. Please sign in again.",

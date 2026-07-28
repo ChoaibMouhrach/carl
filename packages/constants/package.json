@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "exports": {
+    "./auth": "./src/auth.ts",
     "./billing": "./src/billing.ts",
     "./errors": "./src/errors.ts",
     "./notifications": "./src/notifications.ts"

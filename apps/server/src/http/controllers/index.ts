@@ -6,8 +6,10 @@ import { userController } from "./user";
 import { billingController } from "./billing";
 import { notificationController } from "./notification";
 import { queueController } from "./queue";
+import { accountController } from "./account";
 
 export const controllers = new Hono<AppContext>()
+  .route("/account", accountController)
   .route("/platform-setup", platformSetupController)
   .route("/storage", storageController)
   .route("/billing", billingController)

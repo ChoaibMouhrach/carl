@@ -11,6 +11,7 @@ import { getRouteApi } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { ChangeEmail } from "./change-email";
 import { SessionManagement } from "./session-management";
+import { DeleteAccount } from "./delete-account";
 
 const route = getRouteApi("/user-layout");
 
@@ -53,6 +54,18 @@ export const Account = () => {
       </Card>
 
       <LanguageCard />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("settings.deleteAccount.title")}</CardTitle>
+          <CardDescription>
+            {t("settings.deleteAccount.description")}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DeleteAccount />
+        </CardContent>
+      </Card>
     </>
   );
 };

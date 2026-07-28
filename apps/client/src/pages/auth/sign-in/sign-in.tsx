@@ -12,11 +12,23 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { authClient, unwrapAuthResponse } from "@/lib/auth-client";
+import {
+  AuthClientError,
+  authClient,
+  unwrapAuthResponse,
+} from "@/lib/auth-client";
 import { onError } from "@/lib/base-api";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Separator } from "@repo/ui/components/ui/separator";
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+} from "@repo/ui/components/ui/alert";
+import { MailCheck } from "lucide-react";
+import { toast } from "sonner";
 
 const signInSchema = z.object({
   email: z.email().max(255),
@@ -47,8 +59,36 @@ export const SignIn = () => {
       );
     },
     onSuccess: () => navigate({ to: "/dashboard" }),
+    onError: (error) => {
+      if (
+        !(error instanceof AuthClientError) ||
+        error.code !== "EMAIL_NOT_VERIFIED"
+      ) {
+        onError(error);
+      }
+    },
+  });
+
+  const resendVerification = useMutation({
+    mutationFn: async () => {
+      const email = form.getValues("email");
+
+      return await unwrapAuthResponse(
+        authClient.sendVerificationEmail({
+          callbackURL: `${window.location.origin}/app/email-verified?email=${encodeURIComponent(email)}`,
+          email,
+        }),
+      );
+    },
+    onSuccess: () => {
+      toast.success(t("auth.signIn.verificationResent"));
+    },
     onError,
   });
+
+  const needsEmailVerification =
+    signIn.error instanceof AuthClientError &&
+    signIn.error.code === "EMAIL_NOT_VERIFIED";
 
   const onSubmit = (output: Output) => {
     signIn.mutate(output);
@@ -100,6 +140,30 @@ export const SignIn = () => {
         <Button size="lg" type="submit" disabled={signIn.isPending}>
           {signIn.isPending && <Spinner />} {t("auth.signIn.submit")}
         </Button>
+
+        {needsEmailVerification && (
+          <Alert>
+            <MailCheck />
+            <AlertTitle>{t("auth.signIn.verificationSent")}</AlertTitle>
+            <AlertDescription>
+              {t("auth.signIn.verificationSentDescription", {
+                email: form.getValues("email"),
+              })}
+            </AlertDescription>
+            <AlertAction>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={resendVerification.isPending}
+                onClick={() => resendVerification.mutate()}
+              >
+                {resendVerification.isPending && <Spinner />}
+                {t("auth.signIn.resendVerification")}
+              </Button>
+            </AlertAction>
+          </Alert>
+        )}
 
         <div className="flex items-center gap-4 text-muted-foreground">
           <Separator className="shrink flex-1" />

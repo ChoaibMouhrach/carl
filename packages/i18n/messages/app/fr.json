@@ -18,6 +18,10 @@
       "password": "Mot de passe",
       "forgotPassword": "Mot de passe oublié ?",
       "submit": "Se connecter",
+      "resendVerification": "Renvoyer",
+      "verificationSent": "E-mail de vérification envoyé",
+      "verificationSentDescription": "Nous avons envoyé un nouveau lien de vérification à {{email}}. Consultez votre boîte de réception.",
+      "verificationResent": "Un nouveau lien de vérification a été envoyé.",
       "createAccount": "Créer un compte"
     },
     "signUp": {
@@ -137,7 +141,8 @@
     "email": "Saisissez une adresse e-mail valide",
     "minLength": "Doit contenir au moins {{min}} caractères",
     "maxLength": "Ne doit pas dépasser {{max}} caractères",
-    "passwordsMatch": "Les mots de passe ne correspondent pas"
+    "passwordsMatch": "Les mots de passe ne correspondent pas",
+    "accountDeletionConfirmation": "Saisissez « confirm » pour continuer"
   },
   "settings": {
     "title": "Paramètres",
@@ -173,7 +178,19 @@
     },
     "language": {
       "title": "Langue",
-      "description": "Choisissez la langue utilisée dans l'application."
+      "description": "Choisissez la langue utilisée dans l’application."
+    },
+    "deleteAccount": {
+      "title": "Supprimer le compte",
+      "description": "Supprimez définitivement votre compte et toutes les données associées.",
+      "trigger": "Supprimer le compte",
+      "dialog": {
+        "title": "Supprimer votre compte ?",
+        "description": "Cette action est irréversible. Saisissez « {{confirmation}} » pour continuer.",
+        "label": "Confirmation",
+        "cancel": "Annuler",
+        "confirm": "Supprimer définitivement le compte"
+      }
     }
   },
   "password": {

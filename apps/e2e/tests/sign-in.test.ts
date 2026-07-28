@@ -9,5 +9,5 @@ test("signs in a verified user", async ({ page, seed }) => {
 
   await page.getByRole("button", { name: "Sign In" }).click();
 
-  await expect(page).toHaveURL(/\/app\/dashboard/);
+  await expect(page).toHaveURL(/\/app\/user\/select-plan$/);
 });

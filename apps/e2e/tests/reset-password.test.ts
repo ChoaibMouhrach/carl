@@ -39,5 +39,5 @@ test("resets the password and signs in with the new one", async ({
   await page.locator("#password").fill(newPassword);
   await page.getByRole("button", { name: "Sign In" }).click();
 
-  await expect(page).toHaveURL(/\/app\/dashboard/);
+  await expect(page).toHaveURL(/\/app\/user\/select-plan$/);
 });

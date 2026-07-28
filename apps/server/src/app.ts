@@ -51,6 +51,13 @@ export const initApp = async (params: initAppParams) => {
       (context) => params.context.auth.handler(context.req.raw),
     )
 
+    .post(
+      "/api/auth/send-verification-email",
+      authEmailRateLimit,
+      authIpRateLimit,
+      (context) => params.context.auth.handler(context.req.raw),
+    )
+
     .on(["POST", "GET"], "/api/auth/*", (context) =>
       params.context.auth.handler(context.req.raw),
     )

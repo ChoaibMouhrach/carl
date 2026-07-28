@@ -132,6 +132,53 @@ test("auth email limits remain atomic during concurrent credential stuffing", as
   });
 });
 
+test("verification resend uses the shared Redis email limit", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const env = initENV();
+    const firstLimiter = createLimiter();
+    const secondLimiter = createLimiter();
+    const firstApp = await initApp({
+      context: createContext(db, pool, env, undefined, undefined, firstLimiter),
+    });
+    const secondApp = await initApp({
+      context: createContext(
+        db,
+        pool,
+        env,
+        undefined,
+        undefined,
+        secondLimiter,
+      ),
+    });
+    const request = {
+      body: JSON.stringify({
+        callbackURL: `${env.CLIENT_URL}/app/email-verified`,
+        email: "resend-limit@example.com",
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    };
+
+    for (let index = 0; index < 5; index += 1) {
+      const response = await firstApp.request(
+        "/api/auth/send-verification-email",
+        request,
+      );
+
+      expect(response.status).toBe(200);
+    }
+
+    const limited = await secondApp.request(
+      "/api/auth/send-verification-email",
+      request,
+    );
+
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("RateLimit")).not.toBeNull();
+    expect(limited.headers.get("Retry-After")).not.toBeNull();
+  });
+});
+
 test("auth email limits normalize casing before creating a key", async () => {
   await withTestDatabase(async ({ context }) => {
     context.rateLimiter = createLimiter();

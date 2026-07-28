@@ -62,6 +62,7 @@ export const createAuth = (input: {
       },
     },
     emailVerification: {
+      sendOnSignIn: true,
       sendVerificationEmail: async ({ user, url }) => {
         const html = await renderVerifyEmail({
           url,

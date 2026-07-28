@@ -18,6 +18,10 @@
       "password": "Contraseña",
       "forgotPassword": "¿Olvidaste tu contraseña?",
       "submit": "Iniciar sesión",
+      "resendVerification": "Enviar de nuevo",
+      "verificationSent": "Correo de verificación enviado",
+      "verificationSentDescription": "Enviamos un nuevo enlace de verificación a {{email}}. Revisa tu bandeja de entrada.",
+      "verificationResent": "Se envió un nuevo enlace de verificación.",
       "createAccount": "Crear una cuenta"
     },
     "signUp": {
@@ -137,7 +141,8 @@
     "email": "Introduce un correo electrónico válido",
     "minLength": "Debe tener al menos {{min}} caracteres",
     "maxLength": "No debe superar los {{max}} caracteres",
-    "passwordsMatch": "Las contraseñas no coinciden"
+    "passwordsMatch": "Las contraseñas no coinciden",
+    "accountDeletionConfirmation": "Escribe «confirm» para continuar"
   },
   "settings": {
     "title": "Configuración",
@@ -174,6 +179,18 @@
     "language": {
       "title": "Idioma",
       "description": "Elige el idioma utilizado en la aplicación."
+    },
+    "deleteAccount": {
+      "title": "Eliminar cuenta",
+      "description": "Elimina permanentemente tu cuenta y todos los datos asociados.",
+      "trigger": "Eliminar cuenta",
+      "dialog": {
+        "title": "¿Eliminar tu cuenta?",
+        "description": "Esta acción no se puede deshacer. Escribe «{{confirmation}}» para continuar.",
+        "label": "Confirmación",
+        "cancel": "Cancelar",
+        "confirm": "Eliminar cuenta permanentemente"
+      }
     }
   },
   "password": {

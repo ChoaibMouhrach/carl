@@ -54,6 +54,17 @@ test("email verification completes through the callback and resends safely", asy
     expect(unverifiedUsers[0]?.emailVerified).toBe(false);
     expect(mailer.emails).toHaveLength(1);
 
+    const unverifiedSignIn = await app.request("/api/auth/sign-in/email", {
+      body: JSON.stringify({
+        email,
+        password: "password-that-is-long-enough",
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    expect(unverifiedSignIn.status).toBe(403);
+    expect(mailer.emails).toHaveLength(2);
+
     const invalidVerification = await app.request(
       `/api/auth/verify-email?token=invalid&callbackURL=${encodeURIComponent(callbackURL)}`,
       { redirect: "manual" },
@@ -75,9 +86,9 @@ test("email verification completes through the callback and resends safely", asy
       method: "POST",
     });
     expect(resend.status).toBe(200);
-    expect(mailer.emails).toHaveLength(2);
+    expect(mailer.emails).toHaveLength(3);
 
-    const verificationEmail = mailer.emails[1];
+    const verificationEmail = mailer.emails[2];
     if (!verificationEmail) {
       throw new Error("Expected the resent verification email.");
     }
@@ -106,6 +117,7 @@ test("email verification completes through the callback and resends safely", asy
     expect(verifiedUsers).toHaveLength(1);
     expect(verifiedUsers[0]?.emailVerified).toBe(true);
 
+    const emailsBeforeSignIn = mailer.emails.length;
     const signIn = await app.request("/api/auth/sign-in/email", {
       body: JSON.stringify({
         email,
@@ -116,6 +128,7 @@ test("email verification completes through the callback and resends safely", asy
     });
     expect(signIn.status).toBe(200);
     expect(signIn.headers.get("set-cookie")).not.toBeNull();
+    expect(mailer.emails).toHaveLength(emailsBeforeSignIn);
 
     const emailCount = mailer.emails.length;
     const unknownResend = await app.request(
