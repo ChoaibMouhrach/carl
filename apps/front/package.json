@@ -5,8 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "logo:png": "bun run scripts/generate-logo.ts",
-    "build": "bun run logo:png && next build",
+    "og:png": "bun run scripts/generate-og.ts",
+    "build": "bun run logo:png && bun run og:png && next build",
     "start": "next start",
+    "typecheck": "next typegen && tsc --noEmit",
     "lint": "eslint"
   },
   "dependencies": {

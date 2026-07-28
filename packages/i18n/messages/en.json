@@ -1,7 +1,8 @@
 {
   "metadata": {
     "title": "SaaS Template — Build what only you can build",
-    "description": "A clean, typed foundation for building focused SaaS products."
+    "description": "A clean, typed foundation for building focused SaaS products.",
+    "siteName": "SaaS Template"
   },
   "nav": {
     "home": "SaaS Template home",
