@@ -1,4 +1,5 @@
 import { test as base } from "@playwright/test";
+import { faker } from "@faker-js/faker";
 import {
   createVerifiedUser,
   getPasswordResetToken,
@@ -14,20 +15,18 @@ interface Seed {
   getPasswordResetToken: (email: string) => Promise<string>;
 }
 
-const uniqueEmail = (): string =>
-  `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
-
 export const test = base.extend<{ seed: Seed }>({
   seed: async ({}, use) => {
     const config = seedConfig();
 
     await use({
-      createVerifiedUser: (input) =>
-        createVerifiedUser(config, {
-          email: input?.email ?? uniqueEmail(),
+      createVerifiedUser: (input) => {
+        return createVerifiedUser(config, {
+          email: input?.email ?? `e2e-${faker.string.uuid()}@example.com`,
           password: input?.password ?? "Test1234@@",
-          name: input?.name,
-        }),
+          name: input?.name ?? faker.person.fullName(),
+        });
+      },
       getPasswordResetToken: (email) => getPasswordResetToken(config, email),
     });
   },
