@@ -93,8 +93,12 @@ jobs:
         working-directory: apps/e2e
         run: bunx playwright install --with-deps chromium
 
-      # The server auto-migrates on boot and must run from its own dir so its
-      # dotenv path (../../.env) and migrations folder resolve.
+      - name: Migrate database
+        working-directory: apps/server
+        run: bun run db:migrate
+
+      # The server must run from its own directory so its dotenv path
+      # (../../.env) resolves.
       - name: Start API server
         working-directory: apps/server
         run: |
