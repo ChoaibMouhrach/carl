@@ -1,7 +1,7 @@
 import { and, desc, eq, like } from "drizzle-orm";
 import { makeSignature, signJWT } from "better-auth/crypto";
 import IORedis from "ioredis";
-import { initDB } from "../infrastructure/database/client";
+import { initDB, type DB } from "../infrastructure/database/client";
 import {
   billingCustomersTable,
   sessionTable,
@@ -11,6 +11,40 @@ import {
 } from "../infrastructure/database/schemas";
 
 const RESET_PASSWORD_PREFIX = "reset-password:";
+
+const withDb = async <T>(
+  config: SeedConfig,
+  run: (db: DB) => Promise<T>,
+): Promise<T> => {
+  const connection = await initDB({
+    connectionCredentials: config.databaseUrl,
+  });
+
+  try {
+    return await run(connection.db);
+  } finally {
+    await connection.pool.end();
+  }
+};
+
+const requireUserId = async (db: DB, email: string): Promise<string> => {
+  const [user] = await db
+    .select({ id: userTable.id })
+    .from(userTable)
+    .where(eq(userTable.email, email))
+    .limit(1);
+
+  if (!user) {
+    throw new Error(`no user for ${email}`);
+  }
+
+  return user.id;
+};
+
+const jsonHeaders = (config: SeedConfig): Record<string, string> => ({
+  "Content-Type": "application/json",
+  Origin: config.webOrigin,
+});
 
 export interface SeedConfig {
   apiUrl: string;
@@ -64,10 +98,7 @@ export const ensureE2EPlatformSetup = async (
   const suffix = crypto.randomUUID();
   const setupResponse = await fetch(`${config.apiUrl}/api/platform-setup`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Origin: config.webOrigin,
-    },
+    headers: jsonHeaders(config),
     body: JSON.stringify({
       email: `e2e-admin-${suffix}@example.com`,
       name: "E2E Administrator",
@@ -152,13 +183,9 @@ export const createEmailChangeUrl = async (
 export const getEmailVerificationStatus = async (
   config: SeedConfig,
   email: string,
-): Promise<boolean> => {
-  const connection = await initDB({
-    connectionCredentials: config.databaseUrl,
-  });
-
-  try {
-    const [user] = await connection.db
+): Promise<boolean> =>
+  withDb(config, async (db) => {
+    const [user] = await db
       .select({ emailVerified: userTable.emailVerified })
       .from(userTable)
       .where(eq(userTable.email, email))
@@ -169,10 +196,7 @@ export const getEmailVerificationStatus = async (
     }
 
     return user.emailVerified;
-  } finally {
-    await connection.pool.end();
-  }
-};
+  });
 
 export const createVerifiedUser = async (
   config: SeedConfig,
@@ -180,10 +204,7 @@ export const createVerifiedUser = async (
 ): Promise<SeededUser> => {
   const response = await fetch(`${config.apiUrl}/api/auth/sign-up/email`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Origin: config.webOrigin,
-    },
+    headers: jsonHeaders(config),
     body: JSON.stringify({
       email: input.email,
       name: input.name ?? input.email,
@@ -196,12 +217,8 @@ export const createVerifiedUser = async (
     throw new Error(`sign-up failed (${response.status}): ${body}`);
   }
 
-  const connection = await initDB({
-    connectionCredentials: config.databaseUrl,
-  });
-
-  try {
-    const [row] = await connection.db
+  return withDb(config, async (db) => {
+    const [row] = await db
       .update(userTable)
       .set({ emailVerified: true })
       .where(eq(userTable.email, input.email))
@@ -212,9 +229,7 @@ export const createVerifiedUser = async (
     }
 
     return { userId: row.userId, email: input.email, password: input.password };
-  } finally {
-    await connection.pool.end();
-  }
+  });
 };
 
 export const createVerifiedAdmin = async (
@@ -222,20 +237,15 @@ export const createVerifiedAdmin = async (
   input: CreateVerifiedUserInput,
 ): Promise<SeededUser> => {
   const user = await createVerifiedUser(config, input);
-  const connection = await initDB({
-    connectionCredentials: config.databaseUrl,
-  });
 
-  try {
-    await connection.db
+  return withDb(config, async (db) => {
+    await db
       .update(userTable)
       .set({ role: "admin" })
       .where(eq(userTable.id, user.userId));
 
     return user;
-  } finally {
-    await connection.pool.end();
-  }
+  });
 };
 
 export const createOnboardedUser = async (
@@ -243,13 +253,10 @@ export const createOnboardedUser = async (
   input: CreateOnboardedUserInput,
 ): Promise<SeededUser> => {
   const user = await createVerifiedUser(config, input);
-  const connection = await initDB({
-    connectionCredentials: config.databaseUrl,
-  });
   const suffix = crypto.randomUUID();
 
-  try {
-    const [customer] = await connection.db
+  return withDb(config, async (db) => {
+    const [customer] = await db
       .insert(billingCustomersTable)
       .values({
         provider: "e2e",
@@ -264,7 +271,7 @@ export const createOnboardedUser = async (
       throw new Error(`failed to create billing customer for ${input.email}`);
     }
 
-    await connection.db.insert(subscriptionsTable).values({
+    await db.insert(subscriptionsTable).values({
       billingCustomerId: customer.billingCustomerId,
       billingInterval: "monthly",
       planKey: "starter",
@@ -274,67 +281,38 @@ export const createOnboardedUser = async (
     });
 
     return user;
-  } finally {
-    await connection.pool.end();
-  }
+  });
 };
 
 export const getActiveSessionCount = async (
   config: SeedConfig,
   email: string,
-): Promise<number> => {
-  const connection = await initDB({
-    connectionCredentials: config.databaseUrl,
-  });
+): Promise<number> =>
+  withDb(config, async (db) => {
+    const userId = await requireUserId(db, email);
 
-  try {
-    const [user] = await connection.db
-      .select({ id: userTable.id })
-      .from(userTable)
-      .where(eq(userTable.email, email))
-      .limit(1);
-
-    if (!user) {
-      throw new Error(`no user for ${email}`);
-    }
-
-    const sessions = await connection.db
+    const sessions = await db
       .select({ id: sessionTable.id })
       .from(sessionTable)
-      .where(eq(sessionTable.userId, user.id));
+      .where(eq(sessionTable.userId, userId));
 
     return sessions.length;
-  } finally {
-    await connection.pool.end();
-  }
-};
+  });
 
 export const createSessionCookie = async (
   config: SeedConfig,
   input: { email: string; userAgent?: string },
-): Promise<SeededSessionCookie> => {
-  const connection = await initDB({
-    connectionCredentials: config.databaseUrl,
-  });
-
-  try {
-    const [user] = await connection.db
-      .select({ id: userTable.id })
-      .from(userTable)
-      .where(eq(userTable.email, input.email))
-      .limit(1);
-
-    if (!user) {
-      throw new Error(`no user for ${input.email}`);
-    }
+): Promise<SeededSessionCookie> =>
+  withDb(config, async (db) => {
+    const userId = await requireUserId(db, input.email);
 
     const token = crypto.randomUUID();
-    await connection.db.insert(sessionTable).values({
+    await db.insert(sessionTable).values({
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000),
       id: crypto.randomUUID(),
       token,
       userAgent: input.userAgent,
-      userId: user.id,
+      userId,
     });
 
     const signature = await makeSignature(token, config.authSecret);
@@ -343,21 +321,14 @@ export const createSessionCookie = async (
       name: "better-auth.session_token",
       value: `${token}.${signature}`,
     };
-  } finally {
-    await connection.pool.end();
-  }
-};
+  });
 
 export const getUserEmail = async (
   config: SeedConfig,
   userId: string,
-): Promise<string> => {
-  const connection = await initDB({
-    connectionCredentials: config.databaseUrl,
-  });
-
-  try {
-    const [user] = await connection.db
+): Promise<string> =>
+  withDb(config, async (db) => {
+    const [user] = await db
       .select({ email: userTable.email })
       .from(userTable)
       .where(eq(userTable.id, userId))
@@ -368,57 +339,35 @@ export const getUserEmail = async (
     }
 
     return user.email;
-  } finally {
-    await connection.pool.end();
-  }
-};
+  });
 
 export const userExists = async (
   config: SeedConfig,
   userId: string,
-): Promise<boolean> => {
-  const connection = await initDB({
-    connectionCredentials: config.databaseUrl,
-  });
-
-  try {
-    const [user] = await connection.db
+): Promise<boolean> =>
+  withDb(config, async (db) => {
+    const [user] = await db
       .select({ id: userTable.id })
       .from(userTable)
       .where(eq(userTable.id, userId))
       .limit(1);
 
     return Boolean(user);
-  } finally {
-    await connection.pool.end();
-  }
-};
+  });
 
 export const getPasswordResetToken = async (
   config: SeedConfig,
   email: string,
-): Promise<string> => {
-  const connection = await initDB({
-    connectionCredentials: config.databaseUrl,
-  });
+): Promise<string> =>
+  withDb(config, async (db) => {
+    const userId = await requireUserId(db, email);
 
-  try {
-    const [user] = await connection.db
-      .select({ id: userTable.id })
-      .from(userTable)
-      .where(eq(userTable.email, email))
-      .limit(1);
-
-    if (!user) {
-      throw new Error(`no user for ${email}`);
-    }
-
-    const [verification] = await connection.db
+    const [verification] = await db
       .select({ identifier: verificationTable.identifier })
       .from(verificationTable)
       .where(
         and(
-          eq(verificationTable.value, user.id),
+          eq(verificationTable.value, userId),
           like(verificationTable.identifier, `${RESET_PASSWORD_PREFIX}%`),
         ),
       )
@@ -430,7 +379,4 @@ export const getPasswordResetToken = async (
     }
 
     return verification.identifier.slice(RESET_PASSWORD_PREFIX.length);
-  } finally {
-    await connection.pool.end();
-  }
-};
+  });
