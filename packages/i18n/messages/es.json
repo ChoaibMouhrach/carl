@@ -1,7 +1,8 @@
 {
   "metadata": {
     "title": "SaaS Template — Crea lo que solo tú puedes crear",
-    "description": "Una base limpia y tipada para crear productos SaaS enfocados."
+    "description": "Una base limpia y tipada para crear productos SaaS enfocados.",
+    "siteName": "SaaS Template"
   },
   "nav": {
     "home": "Inicio de SaaS Template",
