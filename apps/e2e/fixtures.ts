@@ -5,12 +5,15 @@ import {
   createEmailVerificationUrl,
   createOnboardedUser,
   createSessionCookie,
+  createUnverifiedUser,
+  createUsers,
   createVerifiedAdmin,
   createVerifiedUser,
   getActiveSessionCount,
   getEmailVerificationStatus,
   getPasswordResetToken,
   getUserEmail,
+  resetE2EAuthRateLimits,
   userExists,
   type CreateOnboardedUserInput,
   type CreateVerifiedUserInput,
@@ -38,6 +41,10 @@ interface Seed {
   createVerifiedAdmin: (
     input?: Partial<CreateVerifiedUserInput>,
   ) => Promise<SeededUser>;
+  createUnverifiedUser: (
+    input?: Partial<CreateVerifiedUserInput>,
+  ) => Promise<SeededUser>;
+  createUsers: (emails: string[]) => Promise<void>;
   createEmailVerificationUrl: (email: string) => Promise<string>;
   getActiveSessionCount: (email: string) => Promise<number>;
   getEmailVerificationStatus: (email: string) => Promise<boolean>;
@@ -54,7 +61,16 @@ const createUserInput = (
   name: input?.name ?? faker.person.fullName(),
 });
 
-export const test = base.extend<{ seed: Seed }>({
+export const test = base.extend<{ seed: Seed; resetRateLimits: void }>({
+  // Auth endpoints are IP-rate-limited; clear the budget before every test so
+  // the shared localhost IP does not leak limits between tests.
+  resetRateLimits: [
+    async ({}, use) => {
+      await resetE2EAuthRateLimits(seedConfig());
+      await use();
+    },
+    { auto: true },
+  ],
   seed: async ({}, use) => {
     const config = seedConfig();
 
@@ -94,6 +110,10 @@ export const test = base.extend<{ seed: Seed }>({
       createVerifiedUser: (input) => {
         return createVerifiedUser(config, createUserInput(input));
       },
+      createUnverifiedUser: (input) => {
+        return createUnverifiedUser(config, createUserInput(input));
+      },
+      createUsers: (emails) => createUsers(config, emails),
       getActiveSessionCount: (email) => {
         return getActiveSessionCount(config, email);
       },

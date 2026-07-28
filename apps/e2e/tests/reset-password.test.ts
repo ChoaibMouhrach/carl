@@ -41,3 +41,20 @@ test("resets the password and signs in with the new one", async ({
 
   await expect(page).toHaveURL(/\/app\/user\/select-plan$/);
 });
+
+test("rejects an invalid password reset token", async ({ page }) => {
+  await page.goto("/app/reset-password?token=invalid-token");
+
+  await page.getByLabel("Password", { exact: true }).fill("NewPassw0rd!23");
+  await page.getByLabel("Confirm password").fill("NewPassw0rd!23");
+
+  const resetResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/auth/reset-password") &&
+      response.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: "Reset password" }).click();
+  expect((await resetResponse).status()).not.toBe(200);
+
+  await expect(page).toHaveURL(/\/app\/reset-password/);
+});
