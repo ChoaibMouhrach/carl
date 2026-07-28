@@ -20,8 +20,12 @@ export const Users = () => {
     queryFn: () => api.user.list(searchParams),
     placeholderData: (phd) => phd,
   });
-  const invalidate = async () =>
-    await queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+
+  const invalidate = async () => {
+    return await queryClient.invalidateQueries({
+      queryKey: ["admin", "users"],
+    });
+  };
 
   const resendVerification = useMutation({
     mutationFn: (userId: string) => api.user.resendVerification({ userId }),
@@ -31,6 +35,7 @@ export const Users = () => {
       await invalidate();
     },
   });
+
   const resendPasswordReset = useMutation({
     mutationFn: (userId: string) => api.user.resendPasswordReset({ userId }),
     onError,
@@ -40,8 +45,13 @@ export const Users = () => {
     },
   });
 
-  if (users.isPending) return <Spinner />;
-  if (users.isError) throw users.error;
+  if (users.isPending) {
+    return <Spinner />;
+  }
+
+  if (users.isError) {
+    throw users.error;
+  }
 
   return (
     <Card>
