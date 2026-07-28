@@ -301,7 +301,7 @@ export const createSessionCookie = async (
 
     return {
       name: "better-auth.session_token",
-      value: encodeURIComponent(`${token}.${signature}`),
+      value: `${token}.${signature}`,
     };
   } finally {
     await connection.pool.end();
