@@ -198,10 +198,10 @@ export const getEmailVerificationStatus = async (
     return user.emailVerified;
   });
 
-export const createVerifiedUser = async (
+const signUp = async (
   config: SeedConfig,
   input: CreateVerifiedUserInput,
-): Promise<SeededUser> => {
+): Promise<void> => {
   const response = await fetch(`${config.apiUrl}/api/auth/sign-up/email`, {
     method: "POST",
     headers: jsonHeaders(config),
@@ -216,6 +216,26 @@ export const createVerifiedUser = async (
     const body = await response.text();
     throw new Error(`sign-up failed (${response.status}): ${body}`);
   }
+};
+
+export const createUnverifiedUser = async (
+  config: SeedConfig,
+  input: CreateVerifiedUserInput,
+): Promise<SeededUser> => {
+  await signUp(config, input);
+
+  return withDb(config, async (db) => {
+    const userId = await requireUserId(db, input.email);
+
+    return { userId, email: input.email, password: input.password };
+  });
+};
+
+export const createVerifiedUser = async (
+  config: SeedConfig,
+  input: CreateVerifiedUserInput,
+): Promise<SeededUser> => {
+  await signUp(config, input);
 
   return withDb(config, async (db) => {
     const [row] = await db
@@ -229,6 +249,24 @@ export const createVerifiedUser = async (
     }
 
     return { userId: row.userId, email: input.email, password: input.password };
+  });
+};
+
+// Inserts rows directly so bulk seeding (e.g. pagination) skips the sign-up
+// API and its rate limits. These users have no credentials.
+export const createUsers = async (
+  config: SeedConfig,
+  emails: string[],
+): Promise<void> => {
+  await withDb(config, async (db) => {
+    await db.insert(userTable).values(
+      emails.map((email) => ({
+        id: crypto.randomUUID(),
+        email,
+        name: email,
+        emailVerified: true,
+      })),
+    );
   });
 };
 

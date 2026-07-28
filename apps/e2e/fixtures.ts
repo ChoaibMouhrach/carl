@@ -5,6 +5,8 @@ import {
   createEmailVerificationUrl,
   createOnboardedUser,
   createSessionCookie,
+  createUnverifiedUser,
+  createUsers,
   createVerifiedAdmin,
   createVerifiedUser,
   getActiveSessionCount,
@@ -38,6 +40,10 @@ interface Seed {
   createVerifiedAdmin: (
     input?: Partial<CreateVerifiedUserInput>,
   ) => Promise<SeededUser>;
+  createUnverifiedUser: (
+    input?: Partial<CreateVerifiedUserInput>,
+  ) => Promise<SeededUser>;
+  createUsers: (emails: string[]) => Promise<void>;
   createEmailVerificationUrl: (email: string) => Promise<string>;
   getActiveSessionCount: (email: string) => Promise<number>;
   getEmailVerificationStatus: (email: string) => Promise<boolean>;
@@ -94,6 +100,10 @@ export const test = base.extend<{ seed: Seed }>({
       createVerifiedUser: (input) => {
         return createVerifiedUser(config, createUserInput(input));
       },
+      createUnverifiedUser: (input) => {
+        return createUnverifiedUser(config, createUserInput(input));
+      },
+      createUsers: (emails) => createUsers(config, emails),
       getActiveSessionCount: (email) => {
         return getActiveSessionCount(config, email);
       },
