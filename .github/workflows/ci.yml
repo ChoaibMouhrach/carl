@@ -97,21 +97,6 @@ jobs:
         working-directory: apps/server
         run: bun run db:migrate
 
-      - name: Start API server
-        working-directory: apps/server
-        run: |
-          nohup bun src/index.ts > ../../server.log 2>&1 &
-          for i in $(seq 1 60); do
-            if curl -sf http://localhost:3002/health >/dev/null 2>&1; then
-              echo "API server ready"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "API server did not become ready" >&2
-          cat ../../server.log
-          exit 1
-
       - name: Run E2E tests
         working-directory: apps/e2e
         run: bun run e2e
@@ -124,7 +109,6 @@ jobs:
           path: |
             apps/e2e/playwright-report/
             apps/e2e/test-results/
-            server.log
           retention-days: 7
 
   build:
