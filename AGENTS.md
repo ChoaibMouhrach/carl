@@ -204,15 +204,34 @@ When writing tests, follow these rules strictly:
 
 ## End-to-End Tests
 
-End-to-end tests live in `apps/e2e` (a standalone Playwright package), never in `apps/client`. They drive the real app in a browser against a running stack (`bun run containers:up` + `bun dev`). See `apps/e2e/README.md`.
+E2E tests live in `apps/e2e` (a standalone Playwright package), never in `apps/client`. They drive the real app in a browser against a running stack (`bun run containers:up` + `bun dev`). See `apps/e2e/README.md`. Import `test`/`expect` from `../fixtures` (never `@playwright/test`) so the `seed` fixture is available; specs are `*.test.ts` under `tests/`, with descriptive names — never `test("test", ...)`.
 
-- Import `test`/`expect` from `../fixtures`, not `@playwright/test`, so the `seed` fixture is available. Name spec files `*.test.ts` under `tests/`.
-- Seed data through the `seed` fixture (`createVerifiedUser`, `getPasswordResetToken`), backed by `@repo/server/testing/e2e-seed`. Never hardcode a user, password, or reset token, and never read a real inbox. Each test creates its own user with a unique email and is independent of the others.
-- Form inputs use `getByLabel`. Never `getByRole("textbox")` — it does not match `<input type="password">` and fails silently on password fields. Buttons and links use `getByRole`.
-  - Exception: the sign-in password field's label embeds the "Forgot password?" link and is ambiguous, so target it with `#password`.
-- Assert on behavior — `toHaveURL(...)` and reaching auth-protected pages — not on translated copy or transient toasts.
-- Clean up whatever `playwright codegen` emits: drop stray `.click()`/`.press(...)` cruft and hardcoded hosts (use the config `baseURL`, e.g. `page.goto("/app/sign-in")`), and give every test a descriptive name — never `test("test", ...)`.
-- Seeding logic belongs in the server's exported `testing/e2e-seed` surface, not as raw SQL in the test package. Extend that module when a new flow needs seeding.
+**Seeding and data isolation**
+
+- Seed only through the `seed` fixture, backed by `@repo/server/testing/e2e-seed`. Never hardcode a user, password, or token, and never read a real inbox. Seeding logic belongs in that exported module — never raw SQL in the test package; extend it when a flow needs new data.
+- Every test creates its own data with a unique token (`faker.string.uuid()`) and is fully independent. The database is shared across tests and parallel workers — never assert exact global counts or unscoped list contents; scope every list assertion by a unique search term.
+- Authenticate with `seed.authenticate` (session cookie), not by driving the sign-in form — unless sign-in itself is under test.
+- Bulk-seed with direct-insert helpers (e.g. `createUsers`); never loop the sign-up API — it is slow and rate-limited.
+
+**Locators** — verify against the real DOM and i18n before writing; never guess labels.
+
+- Form inputs use `getByLabel`. Never `getByRole("textbox")` — it does not match `<input type="password">` and fails silently. Buttons and links use `getByRole("button" | "link", { name })`.
+- shadcn `Select` triggers have no accessible name: open with `getByRole("combobox").filter({ hasText })`, and pick options with `getByRole("option", { name, exact: true })`.
+- Pagination `PaginationLink` is an `<a>` with no `href` (no `link` role): scope to `getByRole("navigation", { name: "pagination" })` and click the page-number text.
+- Use `{ exact: true }` on `getByText` for short or ambiguous strings (status and plan badges) and to avoid strict-mode collisions when the same text appears twice (e.g. a card title and a disabled button).
+- The sign-in password field's label embeds the "Forgot password?" link and is ambiguous — target it with `#password`.
+- Clean up whatever `playwright codegen` emits: drop stray `.click()`/`.press(...)` cruft and hardcoded hosts (use the config `baseURL`, e.g. `page.goto("/app/sign-in")`).
+
+**Assertions**
+
+- Assert on behavior, never translated copy or transient toasts: `toHaveURL(...)`, reaching an auth-protected page, HTTP status via `page.waitForResponse(...)`, and persisted state via `seed.*` reads.
+- For state that appears asynchronously after a request, use `expect.poll` — never `waitForTimeout` or a fixed sleep.
+
+**Scope**
+
+- Prefer few deep flows over many shallow ones; do not duplicate coverage another file already owns.
+- Do not E2E what the environment cannot exercise deterministically — real Stripe checkout, email delivery, or rate-limit thresholds — cover those with server tests. Auth is IP-rate-limited on the shared localhost; the fixture clears that budget before each test.
+- Know the real behavior before asserting it — don't assert intended behavior the app doesn't have.
 
 ## Git
 
