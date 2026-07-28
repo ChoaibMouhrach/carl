@@ -5,6 +5,7 @@ import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { cn } from "@repo/ui/utils";
 import { routing } from "@/i18n/routing";
+import { buildMetadata } from "@/lib/seo";
 import "../globals.css";
 
 const geist = Geist({
@@ -27,10 +28,12 @@ export async function generateMetadata({
 
   const t = await getTranslations({ locale, namespace: "metadata" });
 
-  return {
+  return buildMetadata({
+    locale,
     title: t("title"),
     description: t("description"),
-  };
+    path: "/",
+  });
 }
 
 export default async function LocaleLayout({
