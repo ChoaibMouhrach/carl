@@ -36,9 +36,14 @@ export default async function Home({ params }: PageProps<"/[locale]">) {
         <Link href="/" aria-label={t("nav.home")}>
           <Logo size={38} />
         </Link>
-        <Button asChild variant="outline">
-          <a href={appUrl}>{t("nav.signIn")}</a>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="ghost">
+            <Link href="/blog">{t("nav.blog")}</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <a href={appUrl}>{t("nav.signIn")}</a>
+          </Button>
+        </div>
       </nav>
 
       <section className="mx-auto grid max-w-6xl gap-16 px-6 pb-24 pt-16 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:pt-28">

@@ -75,6 +75,8 @@ The env schema lives in `apps/server/src/config/env.ts`. When you add a new key 
 
 A key missing from `.env.ci` fails CI at env-parse time before any test runs; a key missing from `.env.example` leaves setup undocumented. Keep both in sync with the schema.
 
+A `NEXT_PUBLIC_*` var used in **client** components (front) must also be added to the `env` map in `apps/front/next.config.ts`. The schema only validates that the key exists in `.env` — not that Next inlines it into the browser bundle. Miss this and the value is `undefined` at runtime with no build error.
+
 ## Client Architecture
 
 ## UI Components

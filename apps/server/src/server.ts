@@ -24,13 +24,11 @@ export const initServer = async () => {
     data: { type: "check-queue-backlog" },
   });
 
-  if (context.env.STRIPE_SECRET_KEY && context.env.STRIPE_WEBHOOK_SECRET) {
-    await context.queueHub.maintenance.schedule({
-      schedulerId: "reconcile-billing",
-      pattern: RECONCILE_BILLING_CRON,
-      data: { type: "reconcile-billing" },
-    });
-  }
+  await context.queueHub.maintenance.schedule({
+    schedulerId: "reconcile-billing",
+    pattern: RECONCILE_BILLING_CRON,
+    data: { type: "reconcile-billing" },
+  });
 
   return {
     serve: () => {

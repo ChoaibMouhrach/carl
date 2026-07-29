@@ -6,7 +6,74 @@
   },
   "nav": {
     "home": "Accueil SaaS Template",
+    "blog": "Blog",
     "signIn": "Se connecter"
+  },
+  "blog": {
+    "eyebrow": "Sur le blog",
+    "title": "Des idées pour créer un produit plus serein",
+    "description": "Des notes sur les logiciels réfléchis, le travail curieux et, parfois, les chats remarquables.",
+    "readArticle": "Lire l’article",
+    "back": "Retour au blog",
+    "cats": {
+      "title": "Ce que les chats peuvent nous apprendre sur les bons logiciels",
+      "description": "Cinq leçons produit étonnamment pratiques, inspirées d’animaux qui refusent de lire votre feuille de route.",
+      "date": "29 juillet 2026",
+      "readingTime": "5 min de lecture",
+      "intro": "Les chats sont des critiques produit impitoyables. Ils ignorent les fonctions compliquées, découvrent des usages imprévus et ne reviennent que vers les expériences sûres, utiles ou chaleureuses. Ils ont donc beaucoup à apprendre aux créateurs de logiciels.",
+      "sections": [
+        {
+          "title": "1. Rendez le chemin évident vraiment évident",
+          "body": "Placez une boîte près d’un panier coûteux et la boîte gagne souvent. Son usage est immédiatement compréhensible. Une bonne interface fonctionne pareil : l’action principale doit sembler utilisable avant toute réflexion."
+        },
+        {
+          "title": "2. Respectez l’attention au lieu de l’exiger",
+          "body": "Les chats interagissent selon leurs propres règles. Les produits devraient faire de même. Une notification utile arrive au bon moment puis s’efface. Si tout est urgent, les utilisateurs finiront par tout ignorer."
+        },
+        {
+          "title": "3. Créez la confiance par la prévisibilité",
+          "body": "Un chat explore prudemment une nouvelle pièce, car les surprises ont un coût. Les gens abordent les nouveaux logiciels de la même façon. Des contrôles cohérents, des actions réversibles et des retours clairs transforment l’incertitude en confiance."
+        },
+        {
+          "title": "4. Laissez de la place à l’exploration",
+          "body": "Les meilleurs produits guident sans enfermer. Un point de départ clair compte, tout comme la liberté d’explorer, d’essayer une idée et de revenir sans risque. De bons choix par défaut et une navigation tolérante rendent l’exploration peu coûteuse."
+        },
+        {
+          "title": "5. Le confort est une fonctionnalité",
+          "body": "La rapidité et les capacités comptent, mais aussi la sensation après une heure d’utilisation. Une typographie calme, des espacements sensés et moins d’interruptions réduisent la charge mentale. Un produit confortable est un produit avec lequel on accepte de vivre."
+        }
+      ],
+      "table": {
+        "title": "Du comportement félin aux décisions produit",
+        "description": "Un guide rapide pour intégrer ces observations à une revue produit.",
+        "catBehavior": "Comportement du chat",
+        "productLesson": "Leçon produit",
+        "designResponse": "Réponse de conception",
+        "rows": [
+          {
+            "catBehavior": "Choisit la boîte en carton",
+            "productLesson": "La clarté dépasse l’ornement",
+            "designResponse": "Renforcer l’action principale"
+          },
+          {
+            "catBehavior": "Ignore les appels répétés",
+            "productLesson": "L’attention est limitée",
+            "designResponse": "Réduire les alertes superflues"
+          },
+          {
+            "catBehavior": "Inspecte lentement une nouvelle pièce",
+            "productLesson": "La prévisibilité crée la confiance",
+            "designResponse": "Rendre les actions réversibles"
+          }
+        ]
+      },
+      "code": {
+        "title": "Modélisez la préférence, pas l’animal",
+        "description": "Même une analogie ludique peut devenir une règle de décision claire et typée."
+      },
+      "conclusionTitle": "L’exigence tranquille",
+      "conclusion": "Vous n’avez pas besoin de concevoir des logiciels pour les chats. Mais vous pouvez adopter leurs critères : rendre la valeur évidente, mériter l’attention, rester prévisible, encourager la curiosité et créer un lieu où l’on souhaite revenir."
+    }
   },
   "hero": {
     "badge": "Une base solide pour votre prochain produit",

@@ -6,7 +6,74 @@
   },
   "nav": {
     "home": "SaaS Template home",
+    "blog": "Blog",
     "signIn": "Sign in"
+  },
+  "blog": {
+    "eyebrow": "From the blog",
+    "title": "Ideas for building a calmer product",
+    "description": "Notes on thoughtful software, curious work, and the occasional excellent cat.",
+    "readArticle": "Read article",
+    "back": "Back to the blog",
+    "cats": {
+      "title": "What cats can teach us about better software",
+      "description": "Five surprisingly practical product lessons from animals that refuse to read your roadmap.",
+      "date": "July 29, 2026",
+      "readingTime": "5 min read",
+      "intro": "Cats are ruthless product critics. They ignore complicated features, discover unintended workflows, and return only to experiences that feel safe, useful, or warm. That makes them unexpectedly good teachers for anyone building software.",
+      "sections": [
+        {
+          "title": "1. Make the obvious path genuinely obvious",
+          "body": "Put a box beside an expensive cat bed and the box often wins. Its purpose is instantly legible. Great interfaces work the same way: the primary action should look usable before a person has to stop and interpret it."
+        },
+        {
+          "title": "2. Respect attention instead of demanding it",
+          "body": "Cats engage on their own terms. Products should too. Useful notifications arrive at the right moment and then get out of the way. If every event is urgent, your users will learn to ignore all of them."
+        },
+        {
+          "title": "3. Build trust through predictable behavior",
+          "body": "A cat approaches a new room carefully because surprises carry a cost. People treat unfamiliar software similarly. Consistent controls, reversible actions, and clear feedback turn uncertainty into confidence."
+        },
+        {
+          "title": "4. Leave room for exploration",
+          "body": "The best products guide without trapping. A clear starting point matters, but so does the freedom to look around, test an idea, and return safely. Good defaults and forgiving navigation make exploration feel inexpensive."
+        },
+        {
+          "title": "5. Comfort is a feature",
+          "body": "Speed and capability matter, but so does how a product feels after an hour of use. Calm typography, sensible spacing, and fewer interruptions reduce cognitive load. A comfortable product is one people are willing to live with."
+        }
+      ],
+      "table": {
+        "title": "From cat behavior to product decisions",
+        "description": "A quick translation guide for bringing these observations into a product review.",
+        "catBehavior": "Cat behavior",
+        "productLesson": "Product lesson",
+        "designResponse": "Design response",
+        "rows": [
+          {
+            "catBehavior": "Chooses the cardboard box",
+            "productLesson": "Clarity beats ornament",
+            "designResponse": "Strengthen the primary action"
+          },
+          {
+            "catBehavior": "Ignores repeated calls",
+            "productLesson": "Attention is finite",
+            "designResponse": "Reduce nonessential alerts"
+          },
+          {
+            "catBehavior": "Inspects a new room slowly",
+            "productLesson": "Trust grows through predictability",
+            "designResponse": "Make actions reversible"
+          }
+        ]
+      },
+      "code": {
+        "title": "Model the preference, not the animal",
+        "description": "Even a playful analogy can become a clear, typed decision rule."
+      },
+      "conclusionTitle": "The quiet standard",
+      "conclusion": "You do not need to design software for cats. But you can borrow their standards: make value obvious, earn attention, behave predictably, support curiosity, and create a place worth returning to."
+    }
   },
   "hero": {
     "badge": "A clean foundation for your next product",

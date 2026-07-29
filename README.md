@@ -41,9 +41,8 @@ the API, the marketing site, and the dashboard SPA.
   provider-agnostic infrastructure layer
 - Marketing landing page with localized, statically-exported pages
 
-**Infrastructure is optional.** Every external integration (Stripe, Resend, S3,
-Redis queue) has a `disabled.ts` stub, so the app boots and runs even when those
-services aren't configured — wire them in when you need them.
+Every external integration is required. Environment validation fails immediately
+when any required configuration is missing.
 
 ## Tech stack
 
@@ -148,12 +147,12 @@ All apps read a single root `.env`. Copy `.env.example` and fill it in.
 | `TRUST_PROXY`                                                                         | `true` when running behind a reverse proxy (for client IPs)     |
 | `QUEUE_CONCURRENCY`                                                                   | Max concurrent background jobs                                  |
 | `QUEUE_BACKLOG_THRESHOLD`                                                             | Waiting-jobs count that triggers a backlog alert (default 100)  |
-| `S3_ENDPOINT` / `REGION` / `ACCESS_KEY` / `SECRET_KEY` / `BUCKET_NAME` / `PUBLIC_URL` | Object storage (leave blank to use the disabled stub)           |
-| `RESEND_API_KEY` / `MAIL_DOMAIN`                                                      | Transactional email (blank → disabled stub)                     |
-| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`                                         | Billing (blank → disabled stub)                                 |
-| `SENTRY_DSN` / `SENTRY_TRACES_SAMPLE_RATE`                                            | Server error tracking → Better Stack (blank → disabled stub)    |
-| `VITE_SENTRY_DSN`                                                                     | Dashboard (SPA) error tracking → Better Stack (blank → off)     |
-| `NEXT_PUBLIC_SENTRY_DSN`                                                              | Marketing site error tracking → Better Stack (blank → off)      |
+| `S3_ENDPOINT` / `REGION` / `ACCESS_KEY` / `SECRET_KEY` / `BUCKET_NAME` / `PUBLIC_URL` | Object storage                                                  |
+| `RESEND_API_KEY` / `MAIL_DOMAIN`                                                      | Transactional email                                             |
+| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`                                         | Billing                                                         |
+| `SENTRY_DSN` / `SENTRY_TRACES_SAMPLE_RATE`                                            | Server error tracking → Better Stack                            |
+| `VITE_SENTRY_DSN`                                                                     | Dashboard error tracking → Better Stack                         |
+| `NEXT_PUBLIC_SENTRY_DSN`                                                              | Marketing error tracking → Better Stack                         |
 
 Run `bun run check:env` to validate that your `.env` satisfies every app's schema.
 
@@ -182,7 +181,7 @@ TRUST_PROXY=false
 QUEUE_CONCURRENCY=5
 QUEUE_BACKLOG_THRESHOLD=100
 
-# Optional integrations — leave blank to run against the disabled stubs
+# Required infrastructure
 S3_ENDPOINT=
 S3_REGION=
 S3_ACCESS_KEY=
@@ -194,7 +193,7 @@ MAIL_DOMAIN=
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
 
-# Observability (Sentry SDK → Better Stack) — leave blank to disable
+# Observability
 SENTRY_DSN=
 SENTRY_TRACES_SAMPLE_RATE=1
 VITE_SENTRY_DSN=

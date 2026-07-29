@@ -6,8 +6,7 @@ import { routing } from "@/i18n/routing";
 
 export const dynamic = "force-static";
 
-// Locale-agnostic routes; extend as marketing pages are added.
-const paths = ["/"];
+const paths = ["/", "/blog", "/blog/cats"];
 
 const absolute = (path: string, locale: Locale): string =>
   new URL(getPathname({ href: path, locale }), env.SITE_URL).toString();

@@ -6,7 +6,74 @@
   },
   "nav": {
     "home": "Inicio de SaaS Template",
+    "blog": "Blog",
     "signIn": "Iniciar sesión"
+  },
+  "blog": {
+    "eyebrow": "Desde el blog",
+    "title": "Ideas para crear un producto más tranquilo",
+    "description": "Notas sobre software consciente, trabajo curioso y algún que otro gato excelente.",
+    "readArticle": "Leer artículo",
+    "back": "Volver al blog",
+    "cats": {
+      "title": "Lo que los gatos pueden enseñarnos sobre un software mejor",
+      "description": "Cinco lecciones de producto sorprendentemente prácticas de animales que se niegan a leer tu hoja de ruta.",
+      "date": "29 de julio de 2026",
+      "readingTime": "5 min de lectura",
+      "intro": "Los gatos son críticos de producto implacables. Ignoran las funciones complicadas, descubren flujos imprevistos y solo vuelven a experiencias seguras, útiles o cálidas. Por eso son maestros inesperadamente buenos para quienes crean software.",
+      "sections": [
+        {
+          "title": "1. Haz que el camino obvio sea realmente obvio",
+          "body": "Pon una caja junto a una cama cara para gatos y la caja suele ganar. Su propósito se entiende al instante. Las buenas interfaces funcionan igual: la acción principal debe parecer utilizable antes de que una persona tenga que detenerse a interpretarla."
+        },
+        {
+          "title": "2. Respeta la atención en lugar de exigirla",
+          "body": "Los gatos interactúan a su manera. Los productos también deberían hacerlo. Una notificación útil llega en el momento adecuado y luego se aparta. Si todo es urgente, tus usuarios aprenderán a ignorarlo todo."
+        },
+        {
+          "title": "3. Genera confianza con un comportamiento predecible",
+          "body": "Un gato entra con cuidado en una habitación nueva porque las sorpresas tienen un coste. Las personas tratan el software desconocido de forma similar. Controles coherentes, acciones reversibles y respuestas claras convierten la incertidumbre en confianza."
+        },
+        {
+          "title": "4. Deja espacio para explorar",
+          "body": "Los mejores productos guían sin atrapar. Un punto de partida claro importa, pero también la libertad de mirar, probar una idea y volver con seguridad. Los buenos valores predeterminados y una navegación flexible hacen que explorar resulte barato."
+        },
+        {
+          "title": "5. La comodidad es una función",
+          "body": "La velocidad y la capacidad importan, pero también cómo se siente un producto tras una hora de uso. Una tipografía tranquila, un espaciado sensato y menos interrupciones reducen la carga cognitiva. Un producto cómodo es uno con el que la gente quiere convivir."
+        }
+      ],
+      "table": {
+        "title": "Del comportamiento felino a las decisiones de producto",
+        "description": "Una guía rápida para llevar estas observaciones a una revisión de producto.",
+        "catBehavior": "Comportamiento del gato",
+        "productLesson": "Lección de producto",
+        "designResponse": "Respuesta de diseño",
+        "rows": [
+          {
+            "catBehavior": "Elige la caja de cartón",
+            "productLesson": "La claridad supera al adorno",
+            "designResponse": "Reforzar la acción principal"
+          },
+          {
+            "catBehavior": "Ignora llamadas repetidas",
+            "productLesson": "La atención es limitada",
+            "designResponse": "Reducir alertas innecesarias"
+          },
+          {
+            "catBehavior": "Inspecciona despacio una habitación nueva",
+            "productLesson": "La previsibilidad genera confianza",
+            "designResponse": "Hacer reversibles las acciones"
+          }
+        ]
+      },
+      "code": {
+        "title": "Modela la preferencia, no al animal",
+        "description": "Incluso una analogía divertida puede convertirse en una regla de decisión clara y tipada."
+      },
+      "conclusionTitle": "El estándar silencioso",
+      "conclusion": "No necesitas diseñar software para gatos. Pero puedes adoptar sus estándares: haz evidente el valor, gana la atención, compórtate de forma predecible, apoya la curiosidad y crea un lugar al que merezca la pena volver."
+    }
   },
   "hero": {
     "badge": "Una base sólida para tu próximo producto",

@@ -12,7 +12,6 @@ import { S3rverStorage } from "./infrastructure/storage/s3rver";
 import { S3Storage } from "./infrastructure/storage/s3";
 import type { BaseBilling } from "./lib/base-billing";
 import { StripeBilling } from "./infrastructure/billing/stripe";
-import { DisabledBilling } from "./infrastructure/billing/disabled";
 import type { BaseQueueHub } from "./lib/base-queue";
 import { QueueHub } from "./infrastructure/queue/bullmq";
 import type { BaseRateLimiter } from "./lib/base-rate-limiter";
@@ -20,20 +19,17 @@ import { RedisRateLimiter } from "./infrastructure/rate-limiter/redis";
 import { createAuth } from "./infrastructure/auth";
 import type { BaseErrorMonitor } from "./lib/base-error-monitor";
 import { SentryErrorMonitor } from "./infrastructure/error-monitor/sentry";
-import { DisabledErrorMonitor } from "./infrastructure/error-monitor/disabled";
 
 export const initContext = async () => {
   const logger: BaseLogger = new PinoLogger();
 
   const env = initENV();
 
-  const errorMonitor: BaseErrorMonitor = env.SENTRY_DSN
-    ? new SentryErrorMonitor({
-        dsn: env.SENTRY_DSN,
-        environment: env.NODE_ENV,
-        tracesSampleRate: env.SENTRY_TRACES_SAMPLE_RATE,
-      })
-    : new DisabledErrorMonitor();
+  const errorMonitor: BaseErrorMonitor = new SentryErrorMonitor({
+    dsn: env.SENTRY_DSN,
+    environment: env.NODE_ENV,
+    tracesSampleRate: env.SENTRY_TRACES_SAMPLE_RATE,
+  });
 
   const dbConnection = await initDB({
     connectionCredentials: env.POSTGRES_CONNECTION_STRING,
@@ -90,25 +86,13 @@ export const initContext = async () => {
 
   const auth = createAuth({ db: dbConnection.db, env, queueHub });
 
-  const billing: BaseBilling =
-    env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET
-      ? new StripeBilling({
-          cancelUrl: new URL(
-            "/app/user/select-plan",
-            env.CLIENT_URL,
-          ).toString(),
-          portalReturnUrl: new URL(
-            "/app/user/billing",
-            env.CLIENT_URL,
-          ).toString(),
-          secretKey: env.STRIPE_SECRET_KEY,
-          successUrl: new URL(
-            "/app/user/select-plan",
-            env.CLIENT_URL,
-          ).toString(),
-          webhookSecret: env.STRIPE_WEBHOOK_SECRET,
-        })
-      : new DisabledBilling();
+  const billing: BaseBilling = new StripeBilling({
+    cancelUrl: new URL("/app/user/select-plan", env.CLIENT_URL).toString(),
+    portalReturnUrl: new URL("/app/user/billing", env.CLIENT_URL).toString(),
+    secretKey: env.STRIPE_SECRET_KEY,
+    successUrl: new URL("/app/user/select-plan", env.CLIENT_URL).toString(),
+    webhookSecret: env.STRIPE_WEBHOOK_SECRET,
+  });
 
   return {
     billing,
