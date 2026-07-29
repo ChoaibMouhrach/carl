@@ -3,7 +3,7 @@ import { z } from "zod";
 const schema = z.object({
   VITE_API_URL: z.url(),
   VITE_LP_URL: z.url(),
-  VITE_SENTRY_DSN: z.url().optional(),
+  VITE_SENTRY_DSN: z.url(),
 });
 
 const parsed = schema.safeParse(import.meta.env);

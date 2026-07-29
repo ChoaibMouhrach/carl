@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
   trailingSlash: true,
   transpilePackages: ["@repo/ui", "@repo/i18n"],
   env: {
-    NEXT_PUBLIC_SENTRY_DSN: env.NEXT_PUBLIC_SENTRY_DSN ?? "",
+    NEXT_PUBLIC_SENTRY_DSN: env.NEXT_PUBLIC_SENTRY_DSN,
   },
 };
 

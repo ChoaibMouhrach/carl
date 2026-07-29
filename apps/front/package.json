@@ -9,6 +9,7 @@
     "build": "bun run logo:png && bun run og:png && next build",
     "start": "next start",
     "typecheck": "next typegen && tsc --noEmit",
+    "check:env": "bun run src/config/env.ts",
     "lint": "eslint"
   },
   "dependencies": {

@@ -8,7 +8,7 @@ config({
 const schema = z.object({
   NEXT_PUBLIC_CLIENT_URL: z.url(),
   NEXT_PUBLIC_SITE_URL: z.url(),
-  NEXT_PUBLIC_SENTRY_DSN: z.url().optional(),
+  NEXT_PUBLIC_SENTRY_DSN: z.url(),
 });
 
 const parsed = schema.parse(process.env);
