@@ -38,10 +38,14 @@ export default async function Home({ params }: PageProps<"/[locale]">) {
         </Link>
         <div className="flex items-center gap-2">
           <Button asChild variant="ghost">
-            <Link href="/blog">{t("nav.blog")}</Link>
+            <Link href="/blog" data-umami-event="nav-blog">
+              {t("nav.blog")}
+            </Link>
           </Button>
           <Button asChild variant="outline">
-            <a href={appUrl}>{t("nav.signIn")}</a>
+            <a href={appUrl} data-umami-event="nav-sign-in">
+              {t("nav.signIn")}
+            </a>
           </Button>
         </div>
       </nav>
@@ -59,12 +63,14 @@ export default async function Home({ params }: PageProps<"/[locale]">) {
           </p>
           <div className="mt-9 flex flex-wrap gap-3">
             <Button asChild size="lg">
-              <a href={appUrl}>
+              <a href={appUrl} data-umami-event="hero-open-app">
                 {t("hero.openApp")} <ArrowRight className="size-4" />
               </a>
             </Button>
             <Button asChild size="lg" variant="outline">
-              <a href="#foundation">{t("hero.exploreFoundation")}</a>
+              <a href="#foundation" data-umami-event="hero-explore-foundation">
+                {t("hero.exploreFoundation")}
+              </a>
             </Button>
           </div>
         </div>

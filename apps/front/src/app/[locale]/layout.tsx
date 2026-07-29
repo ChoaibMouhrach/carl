@@ -7,6 +7,7 @@ import { cn } from "@repo/ui/utils";
 import { routing } from "@/i18n/routing";
 import { buildMetadata } from "@/lib/seo";
 import { JsonLd } from "@/components/json-ld";
+import { Umami } from "@/components/umami";
 import { organizationSchema, websiteSchema } from "@/lib/structured-data";
 import "../globals.css";
 
@@ -63,6 +64,7 @@ export default async function LocaleLayout({
         <JsonLd data={organizationSchema(siteName)} />
         <JsonLd data={websiteSchema(siteName)} />
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
+        <Umami />
       </body>
     </html>
   );

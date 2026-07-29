@@ -85,7 +85,11 @@ export default async function Blog({ params }: PageProps<"/[locale]/blog">) {
             </CardContent>
             <CardFooter>
               <Button asChild variant="link">
-                <Link href="/blog/cats">
+                <Link
+                  href="/blog/cats"
+                  data-umami-event="blog-read-article"
+                  data-umami-event-post="cats"
+                >
                   {t("blog.readArticle")} <ArrowRight className="size-4" />
                 </Link>
               </Button>

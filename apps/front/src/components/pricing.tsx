@@ -19,7 +19,7 @@ export const Pricing = ({ appUrl }: PricingProps) => {
       description={t("description")}
       id="pricing"
       plans={billingPlans}
-      renderAction={({ featured }) => (
+      renderAction={({ billingInterval, featured, plan }) => (
         <Button
           asChild
           className={cn(
@@ -28,7 +28,14 @@ export const Pricing = ({ appUrl }: PricingProps) => {
           )}
           variant={featured ? "default" : "outline"}
         >
-          <a href={appUrl}>{t("getStarted")}</a>
+          <a
+            href={appUrl}
+            data-umami-event="pricing-get-started"
+            data-umami-event-plan={plan.key}
+            data-umami-event-interval={billingInterval}
+          >
+            {t("getStarted")}
+          </a>
         </Button>
       )}
       title={t("title")}

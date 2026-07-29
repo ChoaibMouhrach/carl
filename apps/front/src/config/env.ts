@@ -9,6 +9,9 @@ const schema = z.object({
   NEXT_PUBLIC_CLIENT_URL: z.url(),
   NEXT_PUBLIC_SITE_URL: z.url(),
   NEXT_PUBLIC_SENTRY_DSN: z.url(),
+  NEXT_PUBLIC_UMAMI_SRC: z.url(),
+  NEXT_PUBLIC_UMAMI_WEBSITE_ID: z.uuid(),
+  NEXT_PUBLIC_UMAMI_DOMAINS: z.string().min(1),
 });
 
 const parsed = schema.parse(process.env);
