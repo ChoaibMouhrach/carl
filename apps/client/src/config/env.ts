@@ -6,13 +6,6 @@ const schema = z.object({
   VITE_SENTRY_DSN: z.url(),
 });
 
-const parsed = schema.safeParse(import.meta.env);
-
-if (!parsed.success) {
-  console.error("Invalid client environment variables:", parsed.error.format());
-  throw new Error("Invalid client environment variables");
-}
-
-export const env = parsed.data;
+export const env = schema.parse(import.meta.env);
 
 export type ENV = typeof env;
