@@ -21,8 +21,8 @@ runs:
       shell: bash
       run: |
         for i in $(seq 1 30); do
-          pg_ready=$(docker exec saas-template-postgres pg_isready -U postgres 2>/dev/null && echo ok || true)
-          redis_ready=$(docker exec saas-template-redis redis-cli -a test-redis-password ping 2>/dev/null || true)
+          pg_ready=$(docker exec saasTemplate-postgres pg_isready -U postgres 2>/dev/null && echo ok || true)
+          redis_ready=$(docker exec saasTemplate-redis redis-cli -a test-redis-password ping 2>/dev/null || true)
           if [ -n "$pg_ready" ] && echo "$redis_ready" | grep -q PONG; then
             exit 0
           fi

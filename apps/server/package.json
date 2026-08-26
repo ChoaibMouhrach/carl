@@ -15,7 +15,7 @@
     "test:watch": "bun test --max-concurrency=1 --watch",
     "typecheck": "tsc -b --noEmit",
     "check:env": "bun run src/config/env.ts",
-    "build": "bun build ./src/index.ts --compile --outfile dist/saas-template",
+    "build": "bun build ./src/index.ts --compile --outfile dist/saasTemplate",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",

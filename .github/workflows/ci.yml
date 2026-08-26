@@ -92,7 +92,7 @@ jobs:
           file: Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/saas-template:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/saas-template:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/saasTemplate:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/saasTemplate:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

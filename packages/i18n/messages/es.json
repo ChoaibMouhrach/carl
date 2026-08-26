@@ -1,11 +1,11 @@
 {
   "metadata": {
-    "title": "SaaS Template — Crea lo que solo tú puedes crear",
+    "title": "saasTemplate — Crea lo que solo tú puedes crear",
     "description": "Una base limpia y tipada para crear productos SaaS enfocados.",
-    "siteName": "SaaS Template"
+    "siteName": "saasTemplate"
   },
   "nav": {
-    "home": "Inicio de SaaS Template",
+    "home": "Inicio de saasTemplate",
     "blog": "Blog",
     "signIn": "Iniciar sesión"
   },
@@ -78,7 +78,7 @@
   "hero": {
     "badge": "Una base sólida para tu próximo producto",
     "title": "Crea la parte que solo tú puedes crear.",
-    "description": "SaaS Template te ofrece la infraestructura esencial —cuentas, configuración, base de datos, API y una interfaz pulida— sin heredar las suposiciones de otro producto.",
+    "description": "saasTemplate te ofrece la infraestructura esencial —cuentas, configuración, base de datos, API y una interfaz pulida— sin heredar las suposiciones de otro producto.",
     "openApp": "Abrir la aplicación",
     "exploreFoundation": "Explorar la base"
   },

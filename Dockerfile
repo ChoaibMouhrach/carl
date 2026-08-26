@@ -32,11 +32,11 @@ FROM oven/bun:1.3.5-slim AS runtime
 WORKDIR /app/apps/server
 
 COPY --from=build /app/.env /app/.env
-COPY --from=build /app/apps/server/dist/saas-template /app/apps/server/saas-template
+COPY --from=build /app/apps/server/dist/saasTemplate /app/apps/server/saasTemplate
 COPY --from=build /app/apps/server/drizzle /app/apps/server/drizzle
 COPY --from=build /app/apps/client/dist /app/apps/server/client
 COPY --from=build /app/apps/front/out /app/apps/server/front
 
 #RUN
 EXPOSE 3000
-CMD ["./saas-template"]
+CMD ["./saasTemplate"]
