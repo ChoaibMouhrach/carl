@@ -218,9 +218,10 @@ test("checkout completion creates one subscription and processes duplicate webho
       providerCustomerId: "cus_completed",
       userId: user.userId,
     });
+    const checkoutAttemptExpiresAt = new Date(Date.now() + 60 * 60 * 1_000);
     await context.repositories.billing.createCheckoutAttempt({
       billingInterval: "monthly",
-      expiresAt: new Date("2026-08-01T00:00:00.000Z"),
+      expiresAt: checkoutAttemptExpiresAt,
       planKey: "starter",
       provider: "stripe",
       userId: user.userId,
@@ -235,7 +236,7 @@ test("checkout completion creates one subscription and processes duplicate webho
     }
     await context.repositories.billing.setCheckoutSession({
       checkoutAttemptId: attempt.checkoutAttemptId,
-      expiresAt: new Date("2026-08-01T00:00:00.000Z"),
+      expiresAt: checkoutAttemptExpiresAt,
       providerCheckoutSessionId: "cs_completed",
     });
 
