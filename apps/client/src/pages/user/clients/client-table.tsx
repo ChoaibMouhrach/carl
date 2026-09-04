@@ -36,6 +36,7 @@ interface ClientTableProps {
   isRemoving: boolean;
   onEdit: (client: Client) => void;
   onRemove: (clientId: number) => void;
+  onOpen: (client: Client) => void;
   removingClientId?: number;
 }
 
@@ -44,6 +45,7 @@ export const ClientTable = ({
   isRemoving,
   onEdit,
   onRemove,
+  onOpen,
   removingClientId,
 }: ClientTableProps) => {
   const { t } = useTranslation();
@@ -72,10 +74,14 @@ export const ClientTable = ({
                 isRemoving && removingClientId === client.clientId;
 
               return (
-                <TableRow key={client.clientId}>
+                <TableRow
+                  key={client.clientId}
+                  className="cursor-pointer"
+                  onClick={() => onOpen(client)}
+                >
                   <TableCell>{client.name}</TableCell>
                   <TableCell>{client.email}</TableCell>
-                  <TableCell>
+                  <TableCell onClick={(event) => event.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button

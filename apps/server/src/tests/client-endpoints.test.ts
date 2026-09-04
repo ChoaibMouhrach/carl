@@ -26,6 +26,66 @@ const parseJson = async <Output>(
   schema: z.ZodType<Output>,
 ): Promise<Output> => schema.parse(await response.json());
 
+describe("GET /clients/:clientId", () => {
+  test("returns only the caller's own client and rejects fetching another user's", async () => {
+    await withTestDatabase(async ({ context }) => {
+      const owner = await createAuthenticatedApp({
+        context,
+        email: "get-owner@example.com",
+      });
+      const other = await createAuthenticatedApp({
+        context,
+        email: "get-other@example.com",
+      });
+      const ownClient = await context.repositories.client.create({
+        email: "own@example.com",
+        name: "Own Client",
+        userId: owner.user.userId,
+      });
+      const foreignClient = await context.repositories.client.create({
+        email: "foreign@example.com",
+        name: "Foreign Client",
+        userId: other.user.userId,
+      });
+
+      const response = await owner.app.request(
+        `/api/clients/${ownClient.clientId}`,
+        { headers: { Cookie: owner.cookie } },
+      );
+      const body = await parseJson(response, clientSchema);
+
+      expect(response.status).toBe(200);
+      expect(body).toMatchObject({
+        name: "Own Client",
+        email: "own@example.com",
+      });
+
+      const foreignResponse = await owner.app.request(
+        `/api/clients/${foreignClient.clientId}`,
+        { headers: { Cookie: owner.cookie } },
+      );
+
+      expect(foreignResponse.status).toBe(404);
+    });
+  });
+
+  test("rejects a non-numeric clientId param with 400", async () => {
+    await withTestDatabase(async ({ context }) => {
+      const authenticated = await createAuthenticatedApp({
+        context,
+        email: "get-invalid-id@example.com",
+      });
+
+      const response = await authenticated.app.request(
+        "/api/clients/not-a-number",
+        { headers: { Cookie: authenticated.cookie } },
+      );
+
+      expect(response.status).toBe(400);
+    });
+  });
+});
+
 describe("POST /clients", () => {
   test("creates a client scoped to the caller and persists the exact fields", async () => {
     await withTestDatabase(async ({ context, db }) => {
@@ -571,6 +631,26 @@ describe("Authentication", () => {
         401, 401, 401, 401,
       ]);
       expect(after).toEqual(before);
+    });
+  });
+
+  test("GET /clients/:clientId rejects missing authentication", async () => {
+    await withTestDatabase(async ({ context }) => {
+      const authenticated = await createAuthenticatedApp({
+        context,
+        email: "unauthenticated-get-client@example.com",
+      });
+      const client = await context.repositories.client.create({
+        email: "existing@example.com",
+        name: "Existing Client",
+        userId: authenticated.user.userId,
+      });
+
+      const response = await authenticated.app.fetch(
+        new Request(`http://localhost/api/clients/${client.clientId}`),
+      );
+
+      expect(response.status).toBe(401);
     });
   });
 });

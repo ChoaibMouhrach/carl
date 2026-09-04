@@ -13,6 +13,14 @@ export class ClientApi extends BaseApi {
     );
   }
 
+  public get(where: { clientId: number }) {
+    return this.call(() =>
+      http.api.clients[":clientId"].$get({
+        param: { clientId: where.clientId.toString() },
+      }),
+    );
+  }
+
   public create(input: { name: string; email: string }) {
     return this.call(() =>
       http.api.clients.$post({

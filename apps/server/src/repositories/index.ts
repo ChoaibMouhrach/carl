@@ -6,6 +6,7 @@ import { BillingRepository } from "./billing";
 import { NotificationRepository } from "./notification";
 import { HealthRepository } from "./health";
 import { ClientRepository } from "./client";
+import { FolderRepository } from "./folder";
 
 interface RepositoriesConstructorProps {
   dbConnection: DBConnection;
@@ -22,6 +23,7 @@ export class Repositories {
   public notification;
   public health;
   public client;
+  public folder;
 
   public constructor({ dbConnection }: RepositoriesConstructorProps) {
     this.pool = dbConnection.pool;
@@ -52,6 +54,10 @@ export class Repositories {
     });
 
     this.client = new ClientRepository({
+      db: dbConnection.db,
+    });
+
+    this.folder = new FolderRepository({
       db: dbConnection.db,
     });
   }

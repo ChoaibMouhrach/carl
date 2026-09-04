@@ -8,6 +8,7 @@ import { NotificationService } from "./notification";
 import { QueueService } from "./queue";
 import { HealthService } from "./health";
 import { ClientService } from "./client";
+import { FolderService } from "./folder";
 
 interface ServicesConstructorParams {
   context: Context;
@@ -23,6 +24,7 @@ export class Services {
   public queue;
   public health;
   public client;
+  public folder;
 
   public constructor({ context }: ServicesConstructorParams) {
     this.platformSetup = new PlatformSetupService({
@@ -50,5 +52,7 @@ export class Services {
     this.health = new HealthService({ context });
 
     this.client = new ClientService({ context });
+
+    this.folder = new FolderService({ context });
   }
 }

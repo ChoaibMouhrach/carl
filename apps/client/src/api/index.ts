@@ -7,6 +7,7 @@ import { NotificationApi } from "./notification";
 import { QueueApi } from "./queue";
 import { AccountApi } from "./account";
 import { ClientApi } from "./client";
+import { FolderApi } from "./folder";
 
 class Api {
   public account = new AccountApi();
@@ -18,6 +19,7 @@ class Api {
   public notification = new NotificationApi();
   public queue = new QueueApi();
   public client = new ClientApi();
+  public folder = new FolderApi();
 }
 
 export const api = new Api();

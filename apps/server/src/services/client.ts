@@ -14,6 +14,16 @@ export class ClientService extends BaseService {
     return { clients, meta: { page, lastPage } };
   }
 
+  public async get(where: { clientId: number; userId: string }) {
+    const client = await this.context.repositories.client.findByClientId(where);
+
+    if (!client) {
+      throw new NotFoundError({ message: "Client not found." });
+    }
+
+    return client;
+  }
+
   public async create(input: { userId: string; name: string; email: string }) {
     return await this.context.repositories.client.create(input);
   }

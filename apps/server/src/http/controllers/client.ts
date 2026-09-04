@@ -8,6 +8,7 @@ import {
   createClientSchema,
   updateClientSchema,
 } from "../validations/client";
+import { folderController } from "./folder";
 
 export const clientController = new Hono<AppContext>()
   .use(authMiddleware)
@@ -27,6 +28,22 @@ export const clientController = new Hono<AppContext>()
       });
 
       return context.json({ clients, meta });
+    },
+  )
+
+  .get(
+    "/:clientId",
+    describeRoute({ tags: ["clients"] }),
+    validator("param", clientIdParamSchema),
+    async (context) => {
+      const { userId } = context.get("auth").user;
+      const { clientId } = context.req.valid("param");
+
+      const client = await context
+        .get("services")
+        .client.get({ clientId, userId });
+
+      return context.json(client);
     },
   )
 
@@ -81,4 +98,6 @@ export const clientController = new Hono<AppContext>()
 
       return context.body(null, 204);
     },
-  );
+  )
+
+  .route("/:clientId/folders", folderController);

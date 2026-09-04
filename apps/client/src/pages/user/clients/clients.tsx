@@ -2,6 +2,7 @@ import { api } from "@/api";
 import { DataPagination } from "@/components/data-pagination";
 import { onError } from "@/lib/base-api";
 import { userClientsRoute } from "@/routes/user/clients";
+import { useNavigate } from "@tanstack/react-router";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -18,6 +19,7 @@ export const Clients = () => {
   const { t } = useTranslation();
   const searchParams = userClientsRoute.useSearch();
   const navigate = userClientsRoute.useNavigate();
+  const appNavigate = useNavigate();
   const queryClient = useQueryClient();
 
   const [formOpen, setFormOpen] = useState(false);
@@ -101,6 +103,13 @@ export const Clients = () => {
               setEditingClient(client);
               setFormOpen(true);
             }}
+            onOpen={(client) =>
+              appNavigate({
+                to: "/user/clients/$clientId/folders",
+                params: { clientId: client.clientId.toString() },
+                search: { page: 1 },
+              })
+            }
             onRemove={(clientId) => remove.mutate(clientId)}
             removingClientId={remove.variables}
           />
