@@ -1,4 +1,4 @@
-# saasTemplate
+# docucy
 
 A clean, typed, batteries-included foundation for building focused SaaS products.
 It gives you the essential infrastructure — accounts, first-admin setup, billing,
@@ -140,6 +140,7 @@ All apps read a single root `.env`. Copy `.env.example` and fill it in.
 | `VITE_API_URL`                                                                        | Base URL the dashboard uses to reach the API                    |
 | `CLIENT_URL`                                                                          | Public URL of the dashboard (server builds email links from it) |
 | `NEXT_PUBLIC_CLIENT_URL`                                                              | Marketing site's link target for the app (used to build `/app`) |
+| `NEXT_PUBLIC_SITE_URL`                                                                | Marketing site's own public URL (sitemap, robots, SEO)          |
 | `VITE_LP_URL`                                                                         | Dashboard's link back to the marketing/landing page             |
 | `POSTGRES_HOST` / `PORT` / `USER` / `PASS` / `NAME`                                   | PostgreSQL connection                                           |
 | `REDIS_HOST` / `PORT` / `PASSWORD`                                                    | Redis connection (queue + rate limiting)                        |
@@ -148,11 +149,9 @@ All apps read a single root `.env`. Copy `.env.example` and fill it in.
 | `QUEUE_CONCURRENCY`                                                                   | Max concurrent background jobs                                  |
 | `QUEUE_BACKLOG_THRESHOLD`                                                             | Waiting-jobs count that triggers a backlog alert (default 100)  |
 | `S3_ENDPOINT` / `REGION` / `ACCESS_KEY` / `SECRET_KEY` / `BUCKET_NAME` / `PUBLIC_URL` | Object storage                                                  |
-| `RESEND_API_KEY` / `MAIL_DOMAIN`                                                      | Transactional email                                             |
+| `RESEND_API_KEY` / `MAIL_DOMAIN` / `MAIL_RATE_LIMIT_PER_SECOND`                       | Transactional email                                             |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`                                         | Billing                                                         |
-| `SENTRY_DSN` / `SENTRY_TRACES_SAMPLE_RATE`                                            | Server error tracking → Better Stack                            |
-| `VITE_SENTRY_DSN`                                                                     | Dashboard error tracking → Better Stack                         |
-| `NEXT_PUBLIC_SENTRY_DSN`                                                              | Marketing error tracking → Better Stack                         |
+| `NEXT_PUBLIC_UMAMI_SRC` / `WEBSITE_ID` / `DOMAINS`                                    | Marketing site analytics (Umami)                                |
 
 Run `bun run check:env` to validate that your `.env` satisfies every app's schema.
 
@@ -163,15 +162,16 @@ Run `bun run check:env` to validate that your `.env` satisfies every app's schem
 NODE_ENV=development
 API_PORT=3002
 VITE_API_URL=http://localhost:3002
-CLIENT_URL=http://localhost:3002/app
+CLIENT_URL=http://localhost:3002
 NEXT_PUBLIC_CLIENT_URL=http://localhost:3002
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
 VITE_LP_URL=http://localhost:3000
 
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
 POSTGRES_USER=postgres
 POSTGRES_PASS=postgres
-POSTGRES_NAME=saasTemplate
+POSTGRES_NAME=docucy
 
 REDIS_HOST=localhost
 REDIS_PORT=6379
@@ -190,14 +190,14 @@ S3_BUCKET_NAME=
 S3_PUBLIC_URL=
 RESEND_API_KEY=
 MAIL_DOMAIN=
+MAIL_RATE_LIMIT_PER_SECOND=2
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
 
-# Observability
-SENTRY_DSN=
-SENTRY_TRACES_SAMPLE_RATE=1
-VITE_SENTRY_DSN=
-NEXT_PUBLIC_SENTRY_DSN=
+# Analytics
+NEXT_PUBLIC_UMAMI_SRC=
+NEXT_PUBLIC_UMAMI_WEBSITE_ID=
+NEXT_PUBLIC_UMAMI_DOMAINS=
 ```
 
 </details>
@@ -218,14 +218,9 @@ For local webhook forwarding, run `bun run stripe:listen`, copy the printed
 
 ## Observability
 
-Error tracking, uptime, and alerting run on [Better Stack](https://betterstack.com/docs/getting-started/welcome/).
-Errors are sent through the Sentry SDK pointed at Better Stack's ingest endpoint —
-no Sentry account is involved. Everything is off until you set the DSNs, so the
-template runs clean locally.
-
-**What the code does:** the server exposes `GET /health` (a readiness probe) and
-forwards three failure signals into Better Stack Errors, each tagged so you can
-alert on it.
+The server exposes `GET /health` (a readiness probe) and has an
+`errorMonitor` hook (`BaseErrorMonitor`, `apps/server/src/lib/base-error-monitor.ts`)
+that failure signals are reported through.
 
 The probe checks Postgres, Redis, and the mail provider (Resend), returning a
 tiered status. Postgres and Redis are **critical** — if either is down the app
@@ -242,7 +237,7 @@ green is `200 {status:"ok"}`.
 }
 ```
 
-Signals forwarded into Better Stack Errors:
+Signals reported through `errorMonitor`:
 
 | Signal                 | Where it fires                                                 | Tags                                   |
 | ---------------------- | -------------------------------------------------------------- | -------------------------------------- |
@@ -251,22 +246,15 @@ Signals forwarded into Better Stack Errors:
 | Failed background job  | A job that exhausts all retries                                | `signal=job_failed`, `queue=<name>`    |
 | Queue backlog          | Waiting jobs ≥ `QUEUE_BACKLOG_THRESHOLD` (checked each minute) | `signal=queue_backlog`, `queue=<name>` |
 
-### Set it up in Better Stack
+By default `errorMonitor` is `DisabledErrorMonitor` (`apps/server/src/infrastructure/error-monitor/disabled.ts`)
+— a no-op, so these signals go nowhere. To wire up a real error-tracking
+provider, add an implementation of `BaseErrorMonitor` under
+`infrastructure/error-monitor/` and swap it in in `context.ts`.
 
-1. **Create an application per surface** (server, dashboard, marketing site) under
-   **Errors → Applications**. Open each app's **Ingest** tab, copy the DSN, and set
-   `SENTRY_DSN` / `VITE_SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN`. Restart / rebuild.
-   Trigger a test error and confirm it lands under **Errors**.
-2. **Uptime monitor** — under **Monitors**, create an HTTP monitor for
-   `https://<your-api-host>/health`, expecting status `200`. Non-`200` (the `503`
-   returned when Postgres or Redis is unreachable) triggers a downtime alert. To
-   also be paged when only email is degraded, add a second monitor that additionally
-   requires the response body to contain `"status":"ok"` — that one fires on both
-   `unhealthy` and `degraded`.
-3. **Alert policies** — in the server application's **Errors** view, create one alert
-   policy per signal, filtering on its tag (`signal:stripe_webhook`,
-   `signal:job_failed`, `signal:queue_backlog`), and attach an on-call / notification
-   channel to each.
+An uptime monitor can poll `GET /health`, expecting `200`. Non-`200` (the
+`503` returned when Postgres or Redis is unreachable) means the app can't
+serve. A response body containing `"status":"degraded"` means only the mail
+provider is unreachable — the app still works, jobs just retry.
 
 `QUEUE_BACKLOG_THRESHOLD` tunes how many waiting jobs count as a backlog.
 

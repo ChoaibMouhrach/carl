@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { initENV } from "@server/config/env";
 import { initDB } from "@server/infrastructure/database/client";
 
-export const TEST_DB_TEMPLATE = "saasTemplate_test_template";
+export const TEST_DB_TEMPLATE = "docucy_test_template";
 
 beforeAll(async () => {
   const env = initENV();

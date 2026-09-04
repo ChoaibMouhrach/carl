@@ -1,5 +1,5 @@
 {
-  "name": "saasTemplate",
+  "name": "docucy",
   "packageManager": "bun@1.3.5",
   "scripts": {
     "dev": "turbo dev",

@@ -18,18 +18,14 @@ import type { BaseRateLimiter } from "./lib/base-rate-limiter";
 import { RedisRateLimiter } from "./infrastructure/rate-limiter/redis";
 import { createAuth } from "./infrastructure/auth";
 import type { BaseErrorMonitor } from "./lib/base-error-monitor";
-import { SentryErrorMonitor } from "./infrastructure/error-monitor/sentry";
+import { DisabledErrorMonitor } from "./infrastructure/error-monitor/disabled";
 
 export const initContext = async () => {
   const logger: BaseLogger = new PinoLogger();
 
   const env = initENV();
 
-  const errorMonitor: BaseErrorMonitor = new SentryErrorMonitor({
-    dsn: env.SENTRY_DSN,
-    environment: env.NODE_ENV,
-    tracesSampleRate: env.SENTRY_TRACES_SAMPLE_RATE,
-  });
+  const errorMonitor: BaseErrorMonitor = new DisabledErrorMonitor();
 
   const dbConnection = await initDB({
     connectionCredentials: env.POSTGRES_CONNECTION_STRING,

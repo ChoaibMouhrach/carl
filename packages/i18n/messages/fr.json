@@ -1,11 +1,11 @@
 {
   "metadata": {
-    "title": "saasTemplate — Construisez ce que vous seul pouvez construire",
+    "title": "docucy — Construisez ce que vous seul pouvez construire",
     "description": "Une base propre et typée pour créer des produits SaaS ciblés.",
-    "siteName": "saasTemplate"
+    "siteName": "docucy"
   },
   "nav": {
-    "home": "Accueil saasTemplate",
+    "home": "Accueil docucy",
     "blog": "Blog",
     "signIn": "Se connecter"
   },
@@ -78,7 +78,7 @@
   "hero": {
     "badge": "Une base solide pour votre prochain produit",
     "title": "Construisez la partie que vous seul pouvez construire.",
-    "description": "saasTemplate vous fournit l'infrastructure essentielle — comptes, configuration, base de données, API et une interface soignée — sans hériter des hypothèses d'un autre produit.",
+    "description": "docucy vous fournit l'infrastructure essentielle — comptes, configuration, base de données, API et une interface soignée — sans hériter des hypothèses d'un autre produit.",
     "openApp": "Ouvrir l'application",
     "exploreFoundation": "Découvrir la base"
   },
