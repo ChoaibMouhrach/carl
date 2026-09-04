@@ -1,6 +1,6 @@
 import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
-import { API_URL, CLIENT_URL } from "./config";
+import { CLIENT_URL } from "./config";
 
 const clientServer = {
   command: "bun run dev",
@@ -10,18 +10,11 @@ const clientServer = {
   timeout: 120_000,
 };
 
-const webServer = process.env.CI
-  ? [
-      {
-        command: "bun src/index.ts",
-        cwd: path.resolve(__dirname, "../server"),
-        url: `${API_URL}/health`,
-        reuseExistingServer: false,
-        timeout: 120_000,
-      },
-      clientServer,
-    ]
-  : clientServer;
+// In CI, the app already runs as the built docucy container (server +
+// client + front, one origin) started by the workflow — no dev servers to
+// spawn here. Locally, only the client needs a dev server; the API is
+// expected to already be running via `bun dev`.
+const webServer = process.env.CI ? undefined : clientServer;
 
 export default defineConfig({
   testDir: "./tests",

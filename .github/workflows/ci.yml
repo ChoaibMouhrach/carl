@@ -47,8 +47,40 @@ jobs:
         working-directory: apps/server
         run: bun run db:migrate
 
+      - name: Read API_PORT
+        run: grep '^API_PORT=' .env >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Build and run the real docucy image (server + client + front, one
+      # origin) instead of driving three separate dev processes — matches
+      # production and avoids dev-server flakiness. Postgres/redis are
+      # already up and healthy at this point (started by ci-setup, from
+      # the same compose project), so this only builds and starts the app
+      # container. POSTGRES_HOST/REDIS_HOST are overridden to the sibling
+      # containers' names since the app runs on the docker network, not
+      # the runner's host network where .env's "localhost" resolves.
+      - name: Build and start docucy
+        run: |
+          POSTGRES_HOST=docucy-postgres REDIS_HOST=docucy-redis \
+            docker compose -f compose.prod.yml --env-file .env up -d --build docucy
+
+      - name: Wait for docucy
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf "http://localhost:${API_PORT}/health" >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "docucy did not become ready" >&2
+          docker compose -f compose.prod.yml logs docucy
+          exit 1
+
       - name: Run E2E tests
         working-directory: apps/e2e
+        env:
+          E2E_BASE_URL: http://localhost:${{ env.API_PORT }}
         run: bun run e2e
 
       - name: Upload report
