@@ -1,0 +1,84 @@
+import { Hono } from "hono";
+import { describeRoute, validator } from "hono-openapi";
+import type { AppContext } from "@server/app";
+import { authMiddleware } from "@server/http/middlewares/auth";
+import {
+  clientIdParamSchema,
+  clientQuerySchema,
+  createClientSchema,
+  updateClientSchema,
+} from "../validations/client";
+
+export const clientController = new Hono<AppContext>()
+  .use(authMiddleware)
+
+  .get(
+    "/",
+    describeRoute({ tags: ["clients"] }),
+    validator("query", clientQuerySchema),
+    async (context) => {
+      const { userId } = context.get("auth").user;
+      const query = context.req.valid("query");
+
+      const { clients, meta } = await context.get("services").client.list({
+        userId,
+        page: query?.page,
+        search: query?.search,
+      });
+
+      return context.json({ clients, meta });
+    },
+  )
+
+  .post(
+    "/",
+    describeRoute({ tags: ["clients"] }),
+    validator("json", createClientSchema),
+    async (context) => {
+      const { userId } = context.get("auth").user;
+      const body = context.req.valid("json");
+
+      const client = await context.get("services").client.create({
+        userId,
+        name: body.name,
+        email: body.email,
+      });
+
+      return context.json(client, 201);
+    },
+  )
+
+  .patch(
+    "/:clientId",
+    describeRoute({ tags: ["clients"] }),
+    validator("param", clientIdParamSchema),
+    validator("json", updateClientSchema),
+    async (context) => {
+      const { userId } = context.get("auth").user;
+      const { clientId } = context.req.valid("param");
+      const body = context.req.valid("json");
+
+      const client = await context
+        .get("services")
+        .client.update(
+          { clientId, userId },
+          { name: body.name, email: body.email },
+        );
+
+      return context.json(client);
+    },
+  )
+
+  .delete(
+    "/:clientId",
+    describeRoute({ tags: ["clients"] }),
+    validator("param", clientIdParamSchema),
+    async (context) => {
+      const { userId } = context.get("auth").user;
+      const { clientId } = context.req.valid("param");
+
+      await context.get("services").client.remove({ clientId, userId });
+
+      return context.body(null, 204);
+    },
+  );

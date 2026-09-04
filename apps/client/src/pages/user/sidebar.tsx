@@ -18,6 +18,7 @@ import { Logo, LogoWithText } from "@repo/ui/logo-mark";
 import {
   LayoutDashboardIcon,
   CreditCardIcon,
+  ContactIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -30,8 +31,8 @@ interface UserSidebarProps {
 }
 
 interface NavigationItem {
-  labelKey: "nav.dashboard" | "nav.billing";
-  to: "/user/dashboard" | "/user/billing";
+  labelKey: "nav.dashboard" | "nav.billing" | "nav.clients";
+  to: "/user/dashboard" | "/user/billing" | "/user/clients";
   icon: LucideIcon;
 }
 
@@ -42,6 +43,7 @@ const navigation: NavigationItem[] = [
     icon: LayoutDashboardIcon,
   },
   { labelKey: "nav.billing", to: "/user/billing", icon: CreditCardIcon },
+  { labelKey: "nav.clients", to: "/user/clients", icon: ContactIcon },
 ];
 
 export const UserSidebar: React.FC<UserSidebarProps> = ({ user }) => {

@@ -6,6 +6,7 @@ import { BillingApi } from "./billing";
 import { NotificationApi } from "./notification";
 import { QueueApi } from "./queue";
 import { AccountApi } from "./account";
+import { ClientApi } from "./client";
 
 class Api {
   public account = new AccountApi();
@@ -16,6 +17,7 @@ class Api {
   public billing = new BillingApi();
   public notification = new NotificationApi();
   public queue = new QueueApi();
+  public client = new ClientApi();
 }
 
 export const api = new Api();

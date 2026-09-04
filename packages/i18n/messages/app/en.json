@@ -8,7 +8,8 @@
     "dashboard": "Dashboard",
     "billing": "Billing",
     "users": "Users",
-    "queues": "Queues"
+    "queues": "Queues",
+    "clients": "Clients"
   },
   "auth": {
     "signIn": {
@@ -107,6 +108,34 @@
     "resendPasswordReset": "Send password reset",
     "verificationSent": "Verification email sent.",
     "passwordResetSent": "Password reset email sent."
+  },
+  "clients": {
+    "title": "Clients",
+    "description": "Keep track of the clients you work with.",
+    "search": "Search by name",
+    "add": "Add client",
+    "empty": "No clients match your search.",
+    "name": "Name",
+    "email": "Email",
+    "actions": "Actions",
+    "edit": "Edit",
+    "remove": "Remove",
+    "removeTitle": "Remove this client?",
+    "removeDescription": "This permanently removes the client. This action cannot be undone.",
+    "cancel": "Cancel",
+    "createTitle": "Add client",
+    "createDescription": "Create a new client record.",
+    "editTitle": "Edit client",
+    "editDescription": "Update this client's details.",
+    "editConfirmTitle": "Save changes to this client?",
+    "editConfirmDescription": "This updates the client's details.",
+    "namePlaceholder": "Jane Cooper",
+    "emailPlaceholder": "jane@example.com",
+    "save": "Save",
+    "reset": "Reset",
+    "created": "Client created.",
+    "updated": "Client updated.",
+    "removed": "Client removed."
   },
   "adminQueues": {
     "title": "Queues",

@@ -32,7 +32,6 @@ export const UserFilters = ({
   return (
     <div className="flex flex-wrap gap-2">
       <Search
-        key={search ?? "default"}
         onSearch={onSearch}
         placeholder={t("adminUsers.search")}
         value={search}

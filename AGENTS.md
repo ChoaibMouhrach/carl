@@ -99,11 +99,13 @@ A `NEXT_PUBLIC_*` var used in **client** components (front) must also be added t
 - After a successful mutation, invalidate the relevant query key via `queryClient.invalidateQueries`.
 - Loading state pattern: `disabled={mutation.isPending}` + `{mutation.isPending && <Spinner />}` inline in the button — never a separate loading variable.
 - For paginated or filtered list queries, use `placeholderData: (previousData) => previousData` when retaining the previous result during a refetch improves continuity.
+- Every `useQuery` call must set `placeholderData` (typically `(previousData) => previousData`). Never omit it.
 
 **Forms**
 
 - Always use `react-hook-form` with `zodResolver`. Use `Controller` for each field.
 - Never use uncontrolled inputs or `useState` for form fields.
+- Every required field's `FieldLabel` must render the shared `RequiredIndicator` component (`@/components/required-indicator`) right after the label text, showing a red asterisk. Never hand-roll a `*` or asterisk styling inline.
 
 **Destructive actions**
 
@@ -139,6 +141,7 @@ Management pages (lists of users, records, subscriptions, and similar resources)
 - Put the main content inside `Card` and `CardContent`.
 - Validate all list state in the route search schema: page, search text, filters, sorting, and similar controls.
 - Use the shared `Search` component for text search. It debounces input and updates route search params; changing search resets `page` to `1`.
+- Never put a `key` prop on `Search`. It syncs its internal value from the `value` prop on its own; a `key` forces a remount instead, which can drop focus/state.
 - Filters use shadcn controls and update route search params; changing a filter resets `page` to `1`.
 - Pagination always renders, uses shadcn pagination primitives, and updates the `page` route search param.
 - Disable Previous and Next when there is no adjacent page using the component's native disabled state.
@@ -228,6 +231,7 @@ E2E tests live in `apps/e2e` (a standalone Playwright package), never in `apps/c
 
 - Assert on behavior, never translated copy or transient toasts: `toHaveURL(...)`, reaching an auth-protected page, HTTP status via `page.waitForResponse(...)`, and persisted state via `seed.*` reads.
 - For state that appears asynchronously after a request, use `expect.poll` — never `waitForTimeout` or a fixed sleep.
+- When a spec covers a form, assert every required field shows the `RequiredIndicator` asterisk next to its label and that its input has a `placeholder`.
 
 **Scope**
 
