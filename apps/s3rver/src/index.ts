@@ -16,7 +16,10 @@ const corsConfig = fs.readFileSync(corsConfigPath, "utf-8");
 
 const instance = new S3rver({
   port: 4566,
-  address: "localhost",
+  // "localhost" resolves to the IPv6 loopback here, but the storage client
+  // connects to IPv4 "localhost:4566", and Docker's port publishing can't
+  // forward to a loopback-only listener either — bind all interfaces.
+  address: "0.0.0.0",
   silent: false,
   directory: dataDir,
   configureBuckets: [

@@ -52,6 +52,9 @@ services:
       context: ./apps/s3rver
     ports:
       - "${API_PORT:?API_PORT is required}:${API_PORT:?API_PORT is required}"
+      # Presigned S3 URLs point browsers straight at this port, so it must
+      # be reachable from outside the container too, not just from docucy.
+      - "4566:4566"
 
   docucy:
     container_name: docucy
