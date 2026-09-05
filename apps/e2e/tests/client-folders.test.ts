@@ -1,5 +1,9 @@
+import fs from "fs";
+import os from "os";
+import path from "path";
 import { faker } from "@faker-js/faker";
 import type { Page } from "@playwright/test";
+import { MULTIPART_THRESHOLD_BYTES } from "@repo/constants/files";
 import { test, expect } from "../fixtures";
 
 // Folder/file name cells render via `title={name}`; file names additionally
@@ -815,6 +819,222 @@ test.describe("Uploading files", () => {
       .toBeNull();
 
     expect(await seed.countFilesByClient(client.clientId)).toBe(0);
+  });
+
+  test("uploads a file above the multipart threshold through the real chunked path and it appears in the entries table with its real persisted size", async ({
+    page,
+    seed,
+  }) => {
+    const user = await seed.createOnboardedUser();
+    const client = await seed.createClient({ userId: user.userId });
+    const fileName = `large-${faker.string.uuid()}.txt`;
+    const sizeBytes = MULTIPART_THRESHOLD_BYTES + 1024 * 1024;
+    const content = Buffer.alloc(sizeBytes, "a");
+
+    const multipartInitRequests: string[] = [];
+    const multipartCompleteRequests: string[] = [];
+    await page.route("**/files/multipart", async (route) => {
+      if (route.request().method() === "POST") {
+        multipartInitRequests.push(route.request().url());
+      }
+      await route.continue();
+    });
+    await page.route("**/files/multipart/complete", async (route) => {
+      multipartCompleteRequests.push(route.request().url());
+      await route.continue();
+    });
+
+    await seed.authenticate(page.context(), user.email);
+    await page.goto(`/app/user/clients/${client.clientId}/folders`);
+
+    await page.getByRole("button", { name: "Upload files" }).click();
+    await page.locator('input[type="file"]').setInputFiles({
+      name: fileName,
+      mimeType: "text/plain",
+      buffer: content,
+    });
+
+    await expect
+      .poll(
+        async () =>
+          (await seed.findFileByName({
+            clientId: client.clientId,
+            folderId: null,
+            name: fileName,
+          })) !== null,
+        { timeout: 30_000 },
+      )
+      .toBe(true);
+
+    expect(multipartInitRequests.length).toBeGreaterThan(0);
+    expect(multipartCompleteRequests.length).toBeGreaterThan(0);
+
+    const file = await seed.findFileByName({
+      clientId: client.clientId,
+      folderId: null,
+      name: fileName,
+    });
+    expect(file?.sizeBytes).toBe(sizeBytes);
+
+    await page.getByRole("button", { name: "Done" }).click();
+    await expect(entryRow(page, fileName)).toBeVisible();
+  });
+
+  test("downloads a file that was uploaded via the multipart path and receives the original content intact", async ({
+    page,
+    seed,
+  }) => {
+    const user = await seed.createOnboardedUser();
+    const client = await seed.createClient({ userId: user.userId });
+    const fileName = `large-download-${faker.string.uuid()}.txt`;
+    const sizeBytes = MULTIPART_THRESHOLD_BYTES * 2 + 1024 * 1024;
+    // Distinctive byte pattern (not a uniform fill) so a bug that corrupts
+    // or misorders bytes at a part boundary is actually detectable.
+    const content = Buffer.alloc(sizeBytes);
+    for (let i = 0; i < sizeBytes; i += 1) content[i] = i % 256;
+    const filePath = path.join(os.tmpdir(), fileName);
+    fs.writeFileSync(filePath, content);
+
+    await seed.authenticate(page.context(), user.email);
+    await page.goto(`/app/user/clients/${client.clientId}/folders`);
+
+    await page.getByRole("button", { name: "Upload files" }).click();
+    await page.locator('input[type="file"]').setInputFiles(filePath);
+
+    await expect
+      .poll(
+        async () =>
+          (await seed.findFileByName({
+            clientId: client.clientId,
+            folderId: null,
+            name: fileName,
+          })) !== null,
+        { timeout: 30_000 },
+      )
+      .toBe(true);
+    await page.getByRole("button", { name: "Done" }).click();
+
+    await entryRow(page, fileName)
+      .getByRole("button", { name: "Actions" })
+      .click();
+
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("menuitem", { name: "Download" }).click();
+    const download = await downloadPromise;
+
+    const downloadedPath = await download.path();
+    expect(downloadedPath).not.toBeNull();
+    const downloadedContent = fs.readFileSync(downloadedPath!);
+    expect(downloadedContent.length).toBe(sizeBytes);
+    expect(downloadedContent.equals(content)).toBe(true);
+
+    fs.unlinkSync(filePath);
+  });
+
+  test("cancelling an in-progress large multipart upload aborts it and creates no file record", async ({
+    page,
+    seed,
+  }) => {
+    const user = await seed.createOnboardedUser();
+    const client = await seed.createClient({ userId: user.userId });
+    const fileName = `cancelled-large-${faker.string.uuid()}.txt`;
+    const sizeBytes = MULTIPART_THRESHOLD_BYTES * 4;
+    const filePath = path.join(os.tmpdir(), fileName);
+    fs.writeFileSync(filePath, Buffer.alloc(sizeBytes, "a"));
+
+    await seed.authenticate(page.context(), user.email);
+    await page.goto(`/app/user/clients/${client.clientId}/folders`);
+
+    await page.getByRole("button", { name: "Upload files" }).click();
+    await page.locator('input[type="file"]').setInputFiles(filePath);
+
+    await page.getByRole("button", { name: `Remove ${fileName}` }).click();
+
+    await expect(page.getByRole("listitem")).toHaveCount(0);
+
+    // A background upload that wasn't actually aborted would still complete
+    // and persist a row within a few seconds on local storage — wait out
+    // that whole window before asserting absence, rather than polling
+    // (which would exit on the very first, still-in-flight, null read).
+    await page.waitForTimeout(8_000);
+
+    expect(
+      await seed.findFileByName({
+        clientId: client.clientId,
+        folderId: null,
+        name: fileName,
+      }),
+    ).toBeNull();
+    expect(await seed.countFilesByClient(client.clientId)).toBe(0);
+
+    fs.unlinkSync(filePath);
+  });
+
+  // Not a race-condition test: the two uploads run fully sequentially, so
+  // this exercises the init-time preview dedup, not the complete-time
+  // re-check specifically — that race is already covered at the Bun
+  // integration level (file-endpoints.test.ts). This proves the
+  // user-visible outcome: two large same-named uploads in a row still end
+  // up as two distinct files.
+  test("produces two distinct files when uploading two large files with the same name into the same folder in sequence", async ({
+    page,
+    seed,
+  }) => {
+    const user = await seed.createOnboardedUser();
+    const client = await seed.createClient({ userId: user.userId });
+    const fileName = `large-report-${faker.string.uuid()}.txt`;
+    const suffixedName = fileName.replace(/\.txt$/, " (1).txt");
+    const sizeBytes = MULTIPART_THRESHOLD_BYTES + 1024 * 1024;
+    const firstPath = path.join(os.tmpdir(), fileName);
+    fs.writeFileSync(firstPath, Buffer.alloc(sizeBytes, "a"));
+
+    await seed.authenticate(page.context(), user.email);
+    await page.goto(`/app/user/clients/${client.clientId}/folders`);
+
+    await page.getByRole("button", { name: "Upload files" }).click();
+    const input = page.locator('input[type="file"]');
+
+    await input.setInputFiles(firstPath);
+    await expect
+      .poll(
+        async () =>
+          (await seed.findFileByName({
+            clientId: client.clientId,
+            folderId: null,
+            name: fileName,
+          })) !== null,
+        { timeout: 30_000 },
+      )
+      .toBe(true);
+
+    // A second file, same name, different bytes — the server generates the
+    // real (deduped) name at complete time, not from the first file's slot.
+    const secondPath = path.join(os.tmpdir(), `second-${fileName}`);
+    fs.writeFileSync(secondPath, Buffer.alloc(sizeBytes, "b"));
+    await input.setInputFiles({
+      name: fileName,
+      mimeType: "text/plain",
+      buffer: fs.readFileSync(secondPath),
+    });
+    await expect
+      .poll(
+        async () =>
+          (await seed.findFileByName({
+            clientId: client.clientId,
+            folderId: null,
+            name: suffixedName,
+          })) !== null,
+        { timeout: 30_000 },
+      )
+      .toBe(true);
+
+    await page.getByRole("button", { name: "Done" }).click();
+
+    await expect(entryRow(page, fileName)).toBeVisible();
+    await expect(entryRow(page, suffixedName)).toBeVisible();
+
+    fs.unlinkSync(firstPath);
+    fs.unlinkSync(secondPath);
   });
 });
 

@@ -43,25 +43,52 @@ services:
       retries: 5
       start_period: 5s
 
-  # S3rverStorage (the non-production storage backend) hardcodes its
-  # endpoint to http://localhost:4566, so docucy shares this container's
-  # network namespace instead of talking to it over the compose network.
-  s3rver:
-    container_name: docucy-s3rver
-    build:
-      context: ./apps/s3rver
+  # Presigned S3 URLs point browsers straight at this endpoint, so docucy
+  # shares this container's network namespace instead of talking to it over
+  # the compose network — S3_ENDPOINT must resolve identically for both.
+  minio:
+    container_name: docucy-minio
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
     ports:
       - "${API_PORT:?API_PORT is required}:${API_PORT:?API_PORT is required}"
-      # Presigned S3 URLs point browsers straight at this port, so it must
-      # be reachable from outside the container too, not just from docucy.
-      - "4566:4566"
+      - "9000:9000"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # MinIO's defaults already cover what a presigned multipart flow needs:
+  # cors_allow_origin=* exposes ETag to the browser, and incomplete
+  # multipart uploads are auto-aborted after stale_uploads_expiry (24h) —
+  # this step only needs to create the bucket.
+  minio-init:
+    container_name: docucy-minio-init
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
+      mc mb --ignore-existing local/${S3_BUCKET_NAME:?S3_BUCKET_NAME is required}
+      "
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
 
   docucy:
     container_name: docucy
     build:
       context: .
       dockerfile: Dockerfile
-    network_mode: "service:s3rver"
+    network_mode: "service:minio"
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST:?POSTGRES_HOST is required}
       REDIS_HOST: ${REDIS_HOST:?REDIS_HOST is required}
@@ -70,9 +97,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      s3rver:
-        condition: service_started
+      minio-init:
+        condition: service_completed_successfully
 
 volumes:
   postgres_data:
   redis_data:
+  minio_data:

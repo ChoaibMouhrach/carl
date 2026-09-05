@@ -13,4 +13,22 @@ export abstract class BaseStorage {
     fileName: string;
   }): Promise<{ signedUrl: string }>;
   public abstract removeFile(input: { key: string }): Promise<void>;
+  public abstract createMultipartUpload(input: {
+    key: string;
+    contentType: string;
+  }): Promise<{ uploadId: string }>;
+  public abstract getUploadPartUrls(input: {
+    key: string;
+    uploadId: string;
+    partCount: number;
+  }): Promise<{ parts: { partNumber: number; signedUrl: string }[] }>;
+  public abstract completeMultipartUpload(input: {
+    key: string;
+    uploadId: string;
+    parts: { partNumber: number; eTag: string }[];
+  }): Promise<{ url: string }>;
+  public abstract abortMultipartUpload(input: {
+    key: string;
+    uploadId: string;
+  }): Promise<void>;
 }

@@ -42,6 +42,7 @@ const schema = z.object({
   S3_SECRET_KEY: z.string().nonempty(),
   S3_BUCKET_NAME: z.string().nonempty(),
   S3_PUBLIC_URL: z.url(),
+  S3_FORCE_PATH_STYLE: z.stringbool().default(false),
 
   // Mail
   RESEND_API_KEY: z.string().nonempty(),

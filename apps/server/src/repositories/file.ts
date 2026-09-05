@@ -217,10 +217,4 @@ export class FileRepository extends BaseRepository {
       .delete(FileRepository.table)
       .where(eq(FileRepository.table.fileId, where.fileId));
   }
-
-  public async removeByKey(where: { key: string }) {
-    await this.db
-      .delete(FileRepository.table)
-      .where(eq(FileRepository.table.key, where.key));
-  }
 }

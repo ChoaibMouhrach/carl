@@ -8,7 +8,6 @@ import { DevMailer } from "./infrastructure/mailer/dev";
 import { ResendMailer } from "./infrastructure/mailer/resend";
 import { RateLimitedMailer } from "./infrastructure/mailer/rate-limited";
 import type { BaseStorage } from "./lib/base-storage";
-import { S3rverStorage } from "./infrastructure/storage/s3rver";
 import { S3Storage } from "./infrastructure/storage/s3";
 import type { BaseBilling } from "./lib/base-billing";
 import { StripeBilling } from "./infrastructure/billing/stripe";
@@ -57,16 +56,15 @@ export const initContext = async () => {
         mailer: baseMailer,
       });
 
-  const storage: BaseStorage = env.IS_PRODUCTION
-    ? new S3Storage({
-        endpoint: env.S3_ENDPOINT,
-        region: env.S3_REGION,
-        accessKeyId: env.S3_ACCESS_KEY,
-        secretAccessKey: env.S3_SECRET_KEY,
-        bucket: env.S3_BUCKET_NAME,
-        publicUrl: env.S3_PUBLIC_URL,
-      })
-    : new S3rverStorage();
+  const storage: BaseStorage = new S3Storage({
+    endpoint: env.S3_ENDPOINT,
+    region: env.S3_REGION,
+    accessKeyId: env.S3_ACCESS_KEY,
+    secretAccessKey: env.S3_SECRET_KEY,
+    bucket: env.S3_BUCKET_NAME,
+    publicUrl: env.S3_PUBLIC_URL,
+    forcePathStyle: env.S3_FORCE_PATH_STYLE,
+  });
 
   const queueHub: BaseQueueHub = new QueueHub({
     concurrency: env.QUEUE_CONCURRENCY,

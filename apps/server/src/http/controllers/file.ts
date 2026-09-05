@@ -5,9 +5,11 @@ import { authMiddleware } from "@server/http/middlewares/auth";
 import { storageRateLimit } from "@server/http/middlewares/rate-limit";
 import { clientIdParamSchema } from "../validations/client";
 import {
-  createFilePresignSchema,
   fileIdParamSchema,
   fileQuerySchema,
+  multipartAbortSchema,
+  multipartCompleteSchema,
+  multipartInitSchema,
   updateFileSchema,
   uploadFileFormSchema,
 } from "../validations/file";
@@ -38,10 +40,10 @@ export const fileController = new Hono<AppContext>()
   )
 
   .post(
-    "/presign",
+    "/multipart",
     describeRoute({ tags: ["files"] }),
     validator("param", clientIdParamSchema),
-    validator("json", createFilePresignSchema),
+    validator("json", multipartInitSchema),
     async (context) => {
       const { userId } = context.get("auth").user;
       const { clientId } = context.req.valid("param");
@@ -49,12 +51,51 @@ export const fileController = new Hono<AppContext>()
 
       const result = await context
         .get("services")
-        .file.createPresignedUpload(
+        .file.createMultipartUpload(
           { clientId, folderId: body.folderId ?? null, userId },
           body,
         );
 
       return context.json(result, 201);
+    },
+  )
+
+  .post(
+    "/multipart/complete",
+    describeRoute({ tags: ["files"] }),
+    validator("param", clientIdParamSchema),
+    validator("json", multipartCompleteSchema),
+    async (context) => {
+      const { userId } = context.get("auth").user;
+      const { clientId } = context.req.valid("param");
+      const body = context.req.valid("json");
+
+      const created = await context
+        .get("services")
+        .file.completeMultipartUpload(
+          { clientId, folderId: body.folderId ?? null, userId },
+          body,
+        );
+
+      return context.json(created, 201);
+    },
+  )
+
+  .delete(
+    "/multipart",
+    describeRoute({ tags: ["files"] }),
+    validator("param", clientIdParamSchema),
+    validator("json", multipartAbortSchema),
+    async (context) => {
+      const { userId } = context.get("auth").user;
+      const { clientId } = context.req.valid("param");
+      const body = context.req.valid("json");
+
+      await context
+        .get("services")
+        .file.abortMultipartUpload({ clientId, folderId: null, userId }, body);
+
+      return context.body(null, 204);
     },
   )
 

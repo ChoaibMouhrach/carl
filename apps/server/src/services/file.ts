@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NotFoundError } from "@server/lib/errors";
 import { BaseService } from "@server/lib/base-service";
+import { MULTIPART_PART_SIZE_BYTES } from "@repo/constants/files";
 
 export class FileService extends BaseService {
   private async assertLocationOwnership(where: {
@@ -73,7 +74,7 @@ export class FileService extends BaseService {
     return candidate;
   }
 
-  public async createPresignedUpload(
+  public async createMultipartUpload(
     where: { clientId: number; folderId: number | null; userId: string },
     input: { name: string; sizeBytes: number; mimeType: string },
   ) {
@@ -81,14 +82,46 @@ export class FileService extends BaseService {
 
     const name = await this.generateUniqueName(where, input.name);
     const key = crypto.randomUUID() + name;
-    const { signedUrl, url } = await this.context.storage.getSignedUrl({
-      contentType: input.mimeType,
+
+    const { uploadId } = await this.context.storage.createMultipartUpload({
       key,
+      contentType: input.mimeType,
     });
 
-    const file = await this.context.repositories.file.create({
-      name,
+    const partCount = Math.ceil(input.sizeBytes / MULTIPART_PART_SIZE_BYTES);
+    const { parts } = await this.context.storage.getUploadPartUrls({
       key,
+      uploadId,
+      partCount,
+    });
+
+    return { uploadId, key, name, parts };
+  }
+
+  public async completeMultipartUpload(
+    where: { clientId: number; folderId: number | null; userId: string },
+    input: {
+      uploadId: string;
+      key: string;
+      name: string;
+      mimeType: string;
+      sizeBytes: number;
+      parts: { partNumber: number; eTag: string }[];
+    },
+  ) {
+    await this.assertLocationOwnership(where);
+
+    const name = await this.generateUniqueName(where, input.name);
+
+    const { url } = await this.context.storage.completeMultipartUpload({
+      key: input.key,
+      uploadId: input.uploadId,
+      parts: input.parts,
+    });
+
+    return await this.context.repositories.file.create({
+      name,
+      key: input.key,
       sizeBytes: input.sizeBytes,
       mimeType: input.mimeType,
       url,
@@ -96,8 +129,18 @@ export class FileService extends BaseService {
       folderId: where.folderId,
       userId: where.userId,
     });
+  }
 
-    return { signedUrl, fileId: file.fileId, url };
+  public async abortMultipartUpload(
+    where: { clientId: number; folderId: number | null; userId: string },
+    input: { uploadId: string; key: string },
+  ) {
+    await this.assertLocationOwnership(where);
+
+    await this.context.storage.abortMultipartUpload({
+      key: input.key,
+      uploadId: input.uploadId,
+    });
   }
 
   public async upload(
@@ -114,7 +157,7 @@ export class FileService extends BaseService {
       body: input.body,
     });
 
-    return await this.context.repositories.file.create({
+    const file = await this.context.repositories.file.create({
       name,
       key,
       sizeBytes: input.sizeBytes,
@@ -124,6 +167,8 @@ export class FileService extends BaseService {
       folderId: where.folderId,
       userId: where.userId,
     });
+
+    return file;
   }
 
   public async update(

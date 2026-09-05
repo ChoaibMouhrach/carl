@@ -60,7 +60,7 @@ when any required configuration is missing.
 | i18n            | next-intl (front) + react-i18next (client), shared catalogs                       |
 | Billing         | [Stripe](https://stripe.com)                                                      |
 | Email           | [Resend](https://resend.com)                                                      |
-| Storage         | S3-compatible (AWS S3, or `s3rver` locally)                                       |
+| Storage         | S3-compatible (AWS S3, or [MinIO](https://min.io) locally)                        |
 
 ## Monorepo layout
 
@@ -69,7 +69,6 @@ apps/
   server/   Hono API + background workers; in prod serves the front & client too
   client/   Vite + React SPA — the authenticated dashboard, mounted at /app
   front/    Next.js marketing site — statically exported, localized per locale
-  s3rver/   Local S3-compatible server for development (port 4566)
 packages/
   constants/  Shared types & constants (@repo/constants): billing, error codes…
   ui/         Shared shadcn/ui component library (@repo/ui)
@@ -97,7 +96,8 @@ In production the server (`apps/server`) is the single entry point:
 - [Bun](https://bun.sh) `1.3.5+`
 - Docker (for local PostgreSQL and Redis) — or your own Postgres/Redis instances
 - Optional, only if you exercise those features: a Stripe account, a Resend API
-  key, and an S3 bucket (the bundled `s3rver` covers storage locally)
+  key, and an S3 bucket (a local [MinIO](https://min.io) container covers
+  storage, see below)
 
 ## Getting started
 
@@ -122,12 +122,19 @@ Then open the marketing site, or go straight to the dashboard at `/app`. The
 **first account you create becomes the admin** — the app redirects you to the
 setup flow until that account exists.
 
-For local file storage, start the S3 mock in a separate terminal and point the
-`S3_*` variables at it:
+For local file storage, run a MinIO container (an S3-compatible server) and
+point the `S3_*` variables at it (`S3_FORCE_PATH_STYLE=true`):
 
 ```bash
-bun --cwd apps/s3rver run dev   # S3-compatible server on http://localhost:4566
+docker run -p 9000:9000 -p 9001:9001 \
+  -e MINIO_ROOT_USER=<S3_ACCESS_KEY> -e MINIO_ROOT_PASSWORD=<S3_SECRET_KEY> \
+  minio/minio server /data --console-address ":9001"
 ```
+
+Then create the bucket once (via the console at `http://localhost:9001`, or
+`mc mb local/<S3_BUCKET_NAME>`) — MinIO's defaults already expose the `ETag`
+header multipart uploads need and auto-abort incomplete multipart uploads
+after 24h, so nothing else to configure.
 
 ## Environment variables
 

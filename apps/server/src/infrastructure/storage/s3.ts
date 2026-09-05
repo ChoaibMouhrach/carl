@@ -5,6 +5,10 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  CreateMultipartUploadCommand,
+  UploadPartCommand,
+  CompleteMultipartUploadCommand,
+  AbortMultipartUploadCommand,
 } from "@aws-sdk/client-s3";
 
 interface S3StorageInit {
@@ -97,6 +101,82 @@ export class S3Storage extends BaseStorage {
     const command = new DeleteObjectCommand({
       Bucket: this.bucket,
       Key: input.key,
+    });
+
+    await this.client.send(command);
+  }
+
+  public override async createMultipartUpload(input: {
+    key: string;
+    contentType: string;
+  }): Promise<{ uploadId: string }> {
+    const command = new CreateMultipartUploadCommand({
+      Bucket: this.bucket,
+      Key: input.key,
+      ContentType: input.contentType,
+    });
+
+    const result = await this.client.send(command);
+
+    return { uploadId: result.UploadId! };
+  }
+
+  public override async getUploadPartUrls(input: {
+    key: string;
+    uploadId: string;
+    partCount: number;
+  }): Promise<{ parts: { partNumber: number; signedUrl: string }[] }> {
+    const parts = await Promise.all(
+      Array.from({ length: input.partCount }, async (_, index) => {
+        const partNumber = index + 1;
+        const command = new UploadPartCommand({
+          Bucket: this.bucket,
+          Key: input.key,
+          UploadId: input.uploadId,
+          PartNumber: partNumber,
+        });
+
+        const signedUrl = await getSignedUrl(this.client, command, {
+          expiresIn: 3600,
+        });
+
+        return { partNumber, signedUrl };
+      }),
+    );
+
+    return { parts };
+  }
+
+  public override async completeMultipartUpload(input: {
+    key: string;
+    uploadId: string;
+    parts: { partNumber: number; eTag: string }[];
+  }): Promise<{ url: string }> {
+    const command = new CompleteMultipartUploadCommand({
+      Bucket: this.bucket,
+      Key: input.key,
+      UploadId: input.uploadId,
+      MultipartUpload: {
+        Parts: input.parts.map((part) => ({
+          PartNumber: part.partNumber,
+          ETag: part.eTag,
+        })),
+      },
+    });
+
+    await this.client.send(command);
+
+    return { url: `${this.publicUrl}/${input.key}` };
+  }
+
+  public override async abortMultipartUpload(input: {
+    key: string;
+    uploadId: string;
+  }): Promise<void> {
+    const command = new AbortMultipartUploadCommand({
+      Bucket: this.bucket,
+      Key: input.key,
+      UploadId: input.uploadId,
     });
 
     await this.client.send(command);

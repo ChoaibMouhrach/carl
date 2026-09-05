@@ -17,6 +17,49 @@ export class FileApi extends BaseApi {
     );
   }
 
+  public createMultipartUpload(
+    where: { clientId: number; folderId: number | null },
+    input: { name: string; sizeBytes: number; mimeType: string },
+  ) {
+    return this.call(() =>
+      http.api.clients[":clientId"].files.multipart.$post({
+        param: { clientId: where.clientId.toString() },
+        json: { ...input, folderId: where.folderId },
+      }),
+    );
+  }
+
+  public completeMultipartUpload(
+    where: { clientId: number; folderId: number | null },
+    input: {
+      uploadId: string;
+      key: string;
+      name: string;
+      mimeType: string;
+      sizeBytes: number;
+      parts: { partNumber: number; eTag: string }[];
+    },
+  ) {
+    return this.call(() =>
+      http.api.clients[":clientId"].files.multipart.complete.$post({
+        param: { clientId: where.clientId.toString() },
+        json: { ...input, folderId: where.folderId },
+      }),
+    );
+  }
+
+  public abortMultipartUpload(
+    where: { clientId: number },
+    input: { uploadId: string; key: string },
+  ) {
+    return this.call(() =>
+      http.api.clients[":clientId"].files.multipart.$delete({
+        param: { clientId: where.clientId.toString() },
+        json: input,
+      }),
+    );
+  }
+
   public update(
     where: { clientId: number; fileId: number },
     input: { name: string },

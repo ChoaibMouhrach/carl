@@ -61,7 +61,9 @@ export class TestMailer extends BaseMailer {
   }
 }
 
-class TestStorage extends BaseStorage {
+export class TestStorage extends BaseStorage {
+  public abortCalls: { key: string; uploadId: string }[] = [];
+
   public override async getSignedUrl(_input: {
     contentType: string;
     key: string;
@@ -88,6 +90,41 @@ class TestStorage extends BaseStorage {
   }
 
   public override async removeFile(_input: { key: string }): Promise<void> {}
+
+  public override async createMultipartUpload(_input: {
+    key: string;
+    contentType: string;
+  }): Promise<{ uploadId: string }> {
+    return { uploadId: "test-upload-id" };
+  }
+
+  public override async getUploadPartUrls(input: {
+    key: string;
+    uploadId: string;
+    partCount: number;
+  }): Promise<{ parts: { partNumber: number; signedUrl: string }[] }> {
+    return {
+      parts: Array.from({ length: input.partCount }, (_, index) => ({
+        partNumber: index + 1,
+        signedUrl: `https://storage.test/part/${index + 1}`,
+      })),
+    };
+  }
+
+  public override async completeMultipartUpload(_input: {
+    key: string;
+    uploadId: string;
+    parts: { partNumber: number; eTag: string }[];
+  }): Promise<{ url: string }> {
+    return { url: "https://storage.test/file" };
+  }
+
+  public override async abortMultipartUpload(input: {
+    key: string;
+    uploadId: string;
+  }): Promise<void> {
+    this.abortCalls.push(input);
+  }
 }
 
 interface TestJob<Input> {
