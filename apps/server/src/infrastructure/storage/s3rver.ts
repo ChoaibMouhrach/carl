@@ -3,6 +3,7 @@ import { BaseStorage } from "@server/lib/base-storage";
 import {
   S3Client,
   PutObjectCommand,
+  GetObjectCommand,
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 
@@ -44,6 +45,40 @@ export class S3rverStorage extends BaseStorage {
       signedUrl,
       url: signedUrl.split("?")[0]!,
     };
+  }
+
+  public override async uploadFile(input: {
+    key: string;
+    contentType: string;
+    body: Buffer;
+  }): Promise<{ url: string }> {
+    const command = new PutObjectCommand({
+      Key: input.key,
+      Bucket: S3RVER_BUCKET,
+      ContentType: input.contentType,
+      Body: input.body,
+    });
+
+    await this.client.send(command);
+
+    return { url: `${S3RVER_ENDPOINT}/${S3RVER_BUCKET}/${input.key}` };
+  }
+
+  public override async getSignedDownloadUrl(input: {
+    key: string;
+    fileName: string;
+  }): Promise<{ signedUrl: string }> {
+    const command = new GetObjectCommand({
+      Bucket: S3RVER_BUCKET,
+      Key: input.key,
+      ResponseContentDisposition: `attachment; filename="${input.fileName}"`,
+    });
+
+    const signedUrl = await getSignedUrl(this.client, command, {
+      expiresIn: 300,
+    });
+
+    return { signedUrl };
   }
 
   public override async removeFile(input: { key: string }): Promise<void> {

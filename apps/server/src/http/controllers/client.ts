@@ -8,7 +8,9 @@ import {
   createClientSchema,
   updateClientSchema,
 } from "../validations/client";
+import { folderQuerySchema } from "../validations/folder";
 import { folderController } from "./folder";
+import { fileController } from "./file";
 
 export const clientController = new Hono<AppContext>()
   .use(authMiddleware)
@@ -65,6 +67,30 @@ export const clientController = new Hono<AppContext>()
     },
   )
 
+  .get(
+    "/:clientId/entries",
+    describeRoute({ tags: ["clients"] }),
+    validator("param", clientIdParamSchema),
+    validator("query", folderQuerySchema),
+    async (context) => {
+      const { userId } = context.get("auth").user;
+      const { clientId } = context.req.valid("param");
+      const query = context.req.valid("query");
+
+      const { entries, meta } = await context
+        .get("services")
+        .folder.listEntries({
+          clientId,
+          folderId: null,
+          userId,
+          page: query?.page,
+          search: query?.search,
+        });
+
+      return context.json({ entries, meta });
+    },
+  )
+
   .patch(
     "/:clientId",
     describeRoute({ tags: ["clients"] }),
@@ -100,4 +126,5 @@ export const clientController = new Hono<AppContext>()
     },
   )
 
-  .route("/:clientId/folders", folderController);
+  .route("/:clientId/folders", folderController)
+  .route("/:clientId/files", fileController);

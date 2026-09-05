@@ -10,6 +10,7 @@ import {
   XIcon,
 } from "lucide-react";
 
+import { formatBytes } from "@/lib/format-bytes";
 import { cn } from "@repo/ui/utils";
 import { Button } from "@repo/ui/components/ui/button";
 import {
@@ -72,13 +73,6 @@ function isImageType(type: string): boolean {
 
 function isVideoType(type: string): boolean {
   return type.startsWith("video/");
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const sizes = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return `${(bytes / 1024 ** i).toFixed(i ? 1 : 0)} ${sizes[i]}`;
 }
 
 function getFileIconForType(type: string, name: string): React.ReactNode {

@@ -22,6 +22,20 @@
       "when": 1788554156379,
       "tag": "0002_bright_martin_li",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788557631291,
+      "tag": "0003_good_multiple_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788560748080,
+      "tag": "0004_mysterious_thunderball",
+      "breakpoints": true
     }
   ]
 }

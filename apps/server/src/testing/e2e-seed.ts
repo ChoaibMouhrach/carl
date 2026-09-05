@@ -1,9 +1,12 @@
-import { and, desc, eq, like } from "drizzle-orm";
+import { and, desc, eq, like, sql } from "drizzle-orm";
 import { makeSignature, signJWT } from "better-auth/crypto";
 import IORedis from "ioredis";
 import { initDB, type DB } from "../infrastructure/database/client";
 import {
   billingCustomersTable,
+  clientsTable,
+  filesTable,
+  foldersTable,
   sessionTable,
   subscriptionsTable,
   userTable,
@@ -391,6 +394,270 @@ export const userExists = async (
       .limit(1);
 
     return Boolean(user);
+  });
+
+export interface SeededClient {
+  clientId: number;
+  userId: string;
+  name: string;
+  email: string;
+}
+
+export const createClient = async (
+  config: SeedConfig,
+  input: { userId: string; name?: string; email?: string },
+): Promise<SeededClient> =>
+  withDb(config, async (db) => {
+    const [row] = await db
+      .insert(clientsTable)
+      .values({
+        userId: input.userId,
+        name: input.name ?? "E2E Client",
+        email: input.email ?? `e2e-client-${crypto.randomUUID()}@example.com`,
+      })
+      .returning();
+
+    if (!row) {
+      throw new Error("failed to create client");
+    }
+
+    return row;
+  });
+
+export const getClient = async (
+  config: SeedConfig,
+  clientId: number,
+): Promise<SeededClient | null> =>
+  withDb(config, async (db) => {
+    const [row] = await db
+      .select()
+      .from(clientsTable)
+      .where(eq(clientsTable.clientId, clientId))
+      .limit(1);
+
+    return row ?? null;
+  });
+
+export const findClientByEmail = async (
+  config: SeedConfig,
+  email: string,
+): Promise<SeededClient | null> =>
+  withDb(config, async (db) => {
+    const [row] = await db
+      .select()
+      .from(clientsTable)
+      .where(eq(clientsTable.email, email))
+      .limit(1);
+
+    return row ?? null;
+  });
+
+export const clientExists = async (
+  config: SeedConfig,
+  clientId: number,
+): Promise<boolean> => (await getClient(config, clientId)) !== null;
+
+export const countClientsByUser = async (
+  config: SeedConfig,
+  userId: string,
+): Promise<number> =>
+  withDb(config, async (db) => {
+    const [row] = await db
+      .select({ count: sql`COUNT(*)`.mapWith(Number) })
+      .from(clientsTable)
+      .where(eq(clientsTable.userId, userId));
+
+    return row?.count ?? 0;
+  });
+
+export interface SeededFolder {
+  folderId: number;
+  clientId: number;
+  userId: string;
+  parentId: number | null;
+  name: string;
+}
+
+export const createFolder = async (
+  config: SeedConfig,
+  input: {
+    clientId: number;
+    userId: string;
+    name: string;
+    parentId?: number | null;
+  },
+): Promise<SeededFolder> =>
+  withDb(config, async (db) => {
+    const [row] = await db
+      .insert(foldersTable)
+      .values({
+        clientId: input.clientId,
+        userId: input.userId,
+        name: input.name,
+        parentId: input.parentId ?? null,
+      })
+      .returning();
+
+    if (!row) {
+      throw new Error("failed to create folder");
+    }
+
+    return row;
+  });
+
+export interface SeededFile {
+  fileId: number;
+  clientId: number | null;
+  userId: string | null;
+  folderId: number | null;
+  name: string;
+  sizeBytes: number;
+  mimeType: string;
+  url: string;
+  key: string;
+}
+
+export const createFile = async (
+  config: SeedConfig,
+  input: {
+    clientId: number;
+    userId: string;
+    folderId?: number | null;
+    name: string;
+    sizeBytes?: number;
+    mimeType?: string;
+  },
+): Promise<SeededFile> =>
+  withDb(config, async (db) => {
+    const key = `${crypto.randomUUID()}${input.name}`;
+
+    const [row] = await db
+      .insert(filesTable)
+      .values({
+        clientId: input.clientId,
+        userId: input.userId,
+        folderId: input.folderId ?? null,
+        name: input.name,
+        sizeBytes: input.sizeBytes ?? 1024,
+        mimeType: input.mimeType ?? "text/plain",
+        key,
+        url: `https://storage.test/${key}`,
+      })
+      .returning();
+
+    if (!row) {
+      throw new Error("failed to create file");
+    }
+
+    return row;
+  });
+
+export const getFolder = async (
+  config: SeedConfig,
+  folderId: number,
+): Promise<SeededFolder | null> =>
+  withDb(config, async (db) => {
+    const [row] = await db
+      .select()
+      .from(foldersTable)
+      .where(eq(foldersTable.folderId, folderId))
+      .limit(1);
+
+    return row ?? null;
+  });
+
+export const getFile = async (
+  config: SeedConfig,
+  fileId: number,
+): Promise<SeededFile | null> =>
+  withDb(config, async (db) => {
+    const [row] = await db
+      .select()
+      .from(filesTable)
+      .where(eq(filesTable.fileId, fileId))
+      .limit(1);
+
+    return row ?? null;
+  });
+
+export const findFolderByName = async (
+  config: SeedConfig,
+  where: { clientId: number; parentId: number | null; name: string },
+): Promise<SeededFolder | null> =>
+  withDb(config, async (db) => {
+    const conditions = [
+      eq(foldersTable.clientId, where.clientId),
+      eq(foldersTable.name, where.name),
+      where.parentId === null
+        ? sql`${foldersTable.parentId} IS NULL`
+        : eq(foldersTable.parentId, where.parentId),
+    ];
+
+    const [row] = await db
+      .select()
+      .from(foldersTable)
+      .where(and(...conditions))
+      .limit(1);
+
+    return row ?? null;
+  });
+
+export const findFileByName = async (
+  config: SeedConfig,
+  where: { clientId: number; folderId: number | null; name: string },
+): Promise<SeededFile | null> =>
+  withDb(config, async (db) => {
+    const conditions = [
+      eq(filesTable.clientId, where.clientId),
+      eq(filesTable.name, where.name),
+      where.folderId === null
+        ? sql`${filesTable.folderId} IS NULL`
+        : eq(filesTable.folderId, where.folderId),
+    ];
+
+    const [row] = await db
+      .select()
+      .from(filesTable)
+      .where(and(...conditions))
+      .limit(1);
+
+    return row ?? null;
+  });
+
+export const folderExists = async (
+  config: SeedConfig,
+  folderId: number,
+): Promise<boolean> => (await getFolder(config, folderId)) !== null;
+
+export const fileExists = async (
+  config: SeedConfig,
+  fileId: number,
+): Promise<boolean> => (await getFile(config, fileId)) !== null;
+
+export const countFoldersByClient = async (
+  config: SeedConfig,
+  clientId: number,
+): Promise<number> =>
+  withDb(config, async (db) => {
+    const [row] = await db
+      .select({ count: sql`COUNT(*)`.mapWith(Number) })
+      .from(foldersTable)
+      .where(eq(foldersTable.clientId, clientId));
+
+    return row?.count ?? 0;
+  });
+
+export const countFilesByClient = async (
+  config: SeedConfig,
+  clientId: number,
+): Promise<number> =>
+  withDb(config, async (db) => {
+    const [row] = await db
+      .select({ count: sql`COUNT(*)`.mapWith(Number) })
+      .from(filesTable)
+      .where(eq(filesTable.clientId, clientId));
+
+    return row?.count ?? 0;
   });
 
 export const getPasswordResetToken = async (

@@ -72,6 +72,21 @@ class TestStorage extends BaseStorage {
     };
   }
 
+  public override async uploadFile(_input: {
+    key: string;
+    contentType: string;
+    body: Buffer;
+  }): Promise<{ url: string }> {
+    return { url: "https://storage.test/file" };
+  }
+
+  public override async getSignedDownloadUrl(_input: {
+    key: string;
+    fileName: string;
+  }): Promise<{ signedUrl: string }> {
+    return { signedUrl: "https://storage.test/download" };
+  }
+
   public override async removeFile(_input: { key: string }): Promise<void> {}
 }
 

@@ -42,8 +42,8 @@ const navigation: NavigationItem[] = [
     to: "/user/dashboard",
     icon: LayoutDashboardIcon,
   },
-  { labelKey: "nav.billing", to: "/user/billing", icon: CreditCardIcon },
   { labelKey: "nav.clients", to: "/user/clients", icon: ContactIcon },
+  { labelKey: "nav.billing", to: "/user/billing", icon: CreditCardIcon },
 ];
 
 export const UserSidebar: React.FC<UserSidebarProps> = ({ user }) => {

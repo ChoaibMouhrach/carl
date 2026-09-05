@@ -36,6 +36,30 @@ export const folderController = new Hono<AppContext>()
   )
 
   .get(
+    "/:folderId/entries",
+    describeRoute({ tags: ["folders"] }),
+    validator("param", folderIdParamSchema),
+    validator("query", folderQuerySchema),
+    async (context) => {
+      const { userId } = context.get("auth").user;
+      const { clientId, folderId } = context.req.valid("param");
+      const query = context.req.valid("query");
+
+      const { entries, meta } = await context
+        .get("services")
+        .folder.listEntries({
+          clientId,
+          folderId,
+          userId,
+          page: query?.page,
+          search: query?.search,
+        });
+
+      return context.json({ entries, meta });
+    },
+  )
+
+  .get(
     "/:folderId/path",
     describeRoute({ tags: ["folders"] }),
     validator("param", folderIdParamSchema),

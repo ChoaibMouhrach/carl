@@ -1,6 +1,7 @@
 import { api } from "@/api";
 import { DataPagination } from "@/components/data-pagination";
 import { onError } from "@/lib/base-api";
+import { triggerDownload } from "@/lib/download-file";
 import { userClientFoldersRoute } from "@/routes/user/client-folders";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
 import { Spinner } from "@repo/ui/components/ui/spinner";
@@ -8,12 +9,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { FileRenameSheet } from "./file-rename-sheet";
 import { FolderBreadcrumbs } from "./folder-breadcrumbs";
+import { FolderEntriesTable } from "./folder-entries-table";
 import { FolderFilters } from "./folder-filters";
 import { FolderFormSheet } from "./folder-form-sheet";
-import { FolderTable } from "./folder-table";
+import { FolderUploadDialog } from "./folder-upload-dialog";
 
-type Folder = Awaited<ReturnType<typeof api.folder.list>>["folders"][number];
+type Entry = Awaited<
+  ReturnType<typeof api.folder.listEntries>
+>["entries"][number];
+type FolderEntry = Extract<Entry, { type: "folder" }>;
+type FileEntry = Extract<Entry, { type: "file" }>;
 
 export const ClientFolders = () => {
   const { t } = useTranslation();
@@ -25,7 +32,9 @@ export const ClientFolders = () => {
   const clientIdNumber = Number(clientId);
 
   const [formOpen, setFormOpen] = useState(false);
-  const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
+  const [editingFolder, setEditingFolder] = useState<FolderEntry | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [editingFile, setEditingFile] = useState<FileEntry | null>(null);
 
   const parentId = searchParams.parentId ?? null;
 
@@ -35,9 +44,20 @@ export const ClientFolders = () => {
     placeholderData: (previousData) => previousData,
   });
 
-  const folders = useQuery({
-    queryKey: ["clients", clientIdNumber, "folders", searchParams],
-    queryFn: () => api.folder.list({ clientId: clientIdNumber }, searchParams),
+  const listing = useQuery({
+    queryKey: [
+      "clients",
+      clientIdNumber,
+      "folders",
+      parentId,
+      "listing",
+      searchParams,
+    ],
+    queryFn: () =>
+      api.folder.listEntries(
+        { clientId: clientIdNumber, folderId: parentId },
+        { page: searchParams.page, search: searchParams.search },
+      ),
     placeholderData: (previousData) => previousData,
   });
 
@@ -50,9 +70,9 @@ export const ClientFolders = () => {
     placeholderData: (previousData) => previousData,
   });
 
-  const invalidate = async () =>
+  const invalidateListing = async () =>
     await queryClient.invalidateQueries({
-      queryKey: ["clients", clientIdNumber, "folders"],
+      queryKey: ["clients", clientIdNumber, "folders", parentId, "listing"],
     });
 
   const closeForm = () => {
@@ -67,7 +87,7 @@ export const ClientFolders = () => {
     onSuccess: async () => {
       toast.success(t("clientFolders.created"));
       closeForm();
-      await invalidate();
+      await invalidateListing();
     },
   });
 
@@ -81,7 +101,7 @@ export const ClientFolders = () => {
     onSuccess: async () => {
       toast.success(t("clientFolders.updated"));
       closeForm();
-      await invalidate();
+      await invalidateListing();
     },
   });
 
@@ -91,11 +111,44 @@ export const ClientFolders = () => {
     onError,
     onSuccess: async () => {
       toast.success(t("clientFolders.removed"));
-      await invalidate();
+      await invalidateListing();
     },
   });
 
-  if (client.isPending || folders.isPending || path.isPending) {
+  const renameFile = useMutation({
+    mutationFn: (input: { fileId: number; name: string }) =>
+      api.file.update(
+        { clientId: clientIdNumber, fileId: input.fileId },
+        { name: input.name },
+      ),
+    onError,
+    onSuccess: async () => {
+      toast.success(t("clientFolders.fileRenamed"));
+      setEditingFile(null);
+      await invalidateListing();
+    },
+  });
+
+  const removeFile = useMutation({
+    mutationFn: (fileId: number) =>
+      api.file.remove({ clientId: clientIdNumber, fileId }),
+    onError,
+    onSuccess: async () => {
+      toast.success(t("clientFolders.fileRemoved"));
+      await invalidateListing();
+    },
+  });
+
+  const downloadFile = useMutation({
+    mutationFn: (fileId: number) =>
+      api.file.getDownloadUrl({ clientId: clientIdNumber, fileId }),
+    onError,
+    onSuccess: ({ signedUrl }) => {
+      triggerDownload(signedUrl);
+    },
+  });
+
+  if (client.isPending || listing.isPending || path.isPending) {
     return <Spinner />;
   }
 
@@ -103,8 +156,8 @@ export const ClientFolders = () => {
     throw client.error;
   }
 
-  if (folders.isError) {
-    throw folders.error;
+  if (listing.isError) {
+    throw listing.error;
   }
 
   if (path.isError) {
@@ -134,6 +187,7 @@ export const ClientFolders = () => {
           setEditingFolder(null);
           setFormOpen(true);
         }}
+        onUploadClick={() => setUploadOpen(true)}
         onSearch={(search) =>
           navigate({ search: (current) => ({ ...current, page: 1, search }) })
         }
@@ -142,23 +196,31 @@ export const ClientFolders = () => {
 
       <Card>
         <CardContent>
-          <FolderTable
-            folders={folders.data.folders}
-            isRemoving={remove.isPending}
-            onEdit={(folder) => {
+          <FolderEntriesTable
+            entries={listing.data.entries}
+            isRemovingFolder={remove.isPending}
+            isRemovingFile={removeFile.isPending}
+            removingFolderId={remove.variables}
+            removingFileId={removeFile.variables}
+            onOpenFolder={(folder) => openFolder(folder.folderId)}
+            onEditFolder={(folder) => {
               setEditingFolder(folder);
               setFormOpen(true);
             }}
-            onOpen={(folder) => openFolder(folder.folderId)}
-            onRemove={(folderId) => remove.mutate(folderId)}
-            removingFolderId={remove.variables}
+            onRemoveFolder={(folderId) => remove.mutate(folderId)}
+            onOpenFile={(file) =>
+              window.open(file.url, "_blank", "noopener,noreferrer")
+            }
+            onEditFile={(file) => setEditingFile(file)}
+            onDownloadFile={(file) => downloadFile.mutate(file.fileId)}
+            onRemoveFile={(fileId) => removeFile.mutate(fileId)}
           />
         </CardContent>
       </Card>
 
       <DataPagination
-        currentPage={folders.data.meta.page}
-        lastPage={folders.data.meta.lastPage}
+        currentPage={listing.data.meta.page}
+        lastPage={listing.data.meta.lastPage}
         onPageChange={(page) =>
           navigate({ search: (current) => ({ ...current, page }) })
         }
@@ -178,6 +240,27 @@ export const ClientFolders = () => {
           }
         }}
         open={formOpen}
+      />
+
+      <FileRenameSheet
+        file={editingFile}
+        isPending={renameFile.isPending}
+        onOpenChange={(open) => {
+          if (!open) setEditingFile(null);
+        }}
+        onSubmit={(values) => {
+          if (editingFile) {
+            renameFile.mutate({ fileId: editingFile.fileId, ...values });
+          }
+        }}
+      />
+
+      <FolderUploadDialog
+        clientId={clientIdNumber}
+        folderId={parentId}
+        onFilesChanged={invalidateListing}
+        onOpenChange={setUploadOpen}
+        open={uploadOpen}
       />
     </div>
   );

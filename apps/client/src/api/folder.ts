@@ -18,6 +18,35 @@ export class FolderApi extends BaseApi {
     );
   }
 
+  public listEntries(
+    where: { clientId: number; folderId: number | null },
+    query?: { page?: number; search?: string },
+  ) {
+    const { folderId } = where;
+
+    if (folderId === null) {
+      return this.call(() =>
+        http.api.clients[":clientId"].entries.$get({
+          param: { clientId: where.clientId.toString() },
+          query: { page: query?.page?.toString(), search: query?.search },
+        }),
+      );
+    }
+
+    return this.call(() =>
+      http.api.clients[":clientId"].folders[":folderId"].entries.$get({
+        param: {
+          clientId: where.clientId.toString(),
+          folderId: folderId.toString(),
+        },
+        query: {
+          page: query?.page?.toString(),
+          search: query?.search,
+        },
+      }),
+    );
+  }
+
   public getPath(where: { clientId: number; folderId: number }) {
     return this.call(() =>
       http.api.clients[":clientId"].folders[":folderId"].path.$get({

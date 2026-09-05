@@ -1,5 +1,8 @@
-import { bigint, jsonb, pgTable, text } from "drizzle-orm/pg-core";
+import { bigint, integer, jsonb, pgTable, text } from "drizzle-orm/pg-core";
 import { id, timestamps } from "../utils";
+import { userTable } from "./auth";
+import { clientsTable } from "./clients";
+import { foldersTable } from "./folders";
 
 export const filesTable = pgTable("files", {
   fileId: id(),
@@ -11,6 +14,13 @@ export const filesTable = pgTable("files", {
   metaData: jsonb(),
   url: text().notNull(),
   key: text().notNull(),
+  clientId: integer().references(() => clientsTable.clientId, {
+    onDelete: "cascade",
+  }),
+  folderId: integer().references(() => foldersTable.folderId, {
+    onDelete: "cascade",
+  }),
+  userId: text().references(() => userTable.id, { onDelete: "cascade" }),
 
   // -- timestamps
   ...timestamps(),

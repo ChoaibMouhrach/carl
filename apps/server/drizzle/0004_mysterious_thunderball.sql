@@ -1,0 +1,2 @@
+ALTER TABLE "files" ADD COLUMN "clientId" integer;--> statement-breakpoint
+ALTER TABLE "files" ADD CONSTRAINT "files_clientId_clients_clientId_fk" FOREIGN KEY ("clientId") REFERENCES "public"."clients"("clientId") ON DELETE cascade ON UPDATE no action;

@@ -47,6 +47,74 @@ export class FolderRepository extends BaseRepository {
     return { folders, lastPage };
   }
 
+  public async countByParent(where: {
+    clientId: number;
+    userId: string;
+    parentId: number | null;
+    search?: string;
+  }) {
+    const conditions = [
+      eq(FolderRepository.table.clientId, where.clientId),
+      eq(FolderRepository.table.userId, where.userId),
+      where.parentId === null
+        ? isNull(FolderRepository.table.parentId)
+        : eq(FolderRepository.table.parentId, where.parentId),
+    ];
+    if (where.search) {
+      conditions.push(ilike(FolderRepository.table.name, `%${where.search}%`));
+    }
+
+    const [row] = await this.db
+      .select({ count: sql`COUNT(*)`.mapWith(Number) })
+      .from(FolderRepository.table)
+      .where(and(...conditions));
+
+    return row?.count ?? 0;
+  }
+
+  public async listTopByParent(
+    where: {
+      clientId: number;
+      userId: string;
+      parentId: number | null;
+      search?: string;
+    },
+    limit: number,
+  ) {
+    const conditions = [
+      eq(FolderRepository.table.clientId, where.clientId),
+      eq(FolderRepository.table.userId, where.userId),
+      where.parentId === null
+        ? isNull(FolderRepository.table.parentId)
+        : eq(FolderRepository.table.parentId, where.parentId),
+    ];
+    if (where.search) {
+      conditions.push(ilike(FolderRepository.table.name, `%${where.search}%`));
+    }
+
+    return await this.db
+      .select()
+      .from(FolderRepository.table)
+      .where(and(...conditions))
+      .orderBy(desc(FolderRepository.table.createdAt))
+      .limit(limit);
+  }
+
+  public async listAllByClient(where: { clientId: number; userId: string }) {
+    return await this.db
+      .select({
+        folderId: FolderRepository.table.folderId,
+        parentId: FolderRepository.table.parentId,
+      })
+      .from(FolderRepository.table)
+      .where(
+        and(
+          eq(FolderRepository.table.clientId, where.clientId),
+          eq(FolderRepository.table.userId, where.userId),
+        ),
+      );
+  }
+
   public async findByFolderId(where: {
     folderId: number;
     clientId: number;

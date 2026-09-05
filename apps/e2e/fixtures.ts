@@ -1,22 +1,40 @@
 import { test as base, type BrowserContext } from "@playwright/test";
 import { faker } from "@faker-js/faker";
 import {
+  clientExists,
+  countClientsByUser,
+  countFilesByClient,
+  countFoldersByClient,
+  createClient,
   createEmailChangeUrl,
   createEmailVerificationUrl,
+  createFile,
+  createFolder,
   createOnboardedUser,
   createSessionCookie,
   createUnverifiedUser,
   createUsers,
   createVerifiedAdmin,
   createVerifiedUser,
+  fileExists,
+  findClientByEmail,
+  findFileByName,
+  findFolderByName,
+  folderExists,
   getActiveSessionCount,
+  getClient,
   getEmailVerificationStatus,
+  getFile,
+  getFolder,
   getPasswordResetToken,
   getUserEmail,
   resetE2EAuthRateLimits,
   userExists,
   type CreateOnboardedUserInput,
   type CreateVerifiedUserInput,
+  type SeededClient,
+  type SeededFile,
+  type SeededFolder,
   type SeededUser,
 } from "@repo/server/testing/e2e-seed";
 import { CLIENT_URL, seedConfig } from "./config";
@@ -51,6 +69,45 @@ interface Seed {
   getPasswordResetToken: (email: string) => Promise<string>;
   getUserEmail: (userId: string) => Promise<string>;
   userExists: (userId: string) => Promise<boolean>;
+  createClient: (input: {
+    userId: string;
+    name?: string;
+    email?: string;
+  }) => Promise<SeededClient>;
+  getClient: (clientId: number) => Promise<SeededClient | null>;
+  findClientByEmail: (email: string) => Promise<SeededClient | null>;
+  clientExists: (clientId: number) => Promise<boolean>;
+  countClientsByUser: (userId: string) => Promise<number>;
+  createFolder: (input: {
+    clientId: number;
+    userId: string;
+    name: string;
+    parentId?: number | null;
+  }) => Promise<SeededFolder>;
+  createFile: (input: {
+    clientId: number;
+    userId: string;
+    folderId?: number | null;
+    name: string;
+    sizeBytes?: number;
+    mimeType?: string;
+  }) => Promise<SeededFile>;
+  getFolder: (folderId: number) => Promise<SeededFolder | null>;
+  getFile: (fileId: number) => Promise<SeededFile | null>;
+  findFolderByName: (where: {
+    clientId: number;
+    parentId: number | null;
+    name: string;
+  }) => Promise<SeededFolder | null>;
+  findFileByName: (where: {
+    clientId: number;
+    folderId: number | null;
+    name: string;
+  }) => Promise<SeededFile | null>;
+  folderExists: (folderId: number) => Promise<boolean>;
+  fileExists: (fileId: number) => Promise<boolean>;
+  countFoldersByClient: (clientId: number) => Promise<number>;
+  countFilesByClient: (clientId: number) => Promise<number>;
 }
 
 const createUserInput = (
@@ -127,6 +184,22 @@ export const test = base.extend<{ seed: Seed; resetRateLimits: void }>({
       userExists: (userId) => {
         return userExists(config, userId);
       },
+      createClient: (input) => createClient(config, input),
+      getClient: (clientId) => getClient(config, clientId),
+      findClientByEmail: (email) => findClientByEmail(config, email),
+      clientExists: (clientId) => clientExists(config, clientId),
+      countClientsByUser: (userId) => countClientsByUser(config, userId),
+      createFolder: (input) => createFolder(config, input),
+      createFile: (input) => createFile(config, input),
+      getFolder: (folderId) => getFolder(config, folderId),
+      getFile: (fileId) => getFile(config, fileId),
+      findFolderByName: (where) => findFolderByName(config, where),
+      findFileByName: (where) => findFileByName(config, where),
+      folderExists: (folderId) => folderExists(config, folderId),
+      fileExists: (fileId) => fileExists(config, fileId),
+      countFoldersByClient: (clientId) =>
+        countFoldersByClient(config, clientId),
+      countFilesByClient: (clientId) => countFilesByClient(config, clientId),
     });
   },
 });
