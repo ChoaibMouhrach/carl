@@ -1,6 +1,25 @@
 import { faker } from "@faker-js/faker";
 import { test, expect } from "../fixtures";
 
+test("shows a table skeleton while the user list is loading", async ({
+  page,
+  seed,
+}) => {
+  const admin = await seed.createVerifiedAdmin();
+
+  await page.route("**/api/users*", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await route.continue();
+  });
+
+  await seed.authenticate(page.context(), admin.email);
+  await page.goto("/app/admin/users");
+
+  await expect(page.locator('[data-slot="skeleton"]').first()).toBeVisible();
+  await expect(page.getByRole("table")).toBeVisible();
+  await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
+});
+
 test("lists and searches users in the admin panel", async ({ page, seed }) => {
   const admin = await seed.createVerifiedAdmin();
   const user = await seed.createVerifiedUser();

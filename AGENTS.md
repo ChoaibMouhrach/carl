@@ -111,6 +111,12 @@ A `NEXT_PUBLIC_*` var used in **client** components (front) must also be added t
 
 - Always wrap in an `AlertDialog` before executing. Follow the pattern in `change-password.tsx`.
 
+**Loading states**
+
+- Any page-level `useQuery` that gates the page's main content (e.g. `/clients`, `/folders`) must render a skeleton matching the loaded layout while pending — never a bare `Spinner` or blank screen. Use the shared `Skeleton` component from `@repo/ui/components/ui/skeleton`.
+- The skeleton must mirror the real structure (row count, card grid, table columns), not a single generic placeholder block.
+- This is mandatory: any new or edited data-fetching page must be checked for a skeleton state before merging.
+
 ## Client Page Structure
 
 Pages in `apps/client/src/pages/` follow a strict separation of concerns:
@@ -232,6 +238,7 @@ E2E tests live in `apps/e2e` (a standalone Playwright package), never in `apps/c
 - Assert on behavior, never translated copy or transient toasts: `toHaveURL(...)`, reaching an auth-protected page, HTTP status via `page.waitForResponse(...)`, and persisted state via `seed.*` reads.
 - For state that appears asynchronously after a request, use `expect.poll` — never `waitForTimeout` or a fixed sleep.
 - When a spec covers a form, assert every required field shows the `RequiredIndicator` asterisk next to its label and that its input has a `placeholder`.
+- For a page whose main content is gated by a `useQuery` (e.g. `/clients`, `/folders`), assert the skeleton loading state is present. This is mandatory, not optional: delay the underlying request with `page.route(...)` to make the pending state observable, then assert the `Skeleton` element is visible before the real content appears.
 
 **Scope**
 

@@ -1,11 +1,11 @@
 import { api } from "@/api";
-import { Spinner } from "@repo/ui/components/ui/spinner";
 import { onError } from "@/lib/base-api";
 import type { BillingInterval, BillingPlanKey } from "@repo/constants/billing";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { CurrentPlan } from "./current-plan";
 import { PlanCards } from "./plan-cards";
+import { PlanCardsSkeleton } from "./plan-cards-skeleton";
 
 export const Billing = () => {
   const queryClient = useQueryClient();
@@ -59,7 +59,7 @@ export const Billing = () => {
     onSuccess: ({ url }) => window.location.assign(url),
   });
 
-  if (me.isPending) return <Spinner />;
+  if (me.isPending) return <PlanCardsSkeleton />;
   if (me.isError) throw me.error;
 
   const current = me.data.subscription;

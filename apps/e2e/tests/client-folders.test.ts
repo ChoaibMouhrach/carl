@@ -9,6 +9,31 @@ import { test, expect } from "../fixtures";
 const entryRow = (page: Page, name: string) =>
   page.getByRole("row").filter({ has: page.getByTitle(name, { exact: true }) });
 
+test.describe("Loading state", () => {
+  test("shows a table skeleton while a client's folder listing is loading", async ({
+    page,
+    seed,
+  }) => {
+    const user = await seed.createOnboardedUser();
+    const client = await seed.createClient({ userId: user.userId });
+
+    await page.route(
+      `**/api/clients/${client.clientId}/entries*`,
+      async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        await route.continue();
+      },
+    );
+
+    await seed.authenticate(page.context(), user.email);
+    await page.goto(`/app/user/clients/${client.clientId}/folders`);
+
+    await expect(page.locator('[data-slot="skeleton"]').first()).toBeVisible();
+    await expect(page.getByRole("table")).toBeVisible();
+    await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
+  });
+});
+
 test.describe("Navigating into a client's folders", () => {
   test("clicking a client row navigates to its folders page and shows the client name as the root breadcrumb", async ({
     page,

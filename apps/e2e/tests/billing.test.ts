@@ -1,5 +1,43 @@
 import { test, expect } from "../fixtures";
 
+test("shows a plan-cards skeleton while select-plan is loading", async ({
+  page,
+  seed,
+}) => {
+  const user = await seed.createVerifiedUser();
+
+  await page.route("**/api/billing/me*", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await route.continue();
+  });
+
+  await seed.authenticate(page.context(), user.email);
+  await page.goto("/app/user/select-plan");
+
+  await expect(page.locator('[data-slot="skeleton"]').first()).toBeVisible();
+  await expect(page.getByText("Starter", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
+});
+
+test("shows a plan-cards skeleton while the billing page is loading", async ({
+  page,
+  seed,
+}) => {
+  const user = await seed.createOnboardedUser();
+
+  await page.route("**/api/billing/me*", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await route.continue();
+  });
+
+  await seed.authenticate(page.context(), user.email);
+  await page.goto("/app/user/billing");
+
+  await expect(page.locator('[data-slot="skeleton"]').first()).toBeVisible();
+  await expect(page.getByText("Starter", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
+});
+
 test("redirects a user without a subscription to select-plan", async ({
   page,
   seed,

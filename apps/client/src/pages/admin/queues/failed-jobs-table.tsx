@@ -1,5 +1,6 @@
 import { api } from "@/api";
 import { DataPagination } from "@/components/data-pagination";
+import { ListSkeleton } from "@/components/list-skeleton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -96,7 +97,7 @@ export const FailedJobsTable = ({
       </CardHeader>
       <CardContent>
         {isPending ? (
-          <Spinner />
+          <ListSkeleton />
         ) : jobs.length === 0 ? (
           <Empty>
             <EmptyHeader>

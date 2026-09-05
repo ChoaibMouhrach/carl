@@ -1,7 +1,7 @@
 import { api } from "@/api";
 import { onError } from "@/lib/base-api";
-import { Spinner } from "@repo/ui/components/ui/spinner";
 import { PlanCards } from "../billing/plan-cards";
+import { PlanCardsSkeleton } from "../billing/plan-cards-skeleton";
 import type { BillingInterval, BillingPlanKey } from "@repo/constants/billing";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -31,7 +31,7 @@ export const SelectPlan = () => {
     }
   }, [me.data, navigate]);
 
-  if (me.isPending) return <Spinner />;
+  if (me.isPending) return <PlanCardsSkeleton />;
   if (me.isError) throw me.error;
 
   return (

@@ -1,6 +1,29 @@
 import { faker } from "@faker-js/faker";
 import { test, expect } from "../fixtures";
 
+test("shows a skeleton while the session list is loading", async ({
+  page,
+  seed,
+}) => {
+  const user = await seed.createOnboardedUser();
+
+  await page.route("**/api/auth/list-sessions*", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await route.continue();
+  });
+
+  const listSessions = page.waitForResponse((response) =>
+    response.url().includes("/api/auth/list-sessions"),
+  );
+
+  await seed.authenticate(page.context(), user.email);
+  await page.goto("/app/user/account");
+
+  await expect(page.locator('[data-slot="skeleton"]').first()).toBeVisible();
+  await listSessions;
+  await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
+});
+
 test("changes the password and rejects the old password", async ({
   page,
   seed,

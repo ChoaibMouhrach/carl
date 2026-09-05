@@ -1,10 +1,11 @@
 import { api } from "@/api";
 import { DataPagination } from "@/components/data-pagination";
+import { TableSkeleton } from "@/components/table-skeleton";
 import { onError } from "@/lib/base-api";
 import { userClientsRoute } from "@/routes/user/clients";
 import { useNavigate } from "@tanstack/react-router";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
-import { Spinner } from "@repo/ui/components/ui/spinner";
+import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -74,7 +75,19 @@ export const Clients = () => {
   });
 
   if (clients.isPending) {
-    return <Spinner />;
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-9 w-64" />
+          <Skeleton className="h-9 w-32" />
+        </div>
+        <Card>
+          <CardContent>
+            <TableSkeleton columns={3} />
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   if (clients.isError) {

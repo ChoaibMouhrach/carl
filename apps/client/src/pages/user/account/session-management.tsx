@@ -1,4 +1,5 @@
 import { authClient, unwrapAuthResponse } from "@/lib/auth-client";
+import { ListSkeleton } from "@/components/list-skeleton";
 import { onError } from "@/lib/base-api";
 import {
   AlertDialog,
@@ -58,7 +59,7 @@ export const SessionManagement = () => {
     },
   });
 
-  if (sessions.isPending) return <Spinner />;
+  if (sessions.isPending) return <ListSkeleton />;
   if (sessions.isError) throw sessions.error;
 
   const isAnyMutating =

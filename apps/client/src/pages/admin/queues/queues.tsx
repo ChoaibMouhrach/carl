@@ -1,7 +1,8 @@
 import { api } from "@/api";
 import { onError } from "@/lib/base-api";
 import { adminQueuesRoute } from "@/routes/admin/queues";
-import { Spinner } from "@repo/ui/components/ui/spinner";
+import { Card, CardContent, CardHeader } from "@repo/ui/components/ui/card";
+import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -62,7 +63,22 @@ export const Queues = () => {
     },
   });
 
-  if (overview.isPending) return <Spinner />;
+  if (overview.isPending) {
+    return (
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-5 w-40" />
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }, (_, index) => (
+              <Skeleton className="h-14 w-full" key={index} />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
   if (overview.isError) throw overview.error;
 
   const failedJobs = failed.data?.jobs ?? [];
