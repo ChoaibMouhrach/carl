@@ -63,7 +63,7 @@ jobs:
       - name: Build and start docucy
         run: |
           POSTGRES_HOST=docucy-postgres REDIS_HOST=docucy-redis \
-            docker compose -f compose.prod.yml --env-file .env up -d --build docucy
+            docker compose -f compose.prod.yml --env-file .env up -d --build docucy s3rver
 
       - name: Wait for docucy
         run: |

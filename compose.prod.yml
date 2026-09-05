@@ -43,13 +43,22 @@ services:
       retries: 5
       start_period: 5s
 
+  # S3rverStorage (the non-production storage backend) hardcodes its
+  # endpoint to http://localhost:4566, so docucy shares this container's
+  # network namespace instead of talking to it over the compose network.
+  s3rver:
+    container_name: docucy-s3rver
+    build:
+      context: ./apps/s3rver
+    ports:
+      - "${API_PORT:?API_PORT is required}:${API_PORT:?API_PORT is required}"
+
   docucy:
     container_name: docucy
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "${API_PORT:?API_PORT is required}:${API_PORT:?API_PORT is required}"
+    network_mode: "service:s3rver"
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST:?POSTGRES_HOST is required}
       REDIS_HOST: ${REDIS_HOST:?REDIS_HOST is required}
@@ -58,6 +67,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      s3rver:
+        condition: service_started
 
 volumes:
   postgres_data:
