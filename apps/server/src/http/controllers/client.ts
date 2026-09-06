@@ -9,6 +9,7 @@ import {
   updateClientSchema,
 } from "../validations/client";
 import { folderQuerySchema } from "../validations/folder";
+import { chunkSearchQuerySchema } from "../validations/chunk";
 import { folderController } from "./folder";
 import { fileController } from "./file";
 
@@ -88,6 +89,27 @@ export const clientController = new Hono<AppContext>()
         });
 
       return context.json({ entries, meta });
+    },
+  )
+
+  .get(
+    "/:clientId/chunks/search",
+    describeRoute({ tags: ["clients"] }),
+    validator("param", clientIdParamSchema),
+    validator("query", chunkSearchQuerySchema),
+    async (context) => {
+      const { userId } = context.get("auth").user;
+      const { clientId } = context.req.valid("param");
+      const query = context.req.valid("query");
+
+      const result = await context.get("services").chunking.search({
+        clientId,
+        userId,
+        query: query.q,
+        limit: query.limit,
+      });
+
+      return context.json(result);
     },
   )
 

@@ -52,6 +52,9 @@ const schema = z.object({
   // Billing
   STRIPE_SECRET_KEY: z.string().nonempty(),
   STRIPE_WEBHOOK_SECRET: z.string().nonempty(),
+
+  // Embeddings
+  OPENAI_API_KEY: z.string().nonempty(),
 });
 
 export const initENV = () => {

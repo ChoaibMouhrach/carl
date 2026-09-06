@@ -11,6 +11,7 @@ import {
   BaseQueue,
   BaseQueueHub,
   type AddJobOptions,
+  type ChunkingJob,
   type EmailJob,
   type FailedJob,
   type ListFailedInput,
@@ -23,6 +24,7 @@ import {
 } from "@server/lib/base-queue";
 import { BaseRateLimiter } from "@server/lib/base-rate-limiter";
 import { BaseStorage } from "@server/lib/base-storage";
+import { BaseEmbeddings } from "@server/lib/base-embeddings";
 import { Repositories } from "@server/repositories";
 import { DisabledErrorMonitor } from "@server/infrastructure/error-monitor/disabled";
 import { getStripePriceId } from "@repo/constants/billing";
@@ -63,6 +65,7 @@ export class TestMailer extends BaseMailer {
 
 export class TestStorage extends BaseStorage {
   public abortCalls: { key: string; uploadId: string }[] = [];
+  public content = "test file content";
 
   public override async getSignedUrl(_input: {
     contentType: string;
@@ -124,6 +127,28 @@ export class TestStorage extends BaseStorage {
     uploadId: string;
   }): Promise<void> {
     this.abortCalls.push(input);
+  }
+
+  public override async downloadFile(_input: {
+    key: string;
+  }): Promise<{ body: Buffer }> {
+    return { body: Buffer.from(this.content, "utf-8") };
+  }
+}
+
+export class TestEmbeddings extends BaseEmbeddings {
+  public override async embed(input: {
+    texts: string[];
+  }): Promise<{ vectors: number[][] }> {
+    return {
+      vectors: input.texts.map((text) => {
+        const seed = [...text].reduce(
+          (sum, char) => sum + char.charCodeAt(0),
+          0,
+        );
+        return Array.from({ length: 1536 }, (_, i) => Math.sin(seed + i));
+      }),
+    };
   }
 }
 
@@ -258,6 +283,7 @@ const toTestFailedJob = <Input>(job: TestJob<Input>): FailedJob => ({
 export class TestQueueHub extends BaseQueueHub {
   public email: TestQueue<EmailJob>;
   public maintenance: TestQueue<MaintenanceJob>;
+  public chunking: TestQueue<ChunkingJob>;
 
   public constructor(init: { mailer: BaseMailer }) {
     super();
@@ -269,10 +295,17 @@ export class TestQueueHub extends BaseQueueHub {
     this.maintenance = new TestQueue<MaintenanceJob>({
       process: async () => {},
     });
+    this.chunking = new TestQueue<ChunkingJob>({
+      process: async () => {},
+    });
   }
 
   public override queues(): RegisteredQueue[] {
-    return [{ name: "email", queue: this.email }];
+    return [
+      { name: "email", queue: this.email },
+      { name: "maintenance", queue: this.maintenance },
+      { name: "chunking", queue: this.chunking },
+    ];
   }
 
   public override async close(): Promise<void> {}
@@ -513,5 +546,6 @@ export const createContext = (
     rateLimiter,
     repositories: new Repositories({ dbConnection: { db, pool } }),
     storage: new TestStorage(),
+    embeddings: new TestEmbeddings(),
   };
 };

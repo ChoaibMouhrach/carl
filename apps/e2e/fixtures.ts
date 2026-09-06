@@ -2,6 +2,7 @@ import { test as base, type BrowserContext } from "@playwright/test";
 import { faker } from "@faker-js/faker";
 import {
   clientExists,
+  countChunksByFile,
   countClientsByUser,
   countFilesByClient,
   countFoldersByClient,
@@ -10,6 +11,7 @@ import {
   createEmailVerificationUrl,
   createFile,
   createFolder,
+  createMcpConnection,
   createOnboardedUser,
   createSessionCookie,
   createUnverifiedUser,
@@ -28,6 +30,7 @@ import {
   getFolder,
   getPasswordResetToken,
   getUserEmail,
+  mcpConnectionExists,
   resetE2EAuthRateLimits,
   userExists,
   type CreateOnboardedUserInput,
@@ -35,6 +38,7 @@ import {
   type SeededClient,
   type SeededFile,
   type SeededFolder,
+  type SeededMcpConnection,
   type SeededUser,
 } from "@repo/server/testing/e2e-seed";
 import { CLIENT_URL, seedConfig } from "./config";
@@ -108,6 +112,17 @@ interface Seed {
   fileExists: (fileId: number) => Promise<boolean>;
   countFoldersByClient: (clientId: number) => Promise<number>;
   countFilesByClient: (clientId: number) => Promise<number>;
+  createMcpConnection: (input: {
+    userId: string;
+    clientId?: string;
+    name?: string;
+    lastUsedAt?: Date;
+  }) => Promise<SeededMcpConnection>;
+  mcpConnectionExists: (where: {
+    clientId: string;
+    userId: string;
+  }) => Promise<boolean>;
+  countChunksByFile: (fileId: number) => Promise<number>;
 }
 
 const createUserInput = (
@@ -200,6 +215,9 @@ export const test = base.extend<{ seed: Seed; resetRateLimits: void }>({
       countFoldersByClient: (clientId) =>
         countFoldersByClient(config, clientId),
       countFilesByClient: (clientId) => countFilesByClient(config, clientId),
+      createMcpConnection: (input) => createMcpConnection(config, input),
+      mcpConnectionExists: (where) => mcpConnectionExists(config, where),
+      countChunksByFile: (fileId) => countChunksByFile(config, fileId),
     });
   },
 });

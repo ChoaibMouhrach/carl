@@ -54,7 +54,7 @@ export class FileService extends BaseService {
     name: string,
   ) {
     const dotIndex = name.lastIndexOf(".");
-    const hasExtension = dotIndex > 0;
+    const hasExtension = dotIndex >= 0;
     const base = hasExtension ? name.slice(0, dotIndex) : name;
     const extension = hasExtension ? name.slice(dotIndex) : "";
 
@@ -72,6 +72,21 @@ export class FileService extends BaseService {
     }
 
     return candidate;
+  }
+
+  private async enqueueChunkingIfSupported(file: {
+    fileId: number;
+    clientId: number | null;
+    userId: string | null;
+    mimeType: string;
+  }) {
+    if (!file.mimeType.startsWith("text/plain")) return;
+    if (file.clientId === null || file.userId === null) return;
+
+    await this.context.queueHub.chunking.add(
+      { clientId: file.clientId, userId: file.userId, fileId: file.fileId },
+      { idempotencyKey: `chunking-${file.fileId}` },
+    );
   }
 
   public async createMultipartUpload(
@@ -119,7 +134,7 @@ export class FileService extends BaseService {
       parts: input.parts,
     });
 
-    return await this.context.repositories.file.create({
+    const file = await this.context.repositories.file.create({
       name,
       key: input.key,
       sizeBytes: input.sizeBytes,
@@ -129,6 +144,10 @@ export class FileService extends BaseService {
       folderId: where.folderId,
       userId: where.userId,
     });
+
+    await this.enqueueChunkingIfSupported(file);
+
+    return file;
   }
 
   public async abortMultipartUpload(
@@ -167,6 +186,8 @@ export class FileService extends BaseService {
       folderId: where.folderId,
       userId: where.userId,
     });
+
+    await this.enqueueChunkingIfSupported(file);
 
     return file;
   }

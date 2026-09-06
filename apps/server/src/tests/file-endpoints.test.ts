@@ -344,6 +344,75 @@ describe("POST /clients/:clientId/files/multipart", () => {
       expect(rows).toHaveLength(0);
     });
   });
+
+  test("rejects a folderId of zero on multipart init and writes nothing", async () => {
+    await withTestDatabase(async ({ context, db }) => {
+      const authenticated = await createAuthenticatedApp({
+        context,
+        email: "multipart-init-zero-folder@example.com",
+      });
+      const client = await context.repositories.client.create({
+        email: "acme@example.com",
+        name: "Acme Corp",
+        userId: authenticated.user.userId,
+      });
+
+      const response = await authenticated.app.request(
+        `/api/clients/${client.clientId}/files/multipart`,
+        {
+          body: JSON.stringify({
+            folderId: 0,
+            mimeType: "application/pdf",
+            name: "agreement.pdf",
+            sizeBytes: 1024,
+          }),
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: authenticated.cookie,
+          },
+          method: "POST",
+        },
+      );
+      const rows = await db.select().from(filesTable);
+
+      expect(response.status).toBe(400);
+      expect(rows).toHaveLength(0);
+    });
+  });
+
+  test("rejects a name longer than 255 characters on multipart init", async () => {
+    await withTestDatabase(async ({ context, db }) => {
+      const authenticated = await createAuthenticatedApp({
+        context,
+        email: "multipart-init-long-name@example.com",
+      });
+      const client = await context.repositories.client.create({
+        email: "acme@example.com",
+        name: "Acme Corp",
+        userId: authenticated.user.userId,
+      });
+
+      const response = await authenticated.app.request(
+        `/api/clients/${client.clientId}/files/multipart`,
+        {
+          body: JSON.stringify({
+            mimeType: "application/pdf",
+            name: `${"a".repeat(252)}.pdf`,
+            sizeBytes: 1024,
+          }),
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: authenticated.cookie,
+          },
+          method: "POST",
+        },
+      );
+      const rows = await db.select().from(filesTable);
+
+      expect(response.status).toBe(400);
+      expect(rows).toHaveLength(0);
+    });
+  });
 });
 
 describe("POST /clients/:clientId/files/multipart/complete", () => {
@@ -801,6 +870,79 @@ describe("POST /clients/:clientId/files/multipart/complete", () => {
 
       expect(response.status).toBe(400);
       expect(rows).toHaveLength(0);
+    });
+  });
+
+  test("generates a unique name correctly for a file whose name is only an extension, not a base+extension", async () => {
+    await withTestDatabase(async ({ context, db }) => {
+      const authenticated = await createAuthenticatedApp({
+        context,
+        email: "multipart-complete-dotfile@example.com",
+      });
+      const client = await context.repositories.client.create({
+        email: "acme@example.com",
+        name: "Acme Corp",
+        userId: authenticated.user.userId,
+      });
+      await context.repositories.file.create({
+        clientId: client.clientId,
+        folderId: null,
+        key: "existing-key",
+        mimeType: "text/plain",
+        name: ".txt",
+        sizeBytes: 100,
+        url: "https://storage.test/existing",
+        userId: authenticated.user.userId,
+      });
+
+      const initResponse = await authenticated.app.request(
+        `/api/clients/${client.clientId}/files/multipart`,
+        {
+          body: JSON.stringify({
+            mimeType: "text/plain",
+            name: ".txt",
+            sizeBytes: 1024,
+          }),
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: authenticated.cookie,
+          },
+          method: "POST",
+        },
+      );
+      const init = await parseJson(initResponse, multipartInitSchema);
+
+      const response = await authenticated.app.request(
+        `/api/clients/${client.clientId}/files/multipart/complete`,
+        {
+          body: JSON.stringify({
+            key: init.key,
+            mimeType: "text/plain",
+            name: init.name,
+            parts: init.parts.map((part) => ({
+              eTag: `etag-${part.partNumber}`,
+              partNumber: part.partNumber,
+            })),
+            sizeBytes: 1024,
+            uploadId: init.uploadId,
+          }),
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: authenticated.cookie,
+          },
+          method: "POST",
+        },
+      );
+      const body = await parseJson(response, fileSchema);
+
+      expect(response.status).toBe(201);
+      expect(body.name).toBe(" (1).txt");
+
+      const rows = await db
+        .select()
+        .from(filesTable)
+        .where(eq(filesTable.fileId, body.fileId));
+      expect(rows[0]?.name).toBe(" (1).txt");
     });
   });
 });
@@ -1643,6 +1785,47 @@ describe("DELETE /clients/:clientId/files/:fileId", () => {
 
       expect(response.status).toBe(400);
       expect(after).toEqual(before);
+    });
+  });
+
+  test("rejects deleting a file that belongs to a different client than the one in the URL, even when both clients are owned by the same user", async () => {
+    await withTestDatabase(async ({ context, db }) => {
+      const authenticated = await createAuthenticatedApp({
+        context,
+        email: "cross-client-delete@example.com",
+      });
+      const clientA = await context.repositories.client.create({
+        email: "a@example.com",
+        name: "Client A",
+        userId: authenticated.user.userId,
+      });
+      const clientB = await context.repositories.client.create({
+        email: "b@example.com",
+        name: "Client B",
+        userId: authenticated.user.userId,
+      });
+      const file = await context.repositories.file.create({
+        clientId: clientA.clientId,
+        folderId: null,
+        key: "some-key",
+        mimeType: "text/plain",
+        name: "notes.txt",
+        sizeBytes: 10,
+        url: "https://storage.test/notes",
+        userId: authenticated.user.userId,
+      });
+
+      const response = await authenticated.app.request(
+        `/api/clients/${clientB.clientId}/files/${file.fileId}`,
+        { headers: { Cookie: authenticated.cookie }, method: "DELETE" },
+      );
+      const rows = await db
+        .select()
+        .from(filesTable)
+        .where(eq(filesTable.fileId, file.fileId));
+
+      expect(response.status).toBe(404);
+      expect(rows).toHaveLength(1);
     });
   });
 });

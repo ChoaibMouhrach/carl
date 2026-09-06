@@ -15,9 +15,12 @@ import type { BaseQueueHub } from "./lib/base-queue";
 import { QueueHub } from "./infrastructure/queue/bullmq";
 import type { BaseRateLimiter } from "./lib/base-rate-limiter";
 import { RedisRateLimiter } from "./infrastructure/rate-limiter/redis";
+import { DisabledRateLimiter } from "./infrastructure/rate-limiter/disabled";
 import { createAuth } from "./infrastructure/auth";
 import type { BaseErrorMonitor } from "./lib/base-error-monitor";
 import { DisabledErrorMonitor } from "./infrastructure/error-monitor/disabled";
+import type { BaseEmbeddings } from "./lib/base-embeddings";
+import { OpenAIEmbeddings } from "./infrastructure/embeddings/openai";
 
 export const initContext = async () => {
   const logger: BaseLogger = new PinoLogger();
@@ -73,10 +76,12 @@ export const initContext = async () => {
     redisUrl: env.REDIS_CONNECTION_STRING,
   });
 
-  const rateLimiter: BaseRateLimiter = new RedisRateLimiter({
-    keySecret: env.RATE_LIMIT_KEY_SECRET,
-    redisUrl: env.REDIS_CONNECTION_STRING,
-  });
+  const rateLimiter: BaseRateLimiter = env.IS_DEVELOPMENT
+    ? new DisabledRateLimiter()
+    : new RedisRateLimiter({
+        keySecret: env.RATE_LIMIT_KEY_SECRET,
+        redisUrl: env.REDIS_CONNECTION_STRING,
+      });
 
   const auth = createAuth({ db: dbConnection.db, env, queueHub });
 
@@ -86,6 +91,10 @@ export const initContext = async () => {
     secretKey: env.STRIPE_SECRET_KEY,
     successUrl: new URL("/app/user/select-plan", env.CLIENT_URL).toString(),
     webhookSecret: env.STRIPE_WEBHOOK_SECRET,
+  });
+
+  const embeddings: BaseEmbeddings = new OpenAIEmbeddings({
+    apiKey: env.OPENAI_API_KEY,
   });
 
   return {
@@ -99,6 +108,7 @@ export const initContext = async () => {
     env,
     auth,
     errorMonitor,
+    embeddings,
   };
 };
 

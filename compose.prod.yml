@@ -1,7 +1,7 @@
 services:
   postgres:
     container_name: docucy-postgres
-    image: postgres:17-alpine
+    image: pgvector/pgvector:pg17
     ports:
       - "${POSTGRES_PORT:?POSTGRES_PORT is required}:5432"
     environment:

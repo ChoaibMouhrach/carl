@@ -10,6 +10,8 @@ import { HealthService } from "./health";
 import { ClientService } from "./client";
 import { FolderService } from "./folder";
 import { FileService } from "./file";
+import { ChunkingService } from "./chunking";
+import { McpService } from "./mcp";
 
 interface ServicesConstructorParams {
   context: Context;
@@ -27,6 +29,8 @@ export class Services {
   public client;
   public folder;
   public file;
+  public chunking;
+  public mcp;
 
   public constructor({ context }: ServicesConstructorParams) {
     this.platformSetup = new PlatformSetupService({
@@ -58,5 +62,9 @@ export class Services {
     this.folder = new FolderService({ context });
 
     this.file = new FileService({ context });
+
+    this.chunking = new ChunkingService({ context });
+
+    this.mcp = new McpService({ context });
   }
 }

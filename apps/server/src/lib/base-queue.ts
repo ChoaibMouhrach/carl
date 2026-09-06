@@ -8,6 +8,12 @@ export type MaintenanceJob =
   | { type: "reconcile-billing" }
   | { type: "check-queue-backlog" };
 
+export interface ChunkingJob {
+  clientId: number;
+  userId: string;
+  fileId: number;
+}
+
 export type QueueConsumer<Input> = (input: Input) => Promise<void>;
 
 export interface AddJobOptions {
@@ -78,6 +84,7 @@ export interface RegisteredQueue {
 export abstract class BaseQueueHub {
   public abstract email: BaseQueue<EmailJob>;
   public abstract maintenance: BaseQueue<MaintenanceJob>;
+  public abstract chunking: BaseQueue<ChunkingJob>;
 
   public abstract queues(): RegisteredQueue[];
 

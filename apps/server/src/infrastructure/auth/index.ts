@@ -1,10 +1,13 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { admin } from "better-auth/plugins";
+import { admin, mcp } from "better-auth/plugins";
 import type { ENV } from "@server/config/env";
 import type { DB } from "@server/infrastructure/database/client";
 import {
   accountTable,
+  oauthAccessTokenTable,
+  oauthApplicationTable,
+  oauthConsentTable,
   sessionTable,
   userTable,
   verificationTable,
@@ -33,6 +36,9 @@ export const createAuth = (input: {
         session: sessionTable,
         user: userTable,
         verification: verificationTable,
+        oauthApplication: oauthApplicationTable,
+        oauthAccessToken: oauthAccessTokenTable,
+        oauthConsent: oauthConsentTable,
       },
     }),
     emailAndPassword: {
@@ -94,7 +100,12 @@ export const createAuth = (input: {
         },
       },
     },
-    plugins: [admin()],
+    plugins: [
+      admin(),
+      mcp({
+        loginPage: new URL("/app/sign-in", input.env.CLIENT_URL).toString(),
+      }),
+    ],
   });
 
 export type Auth = ReturnType<typeof createAuth>;

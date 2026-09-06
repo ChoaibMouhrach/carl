@@ -13,6 +13,9 @@ export abstract class BaseStorage {
     fileName: string;
   }): Promise<{ signedUrl: string }>;
   public abstract removeFile(input: { key: string }): Promise<void>;
+  public abstract downloadFile(input: {
+    key: string;
+  }): Promise<{ body: Buffer }>;
   public abstract createMultipartUpload(input: {
     key: string;
     contentType: string;

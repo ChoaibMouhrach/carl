@@ -122,6 +122,7 @@
         "@better-auth/drizzle-adapter": "^1.6.25",
         "@hono/standard-validator": "^0.2.2",
         "@hono/zod-validator": "^0.7.6",
+        "@modelcontextprotocol/sdk": "^1.29.0",
         "@react-email/components": "^1.0.12",
         "@react-email/render": "^2.1.0",
         "@repo/constants": "workspace:*",

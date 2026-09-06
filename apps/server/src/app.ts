@@ -2,8 +2,18 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { getCookie } from "hono/cookie";
 import { serveStatic } from "hono/bun";
+import { z } from "zod";
+import {
+  oAuthDiscoveryMetadata,
+  oAuthProtectedResourceMetadata,
+  withMcpAuth,
+} from "better-auth/plugins";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { defaultLocale, isLocale } from "@repo/i18n/config";
 import { Services } from "./services";
+import { ClientService } from "./services/client";
+import { ChunkingService } from "./services/chunking";
 import { AppError } from "./lib/errors";
 import type { Context } from "./context";
 import { AppRedirect } from "./http/utils";
@@ -129,6 +139,69 @@ export const initApp = async (params: initAppParams) => {
 
     return context.json(report, report.status === "unhealthy" ? 503 : 200);
   });
+
+  app.get("/.well-known/oauth-protected-resource", (context) =>
+    oAuthProtectedResourceMetadata(params.context.auth)(context.req.raw),
+  );
+
+  app.get("/.well-known/oauth-authorization-server", (context) =>
+    oAuthDiscoveryMetadata(params.context.auth)(context.req.raw),
+  );
+
+  const mcpHandler = withMcpAuth(params.context.auth, async (req, session) => {
+    const server = new McpServer({ name: "docucy", version: "1.0.0" });
+
+    server.tool(
+      "list_clients",
+      "List the clients (customers) this account manages.",
+      {},
+      async () => {
+        const { clients } = await new ClientService({
+          context: params.context,
+        }).list({ userId: session.userId });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                clients.map((client) => ({
+                  clientId: client.clientId,
+                  name: client.name,
+                })),
+              ),
+            },
+          ],
+        };
+      },
+    );
+
+    server.tool(
+      "search_documents",
+      "Search a client's uploaded documents by meaning, returns the most relevant chunks.",
+      {
+        clientId: z.number().int().positive(),
+        query: z.string().min(1),
+        limit: z.number().int().positive().max(20).optional(),
+      },
+      async ({ clientId, query, limit }) => {
+        const result = await new ChunkingService({
+          context: params.context,
+        }).search({ clientId, userId: session.userId, query, limit });
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(result.results) }],
+        };
+      },
+    );
+
+    const transport = new WebStandardStreamableHTTPServerTransport();
+    await server.connect(transport);
+
+    return await transport.handleRequest(req);
+  });
+
+  app.on(["POST", "GET"], "/mcp", (context) => mcpHandler(context.req.raw));
 
   app.get("/", (context) => {
     const cookieLocale = getCookie(context, "NEXT_LOCALE");

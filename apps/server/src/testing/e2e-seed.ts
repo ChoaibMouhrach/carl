@@ -4,9 +4,13 @@ import IORedis from "ioredis";
 import { initDB, type DB } from "../infrastructure/database/client";
 import {
   billingCustomersTable,
+  chunksTable,
   clientsTable,
   filesTable,
   foldersTable,
+  oauthAccessTokenTable,
+  oauthApplicationTable,
+  oauthConsentTable,
   sessionTable,
   subscriptionsTable,
   userTable,
@@ -684,4 +688,87 @@ export const getPasswordResetToken = async (
     }
 
     return verification.identifier.slice(RESET_PASSWORD_PREFIX.length);
+  });
+
+export interface SeededMcpConnection {
+  clientId: string;
+  userId: string;
+  name: string;
+}
+
+export const createMcpConnection = async (
+  config: SeedConfig,
+  input: {
+    userId: string;
+    clientId?: string;
+    name?: string;
+    lastUsedAt?: Date;
+  },
+): Promise<SeededMcpConnection> =>
+  withDb(config, async (db) => {
+    const clientId = input.clientId ?? crypto.randomUUID();
+    const name = input.name ?? "E2E MCP App";
+
+    await db.insert(oauthApplicationTable).values({
+      id: crypto.randomUUID(),
+      clientId,
+      name,
+      redirectUrls: "",
+      type: "public",
+      userId: input.userId,
+    });
+
+    await db.insert(oauthAccessTokenTable).values({
+      id: crypto.randomUUID(),
+      accessToken: crypto.randomUUID(),
+      refreshToken: crypto.randomUUID(),
+      accessTokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      refreshTokenExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      clientId,
+      userId: input.userId,
+      scopes: "openid",
+      createdAt: input.lastUsedAt,
+    });
+
+    await db.insert(oauthConsentTable).values({
+      id: crypto.randomUUID(),
+      clientId,
+      userId: input.userId,
+      scopes: "openid",
+      consentGiven: true,
+    });
+
+    return { clientId, userId: input.userId, name };
+  });
+
+export const mcpConnectionExists = async (
+  config: SeedConfig,
+  where: { clientId: string; userId: string },
+): Promise<boolean> =>
+  withDb(config, async (db) => {
+    const [row] = await db
+      .select({ clientId: oauthAccessTokenTable.clientId })
+      .from(oauthAccessTokenTable)
+      .where(
+        and(
+          eq(oauthAccessTokenTable.clientId, where.clientId),
+          eq(oauthAccessTokenTable.userId, where.userId),
+        ),
+      )
+      .limit(1);
+
+    return Boolean(row);
+  });
+
+export const countChunksByFile = async (
+  config: SeedConfig,
+  fileId: number,
+): Promise<number> =>
+  withDb(config, async (db) => {
+    const [row] = await db
+      .select({ count: sql`COUNT(*)`.mapWith(Number) })
+      .from(chunksTable)
+      .where(eq(chunksTable.fileId, fileId));
+
+    return row?.count ?? 0;
   });

@@ -9,6 +9,7 @@ import { AccountApi } from "./account";
 import { ClientApi } from "./client";
 import { FolderApi } from "./folder";
 import { FileApi } from "./file";
+import { McpApi } from "./mcp";
 
 class Api {
   public account = new AccountApi();
@@ -22,6 +23,7 @@ class Api {
   public client = new ClientApi();
   public folder = new FolderApi();
   public file = new FileApi();
+  public mcp = new McpApi();
 }
 
 export const api = new Api();

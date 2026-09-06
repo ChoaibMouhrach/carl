@@ -11,6 +11,7 @@ import { getRouteApi } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { ChangeEmail } from "./change-email";
 import { SessionManagement } from "./session-management";
+import { McpConnections } from "./mcp-connections";
 import { DeleteAccount } from "./delete-account";
 
 const route = getRouteApi("/user-layout");
@@ -50,6 +51,18 @@ export const Account = () => {
         </CardHeader>
         <CardContent>
           <SessionManagement />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("settings.mcpConnections.title")}</CardTitle>
+          <CardDescription>
+            {t("settings.mcpConnections.description")}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <McpConnections />
         </CardContent>
       </Card>
 

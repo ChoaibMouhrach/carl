@@ -142,6 +142,38 @@ export const fileController = new Hono<AppContext>()
     },
   )
 
+  .post(
+    "/:fileId/chunks",
+    describeRoute({ tags: ["files"] }),
+    validator("param", fileIdParamSchema),
+    async (context) => {
+      const { userId } = context.get("auth").user;
+      const { clientId, fileId } = context.req.valid("param");
+
+      const result = await context
+        .get("services")
+        .chunking.chunk({ clientId, userId, fileId });
+
+      return context.json(result, 201);
+    },
+  )
+
+  .get(
+    "/:fileId/chunks",
+    describeRoute({ tags: ["files"] }),
+    validator("param", fileIdParamSchema),
+    async (context) => {
+      const { userId } = context.get("auth").user;
+      const { clientId, fileId } = context.req.valid("param");
+
+      const result = await context
+        .get("services")
+        .chunking.list({ clientId, userId, fileId });
+
+      return context.json(result);
+    },
+  )
+
   .patch(
     "/:fileId",
     describeRoute({ tags: ["files"] }),

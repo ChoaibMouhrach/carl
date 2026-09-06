@@ -28,7 +28,7 @@ export const LanguageCard = () => {
       </CardHeader>
       <CardContent>
         <Select value={current} onValueChange={changeLanguage}>
-          <SelectTrigger className="w-full sm:w-64">
+          <SelectTrigger className="w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

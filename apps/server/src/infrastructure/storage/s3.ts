@@ -106,6 +106,20 @@ export class S3Storage extends BaseStorage {
     await this.client.send(command);
   }
 
+  public override async downloadFile(input: {
+    key: string;
+  }): Promise<{ body: Buffer }> {
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: input.key,
+    });
+
+    const result = await this.client.send(command);
+    const bytes = await result.Body!.transformToByteArray();
+
+    return { body: Buffer.from(bytes) };
+  }
+
   public override async createMultipartUpload(input: {
     key: string;
     contentType: string;

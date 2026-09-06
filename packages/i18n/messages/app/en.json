@@ -23,7 +23,11 @@
       "verificationSent": "Verification email sent",
       "verificationSentDescription": "We sent a new verification link to {{email}}. Check your inbox.",
       "verificationResent": "A new verification link was sent.",
-      "createAccount": "Create an account"
+      "createAccount": "Create an account",
+      "connecting": {
+        "title": "You're signed in",
+        "description": "Taking you back to finish connecting the app…"
+      }
     },
     "signUp": {
       "title": "Create an account",
@@ -250,6 +254,31 @@
         "description": "This will end every other active session. Your current session will stay active.",
         "keep": "Keep devices signed in",
         "confirm": "Sign out other devices"
+      }
+    },
+    "mcpConnections": {
+      "title": "MCP connections",
+      "description": "Apps connected to your account through the Model Context Protocol.",
+      "endpointLabel": "MCP endpoint",
+      "copy": "Copy",
+      "copied": "Copied!",
+      "howTo": {
+        "title": "How to connect",
+        "step1": "Copy the MCP endpoint above.",
+        "step2": "Add it as a remote MCP server in your MCP client (e.g. Claude).",
+        "step3": "Sign in and approve access when prompted.",
+        "step4": "The connection will appear in the list below."
+      },
+      "empty": "No apps are connected yet.",
+      "connectedAt": "Connected {{date}}",
+      "lastUsedAt": "Last used {{date}}",
+      "revoke": "Revoke",
+      "revokedToast": "Connection revoked.",
+      "dialog": {
+        "title": "Revoke this connection?",
+        "description": "The app will lose access to your account and its data through MCP. You can reconnect it later.",
+        "cancel": "Cancel",
+        "confirm": "Revoke"
       }
     },
     "language": {
