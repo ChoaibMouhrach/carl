@@ -189,9 +189,11 @@ describe("POST /mcp", () => {
       }>(ownerResponse);
       const ownerResults = JSON.parse(ownerBody.result!.content[0]!.text) as {
         content: string;
+        fileUrl: string;
       }[];
       expect(ownerResults).toHaveLength(1);
       expect(ownerResults[0]?.content).toBe("confidential content");
+      expect(ownerResults[0]?.fileUrl).toBe("https://storage.test/secret.txt");
 
       const intruderToken = await seedAccessToken(
         context,
@@ -212,6 +214,133 @@ describe("POST /mcp", () => {
       expect(response.status).toBe(200);
       const results = JSON.parse(body.result!.content[0]!.text) as unknown[];
       expect(results).toHaveLength(0);
+    });
+  });
+
+  test("search_documents includes the source file's fileUrl in each result", async () => {
+    await withTestDatabase(async ({ context }) => {
+      const owner = await createAuthenticatedApp({
+        context,
+        email: "mcp-search-fileurl@example.com",
+      });
+      const client = await context.repositories.client.create({
+        email: "acme@example.com",
+        name: "Owner's Client",
+        userId: owner.user.userId,
+      });
+      const file = await context.repositories.file.create({
+        clientId: client.clientId,
+        folderId: null,
+        key: "some-key.txt",
+        mimeType: "text/plain",
+        name: "secret.txt",
+        sizeBytes: 10,
+        url: "https://storage.test/secret.txt",
+        userId: owner.user.userId,
+      });
+      const { vectors } = await context.embeddings.embed({
+        texts: ["confidential content"],
+      });
+      await context.repositories.chunk.createMany([
+        {
+          fileId: file.fileId,
+          position: 0,
+          content: "confidential content",
+          embedding: vectors[0]!,
+        },
+      ]);
+
+      const token = await seedAccessToken(context, owner.user.userId);
+      const response = await mcpRequest(owner.app, {
+        token,
+        method: "tools/call",
+        params: {
+          name: "search_documents",
+          arguments: { clientId: client.clientId, query: "confidential" },
+        },
+      });
+      const body = await parseMcpResponse<{
+        content: { type: string; text: string }[];
+      }>(response);
+      const results = JSON.parse(body.result!.content[0]!.text) as {
+        fileUrl: string;
+      }[];
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.fileUrl).toBe("https://storage.test/secret.txt");
+    });
+  });
+
+  test("search_documents returns each result's own file's fileUrl when a client has multiple files", async () => {
+    await withTestDatabase(async ({ context }) => {
+      const owner = await createAuthenticatedApp({
+        context,
+        email: "mcp-search-fileurl-multi@example.com",
+      });
+      const client = await context.repositories.client.create({
+        email: "acme@example.com",
+        name: "Owner's Client",
+        userId: owner.user.userId,
+      });
+      const fileA = await context.repositories.file.create({
+        clientId: client.clientId,
+        folderId: null,
+        key: "a-key.txt",
+        mimeType: "text/plain",
+        name: "a.txt",
+        sizeBytes: 10,
+        url: "https://storage.test/a.txt",
+        userId: owner.user.userId,
+      });
+      const fileB = await context.repositories.file.create({
+        clientId: client.clientId,
+        folderId: null,
+        key: "b-key.txt",
+        mimeType: "text/plain",
+        name: "b.txt",
+        sizeBytes: 10,
+        url: "https://storage.test/b.txt",
+        userId: owner.user.userId,
+      });
+      const { vectors } = await context.embeddings.embed({
+        texts: ["alpha shared content", "beta shared content"],
+      });
+      await context.repositories.chunk.createMany([
+        {
+          fileId: fileA.fileId,
+          position: 0,
+          content: "alpha shared content",
+          embedding: vectors[0]!,
+        },
+        {
+          fileId: fileB.fileId,
+          position: 0,
+          content: "beta shared content",
+          embedding: vectors[1]!,
+        },
+      ]);
+
+      const token = await seedAccessToken(context, owner.user.userId);
+      const response = await mcpRequest(owner.app, {
+        token,
+        method: "tools/call",
+        params: {
+          name: "search_documents",
+          arguments: { clientId: client.clientId, query: "shared content" },
+        },
+      });
+      const body = await parseMcpResponse<{
+        content: { type: string; text: string }[];
+      }>(response);
+      const results = JSON.parse(body.result!.content[0]!.text) as {
+        fileId: number;
+        fileUrl: string;
+      }[];
+
+      expect(results).toHaveLength(2);
+      const byFileId = new Map(results.map((r) => [r.fileId, r.fileUrl]));
+      expect(byFileId.get(fileA.fileId)).toBe("https://storage.test/a.txt");
+      expect(byFileId.get(fileB.fileId)).toBe("https://storage.test/b.txt");
     });
   });
 

@@ -45,6 +45,7 @@ export class ChunkRepository extends BaseRepository {
         chunkId: ChunkRepository.table.chunkId,
         fileId: filesTable.fileId,
         fileName: filesTable.name,
+        fileUrl: filesTable.url,
         content: ChunkRepository.table.content,
         position: ChunkRepository.table.position,
         distance: cosineDistance(
