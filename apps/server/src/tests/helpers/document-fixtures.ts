@@ -94,7 +94,7 @@ export const buildMinimalPdf = (text: string | string[]): Buffer => {
 
   const pageObjects = pageTexts.map(
     (_, i) =>
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Contents ${3 + pageCount + i} 0 R /Resources << /Font << /F1 ${fontObjNum} 0 R >> >> >>`,
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 1000 200] /Contents ${3 + pageCount + i} 0 R /Resources << /Font << /F1 ${fontObjNum} 0 R >> >> >>`,
   );
 
   const streamObjects = pageTexts.map((pageText) => {
