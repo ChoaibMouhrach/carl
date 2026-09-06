@@ -1,5 +1,5 @@
-import { createRequire } from "node:module";
 import mammoth from "mammoth";
+import { extractText as extractPdfText, getDocumentProxy } from "unpdf";
 import * as XLSX from "xlsx";
 import { BadRequestError, NotFoundError } from "@server/lib/errors";
 import { BaseService } from "@server/lib/base-service";
@@ -7,15 +7,6 @@ import { CHUNKABLE_MIME_TYPES } from "@server/config/constants";
 
 const CHUNK_SIZE_CHARS = 1_000;
 const CHUNK_OVERLAP_CHARS = 200;
-
-// The package root re-exports a debug entrypoint that reads a local test
-// fixture on import when bundled outside CommonJS `require.main` semantics,
-// so the internal lib entry is required directly instead. It has no type
-// declarations of its own, hence the plain `require` (typed as `any`)
-// rather than a static import that other packages' typechecks can't resolve.
-const pdfParse = createRequire(import.meta.url)(
-  "pdf-parse/lib/pdf-parse.js",
-) as (data: Buffer) => Promise<{ text: string }>;
 
 const DOCX_MIME_TYPE =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -37,7 +28,8 @@ export const extractText = async (
   const normalized = normalizeMimeType(mimeType);
 
   if (normalized === "application/pdf") {
-    const { text } = await pdfParse(body);
+    const pdf = await getDocumentProxy(new Uint8Array(body));
+    const { text } = await extractPdfText(pdf, { mergePages: true });
     return text;
   }
 
