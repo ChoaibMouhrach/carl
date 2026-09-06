@@ -11,6 +11,7 @@ const schema = z.object({
   NEXT_PUBLIC_UMAMI_SRC: z.url(),
   NEXT_PUBLIC_UMAMI_WEBSITE_ID: z.uuid(),
   NEXT_PUBLIC_UMAMI_DOMAINS: z.string().min(1),
+  NEXT_PUBLIC_SENTRY_DSN: z.url().optional(),
 });
 
 const parsed = schema.parse(process.env);

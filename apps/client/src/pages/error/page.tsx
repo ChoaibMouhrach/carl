@@ -3,6 +3,7 @@ import { ApiError } from "@/lib/base-api";
 import { Link } from "@tanstack/react-router";
 import { MoveRightIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import * as Sentry from "@sentry/react";
 
 interface ErrorScreenProps {
   error: string;
@@ -46,6 +47,8 @@ export const RouteErrorScreen = ({ error }: { error: Error }) => {
       />
     );
   }
+
+  Sentry.captureException(error);
 
   return (
     <ErrorScreen error={t("errors.generic")} description={error.message} />
