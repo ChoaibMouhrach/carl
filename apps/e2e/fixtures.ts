@@ -24,6 +24,7 @@ import {
   findFolderByName,
   folderExists,
   getActiveSessionCount,
+  getChunksByFile,
   getClient,
   getEmailVerificationStatus,
   getFile,
@@ -35,6 +36,7 @@ import {
   userExists,
   type CreateOnboardedUserInput,
   type CreateVerifiedUserInput,
+  type SeededChunk,
   type SeededClient,
   type SeededFile,
   type SeededFolder,
@@ -123,6 +125,7 @@ interface Seed {
     userId: string;
   }) => Promise<boolean>;
   countChunksByFile: (fileId: number) => Promise<number>;
+  getChunksByFile: (fileId: number) => Promise<SeededChunk[]>;
 }
 
 const createUserInput = (
@@ -218,6 +221,7 @@ export const test = base.extend<{ seed: Seed; resetRateLimits: void }>({
       createMcpConnection: (input) => createMcpConnection(config, input),
       mcpConnectionExists: (where) => mcpConnectionExists(config, where),
       countChunksByFile: (fileId) => countChunksByFile(config, fileId),
+      getChunksByFile: (fileId) => getChunksByFile(config, fileId),
     });
   },
 });

@@ -2,6 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { ChunkingWorker } from "@server/workers/chunking";
 import { createAuthenticatedApp, withTestDatabase } from "./helpers/http";
+import { TestStorage } from "./helpers/billing";
+import {
+  buildMinimalDocx,
+  buildMinimalPdf,
+  buildMinimalXlsx,
+} from "./helpers/document-fixtures";
 
 const multipartInitSchema = z.object({
   uploadId: z.string().min(1),
@@ -66,6 +72,147 @@ describe("automatic chunking on upload", () => {
       // TestStorage.downloadFile always returns this fixed content,
       // regardless of what was actually uploaded.
       expect(rows[0]?.content).toBe("test file content");
+    });
+  });
+
+  test("uploading a pdf file enqueues a chunking job that extracts and stores its text", async () => {
+    await withTestDatabase(async ({ context }) => {
+      await new ChunkingWorker({ context }).run();
+
+      if (!(context.storage instanceof TestStorage)) {
+        throw new Error("Expected the test context to use TestStorage.");
+      }
+      context.storage.content = buildMinimalPdf("hello from a worker pdf");
+
+      const authenticated = await createAuthenticatedApp({
+        context,
+        email: "chunk-worker-pdf@example.com",
+      });
+      const client = await context.repositories.client.create({
+        email: "acme@example.com",
+        name: "Acme Corp",
+        userId: authenticated.user.userId,
+      });
+
+      const formData = new FormData();
+      formData.append(
+        "file",
+        new File(["placeholder"], "report.pdf", {
+          type: "application/pdf",
+        }),
+      );
+
+      const response = await authenticated.app.request(
+        `/api/clients/${client.clientId}/files`,
+        {
+          body: formData,
+          headers: { Cookie: authenticated.cookie },
+          method: "POST",
+        },
+      );
+      const body = await parseJson(response, fileSchema);
+
+      expect(response.status).toBe(201);
+
+      const rows = await context.repositories.chunk.listByFileId({
+        fileId: body.fileId,
+      });
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows[0]?.content).toContain("hello from a worker pdf");
+    });
+  });
+
+  test("uploading a docx file enqueues a chunking job that extracts and stores its text", async () => {
+    await withTestDatabase(async ({ context }) => {
+      await new ChunkingWorker({ context }).run();
+
+      if (!(context.storage instanceof TestStorage)) {
+        throw new Error("Expected the test context to use TestStorage.");
+      }
+      context.storage.content = buildMinimalDocx("hello from a worker docx");
+
+      const authenticated = await createAuthenticatedApp({
+        context,
+        email: "chunk-worker-docx@example.com",
+      });
+      const client = await context.repositories.client.create({
+        email: "acme@example.com",
+        name: "Acme Corp",
+        userId: authenticated.user.userId,
+      });
+
+      const formData = new FormData();
+      formData.append(
+        "file",
+        new File(["placeholder"], "report.docx", {
+          type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        }),
+      );
+
+      const response = await authenticated.app.request(
+        `/api/clients/${client.clientId}/files`,
+        {
+          body: formData,
+          headers: { Cookie: authenticated.cookie },
+          method: "POST",
+        },
+      );
+      const body = await parseJson(response, fileSchema);
+
+      expect(response.status).toBe(201);
+
+      const rows = await context.repositories.chunk.listByFileId({
+        fileId: body.fileId,
+      });
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows[0]?.content).toContain("hello from a worker docx");
+    });
+  });
+
+  test("uploading an xlsx file enqueues a chunking job that extracts and stores its text", async () => {
+    await withTestDatabase(async ({ context }) => {
+      await new ChunkingWorker({ context }).run();
+
+      if (!(context.storage instanceof TestStorage)) {
+        throw new Error("Expected the test context to use TestStorage.");
+      }
+      context.storage.content = buildMinimalXlsx("hello from a worker xlsx");
+
+      const authenticated = await createAuthenticatedApp({
+        context,
+        email: "chunk-worker-xlsx@example.com",
+      });
+      const client = await context.repositories.client.create({
+        email: "acme@example.com",
+        name: "Acme Corp",
+        userId: authenticated.user.userId,
+      });
+
+      const formData = new FormData();
+      formData.append(
+        "file",
+        new File(["placeholder"], "report.xlsx", {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }),
+      );
+
+      const response = await authenticated.app.request(
+        `/api/clients/${client.clientId}/files`,
+        {
+          body: formData,
+          headers: { Cookie: authenticated.cookie },
+          method: "POST",
+        },
+      );
+      const body = await parseJson(response, fileSchema);
+
+      expect(response.status).toBe(201);
+
+      const rows = await context.repositories.chunk.listByFileId({
+        fileId: body.fileId,
+      });
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows[0]?.content).toContain("hello from a worker xlsx");
     });
   });
 

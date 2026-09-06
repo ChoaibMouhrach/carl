@@ -80,15 +80,33 @@ export const buildMinimalDocx = (text: string): Buffer =>
     },
   ]);
 
-// A hand-built, uncompressed one-page PDF with a single text run — the
-// minimum pdf-parse needs, with no writer library to generate one from.
-export const buildMinimalPdf = (text: string): Buffer => {
-  const streamContent = `BT /F1 24 Tf 20 100 Td (${text}) Tj ET`;
+// A hand-built, uncompressed PDF with one text run per page — the
+// minimum pdf-parse/unpdf needs, with no writer library to generate one
+// from. Pass an array to build a multi-page document.
+export const buildMinimalPdf = (text: string | string[]): Buffer => {
+  const pageTexts = Array.isArray(text) ? text : [text];
+  const pageCount = pageTexts.length;
+  const fontObjNum = 3 + 2 * pageCount;
+
+  const kids = Array.from({ length: pageCount }, (_, i) => `${3 + i} 0 R`).join(
+    " ",
+  );
+
+  const pageObjects = pageTexts.map(
+    (_, i) =>
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 1000 200] /Contents ${3 + pageCount + i} 0 R /Resources << /Font << /F1 ${fontObjNum} 0 R >> >> >>`,
+  );
+
+  const streamObjects = pageTexts.map((pageText) => {
+    const streamContent = `BT /F1 24 Tf 20 100 Td (${pageText}) Tj ET`;
+    return `<< /Length ${Buffer.byteLength(streamContent, "utf-8")} >>\nstream\n${streamContent}\nendstream`;
+  });
+
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
-    `<< /Length ${Buffer.byteLength(streamContent, "utf-8")} >>\nstream\n${streamContent}\nendstream`,
+    `<< /Type /Pages /Kids [${kids}] /Count ${pageCount} >>`,
+    ...pageObjects,
+    ...streamObjects,
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
   ];
 
@@ -110,9 +128,13 @@ export const buildMinimalPdf = (text: string): Buffer => {
   return Buffer.from(body + xref + trailer, "utf-8");
 };
 
-export const buildMinimalXlsx = (text: string): Buffer => {
+// Pass an array to build one sheet per entry (Sheet1, Sheet2, ...).
+export const buildMinimalXlsx = (text: string | string[]): Buffer => {
+  const sheetTexts = Array.isArray(text) ? text : [text];
   const workbook = XLSX.utils.book_new();
-  const sheet = XLSX.utils.aoa_to_sheet([[text]]);
-  XLSX.utils.book_append_sheet(workbook, sheet, "Sheet1");
+  sheetTexts.forEach((sheetText, i) => {
+    const sheet = XLSX.utils.aoa_to_sheet([[sheetText]]);
+    XLSX.utils.book_append_sheet(workbook, sheet, `Sheet${i + 1}`);
+  });
   return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
 };

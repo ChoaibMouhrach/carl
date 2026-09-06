@@ -772,3 +772,27 @@ export const countChunksByFile = async (
 
     return row?.count ?? 0;
   });
+
+export interface SeededChunk {
+  chunkId: number;
+  fileId: number;
+  position: number;
+  content: string;
+}
+
+export const getChunksByFile = async (
+  config: SeedConfig,
+  fileId: number,
+): Promise<SeededChunk[]> =>
+  withDb(config, async (db) =>
+    db
+      .select({
+        chunkId: chunksTable.chunkId,
+        fileId: chunksTable.fileId,
+        position: chunksTable.position,
+        content: chunksTable.content,
+      })
+      .from(chunksTable)
+      .where(eq(chunksTable.fileId, fileId))
+      .orderBy(chunksTable.position),
+  );
