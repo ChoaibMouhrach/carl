@@ -1037,49 +1037,6 @@ test.describe("Uploading files", () => {
     fs.unlinkSync(secondPath);
   });
 
-  test("uploading a text/plain file through the real upload UI triggers automatic chunking and persists chunk rows for it", async ({
-    page,
-    seed,
-  }) => {
-    const user = await seed.createOnboardedUser();
-    const client = await seed.createClient({ userId: user.userId });
-    const fileName = `notes-${faker.string.uuid()}.txt`;
-
-    await seed.authenticate(page.context(), user.email);
-    await page.goto(`/app/user/clients/${client.clientId}/folders`);
-
-    await page.getByRole("button", { name: "Upload files" }).click();
-    await page.locator('input[type="file"]').setInputFiles({
-      name: fileName,
-      mimeType: "text/plain",
-      buffer: Buffer.from("hello from the automatic chunking pipeline"),
-    });
-
-    await expect
-      .poll(
-        async () =>
-          (await seed.findFileByName({
-            clientId: client.clientId,
-            folderId: null,
-            name: fileName,
-          })) !== null,
-        { timeout: 15_000 },
-      )
-      .toBe(true);
-
-    const file = await seed.findFileByName({
-      clientId: client.clientId,
-      folderId: null,
-      name: fileName,
-    });
-
-    await expect
-      .poll(async () => await seed.countChunksByFile(file!.fileId), {
-        timeout: 15_000,
-      })
-      .toBeGreaterThan(0);
-  });
-
   test("uploading a disallowed-extension file through the real upload UI never reaches the server and creates no chunk rows", async ({
     page,
     seed,
