@@ -3,7 +3,10 @@ import { extractText as extractPdfText, getDocumentProxy } from "unpdf";
 import * as XLSX from "xlsx";
 import { BadRequestError, NotFoundError } from "@server/lib/errors";
 import { BaseService } from "@server/lib/base-service";
-import { CHUNKABLE_MIME_TYPES } from "@server/config/constants";
+import {
+  CHUNKABLE_MIME_TYPES,
+  CHUNKING_MAX_FILE_SIZE_BYTES,
+} from "@server/config/constants";
 
 const CHUNK_SIZE_CHARS = 1_000;
 const CHUNK_OVERLAP_CHARS = 200;
@@ -63,6 +66,12 @@ export class ChunkingService extends BaseService {
     if (!isChunkableMimeType(file.mimeType)) {
       throw new BadRequestError({
         message: "This file type can't be chunked.",
+      });
+    }
+
+    if (file.sizeBytes > CHUNKING_MAX_FILE_SIZE_BYTES) {
+      throw new BadRequestError({
+        message: "This file is too large to be chunked.",
       });
     }
 

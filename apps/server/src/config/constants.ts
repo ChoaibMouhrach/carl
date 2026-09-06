@@ -14,3 +14,8 @@ export const CHUNKABLE_MIME_TYPES: readonly string[] = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 ];
+
+// Above this, a file is skipped for chunking rather than extracted and
+// embedded — an upload this large would produce tens of thousands of chunk
+// rows and embedding calls in one job, overwhelming the queue worker and DB.
+export const CHUNKING_MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024;

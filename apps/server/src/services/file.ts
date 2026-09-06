@@ -3,6 +3,7 @@ import { NotFoundError } from "@server/lib/errors";
 import { BaseService } from "@server/lib/base-service";
 import { MULTIPART_PART_SIZE_BYTES } from "@repo/constants/files";
 import { isChunkableMimeType } from "@server/services/chunking";
+import { CHUNKING_MAX_FILE_SIZE_BYTES } from "@server/config/constants";
 
 export class FileService extends BaseService {
   private async assertLocationOwnership(where: {
@@ -80,8 +81,10 @@ export class FileService extends BaseService {
     clientId: number | null;
     userId: string | null;
     mimeType: string;
+    sizeBytes: number;
   }) {
     if (!isChunkableMimeType(file.mimeType)) return;
+    if (file.sizeBytes > CHUNKING_MAX_FILE_SIZE_BYTES) return;
     if (file.clientId === null || file.userId === null) return;
 
     await this.context.queueHub.chunking.add(
