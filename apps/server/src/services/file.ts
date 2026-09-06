@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NotFoundError } from "@server/lib/errors";
 import { BaseService } from "@server/lib/base-service";
 import { MULTIPART_PART_SIZE_BYTES } from "@repo/constants/files";
+import { isChunkableMimeType } from "@server/services/chunking";
 
 export class FileService extends BaseService {
   private async assertLocationOwnership(where: {
@@ -80,7 +81,7 @@ export class FileService extends BaseService {
     userId: string | null;
     mimeType: string;
   }) {
-    if (!file.mimeType.startsWith("text/plain")) return;
+    if (!isChunkableMimeType(file.mimeType)) return;
     if (file.clientId === null || file.userId === null) return;
 
     await this.context.queueHub.chunking.add(

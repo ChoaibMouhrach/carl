@@ -65,7 +65,7 @@ export class TestMailer extends BaseMailer {
 
 export class TestStorage extends BaseStorage {
   public abortCalls: { key: string; uploadId: string }[] = [];
-  public content = "test file content";
+  public content: string | Buffer = "test file content";
 
   public override async getSignedUrl(_input: {
     contentType: string;
@@ -132,7 +132,11 @@ export class TestStorage extends BaseStorage {
   public override async downloadFile(_input: {
     key: string;
   }): Promise<{ body: Buffer }> {
-    return { body: Buffer.from(this.content, "utf-8") };
+    return {
+      body: Buffer.isBuffer(this.content)
+        ? this.content
+        : Buffer.from(this.content, "utf-8"),
+    };
   }
 }
 

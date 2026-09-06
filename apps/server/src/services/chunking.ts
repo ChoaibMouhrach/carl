@@ -1,8 +1,60 @@
+import { createRequire } from "node:module";
+import mammoth from "mammoth";
+import * as XLSX from "xlsx";
 import { BadRequestError, NotFoundError } from "@server/lib/errors";
 import { BaseService } from "@server/lib/base-service";
+import { CHUNKABLE_MIME_TYPES } from "@server/config/constants";
 
 const CHUNK_SIZE_CHARS = 1_000;
 const CHUNK_OVERLAP_CHARS = 200;
+
+// The package root re-exports a debug entrypoint that reads a local test
+// fixture on import when bundled outside CommonJS `require.main` semantics,
+// so the internal lib entry is required directly instead. It has no type
+// declarations of its own, hence the plain `require` (typed as `any`)
+// rather than a static import that other packages' typechecks can't resolve.
+const pdfParse = createRequire(import.meta.url)(
+  "pdf-parse/lib/pdf-parse.js",
+) as (data: Buffer) => Promise<{ text: string }>;
+
+const DOCX_MIME_TYPE =
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+const XLSX_MIME_TYPE =
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+// Browsers and upload clients often append a charset, e.g.
+// "text/plain;charset=utf-8" — compare on the bare mime type only.
+const normalizeMimeType = (mimeType: string) =>
+  mimeType.split(";")[0]!.trim().toLowerCase();
+
+export const isChunkableMimeType = (mimeType: string): boolean =>
+  CHUNKABLE_MIME_TYPES.includes(normalizeMimeType(mimeType));
+
+export const extractText = async (
+  mimeType: string,
+  body: Buffer,
+): Promise<string> => {
+  const normalized = normalizeMimeType(mimeType);
+
+  if (normalized === "application/pdf") {
+    const { text } = await pdfParse(body);
+    return text;
+  }
+
+  if (normalized === DOCX_MIME_TYPE) {
+    const { value } = await mammoth.extractRawText({ buffer: body });
+    return value;
+  }
+
+  if (normalized === XLSX_MIME_TYPE) {
+    const workbook = XLSX.read(body, { type: "buffer" });
+    return workbook.SheetNames.map((name) =>
+      XLSX.utils.sheet_to_csv(workbook.Sheets[name]!),
+    ).join("\n\n");
+  }
+
+  return body.toString("utf-8");
+};
 
 export class ChunkingService extends BaseService {
   public async chunk(where: {
@@ -16,16 +68,16 @@ export class ChunkingService extends BaseService {
       throw new NotFoundError({ message: "File not found." });
     }
 
-    if (!file.mimeType.startsWith("text/plain")) {
+    if (!isChunkableMimeType(file.mimeType)) {
       throw new BadRequestError({
-        message: "Only plain text files can be chunked.",
+        message: "This file type can't be chunked.",
       });
     }
 
     const { body } = await this.context.storage.downloadFile({
       key: file.key,
     });
-    const text = body.toString("utf-8");
+    const text = await extractText(file.mimeType, body);
     const pieces = this.splitText(text);
 
     const vectors =

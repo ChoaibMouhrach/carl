@@ -69,7 +69,7 @@ describe("automatic chunking on upload", () => {
     });
   });
 
-  test("uploading a non-text file does not enqueue a chunking job", async () => {
+  test("uploading a file whose reported mimeType isn't chunkable does not enqueue a chunking job", async () => {
     await withTestDatabase(async ({ context }) => {
       await new ChunkingWorker({ context }).run();
 
@@ -83,19 +83,45 @@ describe("automatic chunking on upload", () => {
         userId: authenticated.user.userId,
       });
 
-      const formData = new FormData();
-      formData.append(
-        "file",
-        new File(["not text"], "report.pdf", {
-          type: "application/pdf",
-        }),
+      // Sent through the JSON multipart-init/complete flow rather than a
+      // real multipart form body: Bun's FormData/Request round-trip sniffs
+      // File#type from the filename extension, so a mismatched mimeType
+      // can't survive an actual form upload in this test environment.
+      const initResponse = await authenticated.app.request(
+        `/api/clients/${client.clientId}/files/multipart`,
+        {
+          body: JSON.stringify({
+            mimeType: "application/octet-stream",
+            name: "report.pdf",
+            sizeBytes: 1024,
+          }),
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: authenticated.cookie,
+          },
+          method: "POST",
+        },
       );
+      const init = await parseJson(initResponse, multipartInitSchema);
 
       const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files`,
+        `/api/clients/${client.clientId}/files/multipart/complete`,
         {
-          body: formData,
-          headers: { Cookie: authenticated.cookie },
+          body: JSON.stringify({
+            key: init.key,
+            mimeType: "application/octet-stream",
+            name: init.name,
+            parts: init.parts.map((part) => ({
+              eTag: `etag-${part.partNumber}`,
+              partNumber: part.partNumber,
+            })),
+            sizeBytes: 1024,
+            uploadId: init.uploadId,
+          }),
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: authenticated.cookie,
+          },
           method: "POST",
         },
       );

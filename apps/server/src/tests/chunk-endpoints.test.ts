@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { createAuthenticatedApp, withTestDatabase } from "./helpers/http";
 import { TestStorage } from "./helpers/billing";
+import { buildMinimalPdf } from "./helpers/document-fixtures";
 
 const chunkSchema = z.object({
   chunkId: z.number().int().positive(),
@@ -74,7 +75,7 @@ describe("POST /clients/:clientId/files/:fileId/chunks", () => {
     });
   });
 
-  test("rejects a non-text/plain file with 400 and writes nothing", async () => {
+  test("rejects a file with an unsupported mimeType with 400 and writes nothing", async () => {
     await withTestDatabase(async ({ context }) => {
       const authenticated = await createAuthenticatedApp({
         context,
@@ -88,11 +89,11 @@ describe("POST /clients/:clientId/files/:fileId/chunks", () => {
       const file = await context.repositories.file.create({
         clientId: client.clientId,
         folderId: null,
-        key: "some-key.pdf",
-        mimeType: "application/pdf",
-        name: "report.pdf",
+        key: "some-key.png",
+        mimeType: "image/png",
+        name: "photo.png",
         sizeBytes: 1024,
-        url: "https://storage.test/report.pdf",
+        url: "https://storage.test/photo.png",
         userId: authenticated.user.userId,
       });
 
@@ -110,6 +111,52 @@ describe("POST /clients/:clientId/files/:fileId/chunks", () => {
         fileId: file.fileId,
       });
       expect(rows).toHaveLength(0);
+    });
+  });
+
+  test("chunks a pdf file by extracting its text", async () => {
+    await withTestDatabase(async ({ context }) => {
+      const authenticated = await createAuthenticatedApp({
+        context,
+        email: "chunk-pdf@example.com",
+      });
+      const client = await context.repositories.client.create({
+        email: "acme@example.com",
+        name: "Acme Corp",
+        userId: authenticated.user.userId,
+      });
+      const file = await context.repositories.file.create({
+        clientId: client.clientId,
+        folderId: null,
+        key: "some-key.pdf",
+        mimeType: "application/pdf",
+        name: "report.pdf",
+        sizeBytes: 1024,
+        url: "https://storage.test/report.pdf",
+        userId: authenticated.user.userId,
+      });
+
+      if (!(context.storage instanceof TestStorage)) {
+        throw new Error("Expected the test context to use TestStorage.");
+      }
+      context.storage.content = buildMinimalPdf("hello from a pdf fixture");
+
+      const response = await authenticated.app.request(
+        `/api/clients/${client.clientId}/files/${file.fileId}/chunks`,
+        {
+          headers: { Cookie: authenticated.cookie },
+          method: "POST",
+        },
+      );
+      const body = await parseJson(response, chunkResultSchema);
+
+      expect(response.status).toBe(201);
+      expect(body.chunkCount).toBeGreaterThan(0);
+
+      const rows = await context.repositories.chunk.listByFileId({
+        fileId: file.fileId,
+      });
+      expect(rows[0]?.content).toContain("hello from a pdf fixture");
     });
   });
 
