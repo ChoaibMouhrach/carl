@@ -55,6 +55,9 @@ const schema = z.object({
 
   // Embeddings
   OPENAI_API_KEY: z.string().nonempty(),
+
+  // Error monitoring (Sentry-compatible, e.g. Bugsink) — optional
+  SENTRY_DSN: z.url().optional(),
 });
 
 export const initENV = () => {

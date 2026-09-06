@@ -19,6 +19,7 @@ import { DisabledRateLimiter } from "./infrastructure/rate-limiter/disabled";
 import { createAuth } from "./infrastructure/auth";
 import type { BaseErrorMonitor } from "./lib/base-error-monitor";
 import { DisabledErrorMonitor } from "./infrastructure/error-monitor/disabled";
+import { SentryErrorMonitor } from "./infrastructure/error-monitor/sentry";
 import type { BaseEmbeddings } from "./lib/base-embeddings";
 import { OpenAIEmbeddings } from "./infrastructure/embeddings/openai";
 
@@ -27,7 +28,12 @@ export const initContext = async () => {
 
   const env = initENV();
 
-  const errorMonitor: BaseErrorMonitor = new DisabledErrorMonitor();
+  const errorMonitor: BaseErrorMonitor = env.SENTRY_DSN
+    ? new SentryErrorMonitor({
+        dsn: env.SENTRY_DSN,
+        environment: env.NODE_ENV,
+      })
+    : new DisabledErrorMonitor();
 
   const dbConnection = await initDB({
     connectionCredentials: env.POSTGRES_CONNECTION_STRING,
