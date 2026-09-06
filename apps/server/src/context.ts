@@ -22,6 +22,7 @@ import { DisabledErrorMonitor } from "./infrastructure/error-monitor/disabled";
 import { SentryErrorMonitor } from "./infrastructure/error-monitor/sentry";
 import type { BaseEmbeddings } from "./lib/base-embeddings";
 import { OpenAIEmbeddings } from "./infrastructure/embeddings/openai";
+import { FakeEmbeddings } from "./infrastructure/embeddings/fake";
 
 export const initContext = async () => {
   const logger: BaseLogger = new PinoLogger();
@@ -99,9 +100,11 @@ export const initContext = async () => {
     webhookSecret: env.STRIPE_WEBHOOK_SECRET,
   });
 
-  const embeddings: BaseEmbeddings = new OpenAIEmbeddings({
-    apiKey: env.OPENAI_API_KEY,
-  });
+  const embeddings: BaseEmbeddings = env.IS_TEST
+    ? new FakeEmbeddings()
+    : new OpenAIEmbeddings({
+        apiKey: env.OPENAI_API_KEY,
+      });
 
   return {
     billing,

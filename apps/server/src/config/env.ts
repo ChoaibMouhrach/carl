@@ -80,6 +80,7 @@ export const initENV = () => {
     // NODE ENV
     IS_DEVELOPMENT: env.NODE_ENV === "development",
     IS_PRODUCTION: env.NODE_ENV === "production",
+    IS_TEST: env.NODE_ENV === "test",
   };
 };
 
