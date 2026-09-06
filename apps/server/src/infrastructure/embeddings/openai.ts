@@ -1,44 +1,28 @@
 import { BaseEmbeddings } from "@server/lib/base-embeddings";
+import OpenAI from "openai";
 
 interface OpenAIEmbeddingsInit {
   apiKey: string;
 }
 
 export class OpenAIEmbeddings extends BaseEmbeddings {
-  private apiKey: string;
+  private client: OpenAI;
 
   public constructor(init: OpenAIEmbeddingsInit) {
     super();
 
-    this.apiKey = init.apiKey;
+    this.client = new OpenAI({ apiKey: init.apiKey });
   }
 
   public override async embed(input: {
     texts: string[];
   }): Promise<{ vectors: number[][] }> {
-    const response = await fetch("https://api.openai.com/v1/embeddings", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "text-embedding-3-small",
-        input: input.texts,
-      }),
+    const response = await this.client.embeddings.create({
+      model: "text-embedding-3-small",
+      input: input.texts,
     });
 
-    if (!response.ok) {
-      throw new Error(
-        `OpenAI embeddings request failed: ${response.status} ${await response.text()}`,
-      );
-    }
-
-    const body = (await response.json()) as {
-      data: { embedding: number[]; index: number }[];
-    };
-
-    const vectors = [...body.data]
+    const vectors = [...response.data]
       .sort((a, b) => a.index - b.index)
       .map((item) => item.embedding);
 
