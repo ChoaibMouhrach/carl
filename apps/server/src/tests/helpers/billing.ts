@@ -11,7 +11,6 @@ import {
   BaseQueue,
   BaseQueueHub,
   type AddJobOptions,
-  type ChunkingJob,
   type EmailJob,
   type FailedJob,
   type ListFailedInput,
@@ -287,7 +286,6 @@ const toTestFailedJob = <Input>(job: TestJob<Input>): FailedJob => ({
 export class TestQueueHub extends BaseQueueHub {
   public email: TestQueue<EmailJob>;
   public maintenance: TestQueue<MaintenanceJob>;
-  public chunking: TestQueue<ChunkingJob>;
 
   public constructor(init: { mailer: BaseMailer }) {
     super();
@@ -299,16 +297,12 @@ export class TestQueueHub extends BaseQueueHub {
     this.maintenance = new TestQueue<MaintenanceJob>({
       process: async () => {},
     });
-    this.chunking = new TestQueue<ChunkingJob>({
-      process: async () => {},
-    });
   }
 
   public override queues(): RegisteredQueue[] {
     return [
       { name: "email", queue: this.email },
       { name: "maintenance", queue: this.maintenance },
-      { name: "chunking", queue: this.chunking },
     ];
   }
 

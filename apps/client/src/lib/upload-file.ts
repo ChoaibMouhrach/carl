@@ -19,19 +19,15 @@ export interface UploadFileHandle {
   abort: () => void;
 }
 
-export const uploadFileToFolder = (input: {
-  clientId: number;
-  folderId: number | null;
+export const uploadFile = (input: {
   file: File;
   onProgress?: (percent: number) => void;
 }): UploadFileHandle =>
   input.file.size > MULTIPART_THRESHOLD_BYTES
-    ? uploadMultipartFileToFolder(input)
-    : uploadSingleFileToFolder(input);
+    ? uploadMultipartFile(input)
+    : uploadSingleFile(input);
 
-const uploadSingleFileToFolder = (input: {
-  clientId: number;
-  folderId: number | null;
+const uploadSingleFile = (input: {
   file: File;
   onProgress?: (percent: number) => void;
 }): UploadFileHandle => {
@@ -39,12 +35,9 @@ const uploadSingleFileToFolder = (input: {
 
   const promise = new Promise<UploadedFile>((resolve, reject) => {
     const formData = new FormData();
-    if (input.folderId !== null) {
-      formData.append("folderId", input.folderId.toString());
-    }
     formData.append("file", input.file);
 
-    xhr.open("POST", `${env.VITE_API_URL}/api/clients/${input.clientId}/files`);
+    xhr.open("POST", `${env.VITE_API_URL}/api/files`);
     xhr.withCredentials = true;
 
     xhr.upload.onprogress = (event) => {
@@ -156,9 +149,7 @@ const uploadPart = (input: {
   return { promise, abort: () => xhr.abort() };
 };
 
-const uploadMultipartFileToFolder = (input: {
-  clientId: number;
-  folderId: number | null;
+const uploadMultipartFile = (input: {
   file: File;
   onProgress?: (percent: number) => void;
 }): UploadFileHandle => {
@@ -172,8 +163,11 @@ const uploadMultipartFileToFolder = (input: {
     const mimeType = input.file.type || "application/octet-stream";
 
     const { uploadId, key, name, parts } = await api.file.createMultipartUpload(
-      { clientId: input.clientId, folderId: input.folderId },
-      { name: input.file.name, sizeBytes: input.file.size, mimeType },
+      {
+        name: input.file.name,
+        sizeBytes: input.file.size,
+        mimeType,
+      },
     );
     pendingUpload = { uploadId, key };
 
@@ -224,17 +218,14 @@ const uploadMultipartFileToFolder = (input: {
       ),
     );
 
-    return await api.file.completeMultipartUpload(
-      { clientId: input.clientId, folderId: input.folderId },
-      {
-        uploadId,
-        key,
-        name,
-        mimeType,
-        sizeBytes: input.file.size,
-        parts: results,
-      },
-    );
+    return await api.file.completeMultipartUpload({
+      uploadId,
+      key,
+      name,
+      mimeType,
+      sizeBytes: input.file.size,
+      parts: results,
+    });
   };
 
   const promise = run().catch((error: unknown) => {
@@ -243,10 +234,7 @@ const uploadMultipartFileToFolder = (input: {
       error.name === "AbortError" &&
       pendingUpload
     ) {
-      void api.file.abortMultipartUpload(
-        { clientId: input.clientId },
-        pendingUpload,
-      );
+      void api.file.abortMultipartUpload(pendingUpload);
     }
 
     throw error;

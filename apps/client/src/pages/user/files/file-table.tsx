@@ -1,4 +1,6 @@
 import { api } from "@/api";
+import { FileName } from "@/components/file-name";
+import { formatBytes } from "@/lib/format-bytes";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,67 +27,77 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/ui/table";
-import { MoreHorizontalIcon } from "lucide-react";
+import { FileIcon, MoreHorizontalIcon } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-type Client = Awaited<ReturnType<typeof api.client.list>>["clients"][number];
+type FileRecord = Awaited<ReturnType<typeof api.file.list>>["files"][number];
 
-interface ClientTableProps {
-  clients: Client[];
+interface FileTableProps {
+  files: FileRecord[];
   isRemoving: boolean;
-  onEdit: (client: Client) => void;
-  onRemove: (clientId: number) => void;
-  onOpen: (client: Client) => void;
-  removingClientId?: number;
+  removingFileId?: number;
+  onOpen: (file: FileRecord) => void;
+  onEdit: (file: FileRecord) => void;
+  onDownload: (file: FileRecord) => void;
+  onRemove: (fileId: number) => void;
 }
 
-export const ClientTable = ({
-  clients,
+export const FileTable = ({
+  files,
   isRemoving,
-  onEdit,
-  onRemove,
+  removingFileId,
   onOpen,
-  removingClientId,
-}: ClientTableProps) => {
+  onEdit,
+  onDownload,
+  onRemove,
+}: FileTableProps) => {
   const { t } = useTranslation();
-  const [removeTarget, setRemoveTarget] = useState<Client | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<FileRecord | null>(null);
 
   return (
     <>
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>{t("clients.name")}</TableHead>
-            <TableHead>{t("clients.email")}</TableHead>
+            <TableHead>{t("files.name")}</TableHead>
+            <TableHead>{t("files.size")}</TableHead>
+            <TableHead>{t("files.createdAt")}</TableHead>
             <TableHead>
-              <span className="sr-only">{t("clients.actions")}</span>
+              <span className="sr-only">{t("files.actions")}</span>
             </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {clients.length === 0 ? (
+          {files.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={3}>{t("clients.empty")}</TableCell>
+              <TableCell colSpan={4}>{t("files.empty")}</TableCell>
             </TableRow>
           ) : (
-            clients.map((client) => {
-              const isPending =
-                isRemoving && removingClientId === client.clientId;
+            files.map((file) => {
+              const isPending = isRemoving && removingFileId === file.fileId;
 
               return (
                 <TableRow
-                  key={client.clientId}
+                  key={file.fileId}
                   className="cursor-pointer"
-                  onClick={() => onOpen(client)}
+                  onClick={() => onOpen(file)}
                 >
-                  <TableCell>{client.name}</TableCell>
-                  <TableCell>{client.email}</TableCell>
+                  <TableCell>
+                    <div className="flex w-64 min-w-0 items-center gap-2">
+                      <FileIcon className="size-4 shrink-0 text-muted-foreground" />
+                      <FileName name={file.name} />
+                    </div>
+                  </TableCell>
+                  <TableCell>{formatBytes(file.sizeBytes)}</TableCell>
+                  <TableCell>
+                    {new Date(file.createdAt).toLocaleDateString()}
+                  </TableCell>
                   <TableCell onClick={(event) => event.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
-                          aria-label={t("clients.actions")}
+                          aria-label={t("files.actions")}
                           disabled={isPending}
                           size="icon"
                           variant="ghost"
@@ -94,13 +106,14 @@ export const ClientTable = ({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onEdit(client)}>
-                          {t("clients.edit")}
+                        <DropdownMenuItem onClick={() => onEdit(file)}>
+                          {t("files.edit")}
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setRemoveTarget(client)}
-                        >
-                          {t("clients.remove")}
+                        <DropdownMenuItem onClick={() => onDownload(file)}>
+                          {t("files.download")}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setRemoveTarget(file)}>
+                          {t("files.remove")}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -120,19 +133,19 @@ export const ClientTable = ({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("clients.removeTitle")}</AlertDialogTitle>
+            <AlertDialogTitle>{t("files.removeTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("clients.removeDescription")}
+              {t("files.removeDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("clients.cancel")}</AlertDialogCancel>
+            <AlertDialogCancel>{t("files.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (removeTarget) onRemove(removeTarget.clientId);
+                if (removeTarget) onRemove(removeTarget.fileId);
               }}
             >
-              {t("clients.remove")}
+              {t("files.remove")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

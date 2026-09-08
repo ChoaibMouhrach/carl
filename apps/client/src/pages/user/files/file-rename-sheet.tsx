@@ -75,10 +75,8 @@ export const FileRenameSheet = ({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent>
           <SheetHeader>
-            <SheetTitle>{t("clientFolders.renameFileTitle")}</SheetTitle>
-            <SheetDescription>
-              {t("clientFolders.renameFileDescription")}
-            </SheetDescription>
+            <SheetTitle>{t("files.renameTitle")}</SheetTitle>
+            <SheetDescription>{t("files.renameDescription")}</SheetDescription>
           </SheetHeader>
 
           <form
@@ -93,7 +91,7 @@ export const FileRenameSheet = ({
                   render={({ field, fieldState }) => (
                     <Field>
                       <FieldLabel htmlFor={field.name}>
-                        {t("clientFolders.name")}
+                        {t("files.name")}
                         <RequiredIndicator />
                       </FieldLabel>
                       <Input {...field} id={field.name} />
@@ -109,7 +107,7 @@ export const FileRenameSheet = ({
             <SheetFooter className="flex-row">
               <Button disabled={isPending} type="submit">
                 {isPending && <Spinner />}
-                {t("clientFolders.save")}
+                {t("files.save")}
               </Button>
               <Button
                 disabled={isPending}
@@ -117,7 +115,7 @@ export const FileRenameSheet = ({
                 type="button"
                 variant="outline"
               >
-                {t("clientFolders.reset")}
+                {t("files.reset")}
               </Button>
             </SheetFooter>
           </form>
@@ -132,21 +130,19 @@ export const FileRenameSheet = ({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("clientFolders.renameFileConfirmTitle")}
-            </AlertDialogTitle>
+            <AlertDialogTitle>{t("files.renameConfirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("clientFolders.renameFileConfirmDescription")}
+              {t("files.renameConfirmDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("clientFolders.cancel")}</AlertDialogCancel>
+            <AlertDialogCancel>{t("files.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (pendingValues) onSubmit(pendingValues);
               }}
             >
-              {t("clientFolders.save")}
+              {t("files.save")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

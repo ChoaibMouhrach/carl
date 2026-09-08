@@ -3,6 +3,7 @@ import { BaseService } from "@server/lib/base-service";
 
 export class StorageService extends BaseService {
   public async getSignedUrl(input: {
+    userId: string;
     name: string;
     sizeBytes: number;
     mimeType: string;
@@ -20,6 +21,7 @@ export class StorageService extends BaseService {
       sizeBytes: input.sizeBytes,
       mimeType: input.mimeType,
       url: url,
+      userId: input.userId,
     });
 
     return { signedUrl, fileId: file.fileId, url };

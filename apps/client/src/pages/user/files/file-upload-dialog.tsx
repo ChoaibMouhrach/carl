@@ -2,7 +2,7 @@ import { api } from "@/api";
 import { FileUpload, FileUploadDropzone } from "@/components/file-upload";
 import { FileName } from "@/components/file-name";
 import { onError } from "@/lib/base-api";
-import { uploadFileToFolder, type UploadFileHandle } from "@/lib/upload-file";
+import { uploadFile, type UploadFileHandle } from "@/lib/upload-file";
 import {
   ALLOWED_DOCUMENT_EXTENSIONS,
   MAX_FILE_SIZE_BYTES,
@@ -34,9 +34,7 @@ interface UploadItem {
   handle?: UploadFileHandle;
 }
 
-interface FolderUploadDialogProps {
-  clientId: number;
-  folderId: number | null;
+interface FileUploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onFilesChanged?: () => void;
@@ -46,13 +44,11 @@ const acceptExtensions = ALLOWED_DOCUMENT_EXTENSIONS.map(
   (extension) => `.${extension}`,
 ).join(",");
 
-export const FolderUploadDialog = ({
-  clientId,
-  folderId,
+export const FileUploadDialog = ({
   open,
   onOpenChange,
   onFilesChanged,
-}: FolderUploadDialogProps) => {
+}: FileUploadDialogProps) => {
   const { t } = useTranslation();
   const [items, setItems] = useState<UploadItem[]>([]);
   const filesRef = useRef<Map<string, File>>(new Map());
@@ -60,7 +56,7 @@ export const FolderUploadDialog = ({
   const activeCountRef = useRef(0);
 
   const removeFile = useMutation({
-    mutationFn: (fileId: number) => api.file.remove({ clientId, fileId }),
+    mutationFn: (fileId: number) => api.file.remove({ fileId }),
     onError,
     onSuccess: () => onFilesChanged?.(),
   });
@@ -87,10 +83,8 @@ export const FolderUploadDialog = ({
 
     activeCountRef.current += 1;
 
-    const handle = uploadFileToFolder({
-      clientId,
+    const handle = uploadFile({
       file,
-      folderId,
       onProgress: (progress) => patchItem(id, { progress }),
     });
 
@@ -111,9 +105,7 @@ export const FolderUploadDialog = ({
         }
 
         const message =
-          error instanceof Error
-            ? error.message
-            : t("clientFolders.uploadFailed");
+          error instanceof Error ? error.message : t("files.uploadFailed");
 
         patchItem(id, { error: message, status: "error" });
       })
@@ -167,10 +159,8 @@ export const FolderUploadDialog = ({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="flex h-[90vh] w-full flex-col overflow-hidden sm:h-[85vh] sm:max-w-[calc(100%-4rem)]">
         <DialogHeader>
-          <DialogTitle>{t("clientFolders.uploadTitle")}</DialogTitle>
-          <DialogDescription>
-            {t("clientFolders.uploadDescription")}
-          </DialogDescription>
+          <DialogTitle>{t("files.uploadTitle")}</DialogTitle>
+          <DialogDescription>{t("files.uploadDescription")}</DialogDescription>
         </DialogHeader>
 
         <FileUpload
@@ -186,11 +176,9 @@ export const FolderUploadDialog = ({
               <UploadIcon className="size-5 text-muted-foreground" />
             </div>
             <div className="flex flex-col items-center gap-0.5 text-center">
-              <p className="text-sm font-medium">
-                {t("clientFolders.dropHint")}
-              </p>
+              <p className="text-sm font-medium">{t("files.dropHint")}</p>
               <p className="text-xs text-muted-foreground">
-                {t("clientFolders.dropAccept")}
+                {t("files.dropAccept")}
               </p>
             </div>
           </FileUploadDropzone>
@@ -200,7 +188,7 @@ export const FolderUploadDialog = ({
               <ScrollArea className="min-w-0 flex-1 rounded-lg border">
                 <div
                   role="list"
-                  aria-label={t("clientFolders.uploadListLabel")}
+                  aria-label={t("files.uploadListLabel")}
                   className="flex w-1 min-w-full flex-col gap-2 p-2"
                 >
                   {items.map((item) => (
@@ -218,7 +206,7 @@ export const FolderUploadDialog = ({
                 variant="outline"
                 onClick={() => handleOpenChange(false)}
               >
-                {t("clientFolders.done")}
+                {t("files.done")}
               </Button>
             </div>
           )}
@@ -252,7 +240,7 @@ const UploadListItem = ({
           <span className="text-xs text-destructive">{item.error}</span>
         ) : item.status === "pending" ? (
           <span className="text-xs text-muted-foreground">
-            {t("clientFolders.uploadQueued")}
+            {t("files.uploadQueued")}
           </span>
         ) : (
           <Progress value={item.status === "done" ? 100 : item.progress} />
@@ -268,7 +256,7 @@ const UploadListItem = ({
       >
         <XIcon />
         <span className="sr-only">
-          {t("clientFolders.removeUpload", { name: item.file.name })}
+          {t("files.removeUpload", { name: item.file.name })}
         </span>
       </Button>
     </div>

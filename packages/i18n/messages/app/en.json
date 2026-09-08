@@ -9,7 +9,7 @@
     "billing": "Billing",
     "users": "Users",
     "queues": "Queues",
-    "clients": "Clients"
+    "files": "Files"
   },
   "auth": {
     "signIn": {
@@ -23,11 +23,7 @@
       "verificationSent": "Verification email sent",
       "verificationSentDescription": "We sent a new verification link to {{email}}. Check your inbox.",
       "verificationResent": "A new verification link was sent.",
-      "createAccount": "Create an account",
-      "connecting": {
-        "title": "You're signed in",
-        "description": "Taking you back to finish connecting the app…"
-      }
+      "createAccount": "Create an account"
     },
     "signUp": {
       "title": "Create an account",
@@ -113,80 +109,39 @@
     "verificationSent": "Verification email sent.",
     "passwordResetSent": "Password reset email sent."
   },
-  "clients": {
-    "title": "Clients",
-    "description": "Keep track of the clients you work with.",
+  "files": {
+    "title": "Files",
+    "description": "Manage the documents you've uploaded.",
     "search": "Search by name",
-    "add": "Add client",
-    "empty": "No clients match your search.",
-    "name": "Name",
-    "email": "Email",
-    "actions": "Actions",
-    "edit": "Edit",
-    "remove": "Remove",
-    "removeTitle": "Remove this client?",
-    "removeDescription": "This permanently removes the client. This action cannot be undone.",
-    "cancel": "Cancel",
-    "createTitle": "Add client",
-    "createDescription": "Create a new client record.",
-    "editTitle": "Edit client",
-    "editDescription": "Update this client's details.",
-    "editConfirmTitle": "Save changes to this client?",
-    "editConfirmDescription": "This updates the client's details.",
-    "namePlaceholder": "Jane Cooper",
-    "emailPlaceholder": "jane@example.com",
-    "save": "Save",
-    "reset": "Reset",
-    "created": "Client created.",
-    "updated": "Client updated.",
-    "removed": "Client removed."
-  },
-  "clientFolders": {
-    "title": "Folders",
-    "description": "Organize this client's documents into folders.",
-    "search": "Search by name",
-    "add": "Add folder",
-    "entriesEmpty": "This folder is empty.",
+    "upload": "Upload files",
+    "empty": "No files match your search.",
     "name": "Name",
     "size": "Size",
     "createdAt": "Created",
     "actions": "Actions",
-    "edit": "Edit",
+    "edit": "Rename",
+    "download": "Download",
     "remove": "Remove",
-    "removeTitle": "Remove this folder?",
-    "removeDescription": "This permanently removes the folder and everything inside it. This action cannot be undone.",
+    "removeTitle": "Remove this file?",
+    "removeDescription": "This permanently removes the file from storage. This action cannot be undone.",
     "cancel": "Cancel",
-    "createTitle": "Add folder",
-    "createDescription": "Create a new folder for this client.",
-    "editTitle": "Edit folder",
-    "editDescription": "Update this folder's details.",
-    "editConfirmTitle": "Save changes to this folder?",
-    "editConfirmDescription": "This updates the folder's details.",
-    "namePlaceholder": "Contracts",
+    "renameTitle": "Rename file",
+    "renameDescription": "Update this file's name.",
+    "renameConfirmTitle": "Save changes to this file?",
+    "renameConfirmDescription": "This updates the file's name.",
     "save": "Save",
     "reset": "Reset",
-    "created": "Folder created.",
-    "updated": "Folder updated.",
-    "removed": "Folder removed.",
-    "upload": "Upload files",
+    "renamed": "File renamed.",
+    "removed": "File removed.",
     "uploadTitle": "Upload files",
-    "uploadDescription": "Drop files here or browse to upload documents into this folder.",
+    "uploadDescription": "Drop files here or browse to upload documents.",
     "dropHint": "Drop files here or click to browse",
     "dropAccept": "Accepted: .txt, .docx, .pdf, .csv, .xlsx",
     "uploadListLabel": "Files being uploaded",
     "uploadQueued": "Queued",
     "uploadFailed": "Upload failed.",
     "done": "Done",
-    "removeUpload": "Remove {{name}}",
-    "download": "Download",
-    "renameFileTitle": "Rename file",
-    "renameFileDescription": "Update this file's name.",
-    "renameFileConfirmTitle": "Save changes to this file?",
-    "renameFileConfirmDescription": "This updates the file's name.",
-    "fileRenamed": "File renamed.",
-    "fileRemoved": "File removed.",
-    "removeFileTitle": "Remove this file?",
-    "removeFileDescription": "This permanently removes the file from storage. This action cannot be undone."
+    "removeUpload": "Remove {{name}}"
   },
   "adminQueues": {
     "title": "Queues",
@@ -254,31 +209,6 @@
         "description": "This will end every other active session. Your current session will stay active.",
         "keep": "Keep devices signed in",
         "confirm": "Sign out other devices"
-      }
-    },
-    "mcpConnections": {
-      "title": "MCP connections",
-      "description": "Apps connected to your account through the Model Context Protocol.",
-      "endpointLabel": "MCP endpoint",
-      "copy": "Copy",
-      "copied": "Copied!",
-      "howTo": {
-        "title": "How to connect",
-        "step1": "Copy the MCP endpoint above.",
-        "step2": "Add it as a remote MCP server in your MCP client (e.g. Claude).",
-        "step3": "Sign in and approve access when prompted.",
-        "step4": "The connection will appear in the list below."
-      },
-      "empty": "No apps are connected yet.",
-      "connectedAt": "Connected {{date}}",
-      "lastUsedAt": "Last used {{date}}",
-      "revoke": "Revoke",
-      "revokedToast": "Connection revoked.",
-      "dialog": {
-        "title": "Revoke this connection?",
-        "description": "The app will lose access to your account and its data through MCP. You can reconnect it later.",
-        "cancel": "Cancel",
-        "confirm": "Revoke"
       }
     },
     "language": {

@@ -6,7 +6,6 @@ import {
   BaseQueue,
   BaseQueueHub,
   type AddJobOptions,
-  type ChunkingJob,
   type EmailJob,
   type ListFailedInput,
   type ListFailedResult,
@@ -23,10 +22,6 @@ const emailJobName = "send";
 const maintenanceQueueName = "maintenance";
 const maintenanceJobName = "run";
 const maintenanceConcurrency = 1;
-
-const chunkingQueueName = "chunking";
-const chunkingJobName = "run";
-const chunkingConcurrency = 2;
 
 const FAILED_JOB_RETENTION_SECONDS = 60 * 60 * 24 * 7;
 const FAILED_JOB_RETENTION_COUNT = 5_000;
@@ -265,37 +260,14 @@ export class MaintenanceQueue extends BullQueue<MaintenanceJob> {
   }
 }
 
-interface ChunkingQueueInit {
-  errorMonitor: BaseErrorMonitor;
-  logger: BaseLogger;
-  redisUrl: string;
-}
-
-export class ChunkingQueue extends BullQueue<ChunkingJob> {
-  public constructor(init: ChunkingQueueInit) {
-    super({
-      ...init,
-      concurrency: chunkingConcurrency,
-      jobName: chunkingJobName,
-      name: chunkingQueueName,
-    });
-  }
-}
-
 export class QueueHub extends BaseQueueHub {
   public email: EmailQueue;
   public maintenance: MaintenanceQueue;
-  public chunking: ChunkingQueue;
 
   public constructor(init: EmailQueueInit) {
     super();
     this.email = new EmailQueue(init);
     this.maintenance = new MaintenanceQueue({
-      errorMonitor: init.errorMonitor,
-      logger: init.logger,
-      redisUrl: init.redisUrl,
-    });
-    this.chunking = new ChunkingQueue({
       errorMonitor: init.errorMonitor,
       logger: init.logger,
       redisUrl: init.redisUrl,
@@ -306,13 +278,11 @@ export class QueueHub extends BaseQueueHub {
     return [
       { name: emailQueueName, queue: this.email },
       { name: maintenanceQueueName, queue: this.maintenance },
-      { name: chunkingQueueName, queue: this.chunking },
     ];
   }
 
   public override async close(): Promise<void> {
     await this.email.close();
     await this.maintenance.close();
-    await this.chunking.close();
   }
 }

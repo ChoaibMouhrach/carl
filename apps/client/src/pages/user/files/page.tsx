@@ -6,19 +6,19 @@ import {
   UserPageTitle,
 } from "@/components/user-page";
 import { useTranslation } from "react-i18next";
-import { Clients } from "./clients";
+import { Files } from "./files";
 
-export const UserClientsPage = () => {
+export const UserFilesPage = () => {
   const { t } = useTranslation();
 
   return (
     <UserPage>
       <UserPageHeader>
-        <UserPageTitle>{t("clients.title")}</UserPageTitle>
-        <UserPageDescription>{t("clients.description")}</UserPageDescription>
+        <UserPageTitle>{t("files.title")}</UserPageTitle>
+        <UserPageDescription>{t("files.description")}</UserPageDescription>
       </UserPageHeader>
       <UserPageContent>
-        <Clients />
+        <Files />
       </UserPageContent>
     </UserPage>
   );

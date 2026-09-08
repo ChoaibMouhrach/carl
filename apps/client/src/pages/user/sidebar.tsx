@@ -18,7 +18,7 @@ import { Logo, LogoWithText } from "@repo/ui/logo-mark";
 import {
   LayoutDashboardIcon,
   CreditCardIcon,
-  ContactIcon,
+  FileIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -31,8 +31,8 @@ interface UserSidebarProps {
 }
 
 interface NavigationItem {
-  labelKey: "nav.dashboard" | "nav.billing" | "nav.clients";
-  to: "/user/dashboard" | "/user/billing" | "/user/clients";
+  labelKey: "nav.dashboard" | "nav.billing" | "nav.files";
+  to: "/user/dashboard" | "/user/billing" | "/user/files";
   icon: LucideIcon;
 }
 
@@ -42,7 +42,7 @@ const navigation: NavigationItem[] = [
     to: "/user/dashboard",
     icon: LayoutDashboardIcon,
   },
-  { labelKey: "nav.clients", to: "/user/clients", icon: ContactIcon },
+  { labelKey: "nav.files", to: "/user/files", icon: FileIcon },
   { labelKey: "nav.billing", to: "/user/billing", icon: CreditCardIcon },
 ];
 

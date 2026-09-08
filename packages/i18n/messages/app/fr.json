@@ -8,7 +8,8 @@
     "dashboard": "Tableau de bord",
     "billing": "Facturation",
     "users": "Utilisateurs",
-    "queues": "Files d'attente"
+    "queues": "Files d'attente",
+    "files": "Fichiers"
   },
   "auth": {
     "signIn": {
@@ -22,11 +23,7 @@
       "verificationSent": "E-mail de vérification envoyé",
       "verificationSentDescription": "Nous avons envoyé un nouveau lien de vérification à {{email}}. Consultez votre boîte de réception.",
       "verificationResent": "Un nouveau lien de vérification a été envoyé.",
-      "createAccount": "Créer un compte",
-      "connecting": {
-        "title": "Vous êtes connecté",
-        "description": "Nous vous ramenons pour terminer la connexion de l'application…"
-      }
+      "createAccount": "Créer un compte"
     },
     "signUp": {
       "title": "Créer un compte",
@@ -178,31 +175,6 @@
         "description": "Cela mettra fin à toutes les autres sessions actives. Votre session actuelle restera active.",
         "keep": "Garder les appareils connectés",
         "confirm": "Déconnecter les autres appareils"
-      }
-    },
-    "mcpConnections": {
-      "title": "Connexions MCP",
-      "description": "Applications connectées à votre compte via le Model Context Protocol.",
-      "endpointLabel": "Point de terminaison MCP",
-      "copy": "Copier",
-      "copied": "Copié !",
-      "howTo": {
-        "title": "Comment se connecter",
-        "step1": "Copiez le point de terminaison MCP ci-dessus.",
-        "step2": "Ajoutez-le comme serveur MCP distant dans votre client MCP (par exemple Claude).",
-        "step3": "Connectez-vous et approuvez l'accès lorsque vous y êtes invité.",
-        "step4": "La connexion apparaîtra dans la liste ci-dessous."
-      },
-      "empty": "Aucune application n'est encore connectée.",
-      "connectedAt": "Connectée le {{date}}",
-      "lastUsedAt": "Dernière utilisation le {{date}}",
-      "revoke": "Révoquer",
-      "revokedToast": "Connexion révoquée.",
-      "dialog": {
-        "title": "Révoquer cette connexion ?",
-        "description": "L'application perdra l'accès à votre compte et à ses données via MCP. Vous pourrez la reconnecter plus tard.",
-        "cancel": "Annuler",
-        "confirm": "Révoquer"
       }
     },
     "language": {

@@ -3,7 +3,3 @@ export * from "./settings";
 export * from "./files";
 export * from "./billing";
 export * from "./notifications";
-export * from "./clients";
-export * from "./folders";
-export * from "./chunks";
-export * from "./oauth";

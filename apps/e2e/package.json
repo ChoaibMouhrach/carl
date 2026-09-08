@@ -7,7 +7,7 @@
     "e2e:ui": "playwright test --ui",
     "e2e:report": "playwright show-report",
     "e2e:gen": "playwright codegen --target=playwright-test --output=tests/_codegen.ts http://localhost:5173/app",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -b --noEmit ",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "format": "prettier --write ."

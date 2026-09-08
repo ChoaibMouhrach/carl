@@ -10,10 +10,8 @@ import { createAuthenticatedApp, withTestDatabase } from "./helpers/http";
 import { TestStorage } from "./helpers/billing";
 
 const fileSchema = z.object({
-  clientId: z.number().int().positive().nullable(),
   createdAt: z.coerce.date(),
   fileId: z.number().int().positive(),
-  folderId: z.number().int().positive().nullable(),
   key: z.string().min(1),
   metaData: z.unknown().nullable(),
   mimeType: z.string().min(1),
@@ -21,7 +19,7 @@ const fileSchema = z.object({
   sizeBytes: z.number().int().positive(),
   updatedAt: z.coerce.date(),
   url: z.string().min(1),
-  userId: z.string().min(1).nullable(),
+  userId: z.string().min(1),
 });
 
 const fileListSchema = z.object({
@@ -49,42 +47,27 @@ const parseJson = async <Output>(
   schema: z.ZodType<Output>,
 ): Promise<Output> => schema.parse(await response.json());
 
-describe("POST /clients/:clientId/files/multipart", () => {
+describe("POST /files/multipart", () => {
   test("creates one presigned part URL per part and writes no DB row", async () => {
     await withTestDatabase(async ({ context, db }) => {
       const authenticated = await createAuthenticatedApp({
         context,
         email: "multipart-init@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-      const folder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: authenticated.user.userId,
-      });
       const sizeBytes = MULTIPART_PART_SIZE_BYTES * 2 + 1;
 
-      const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart`,
-        {
-          body: JSON.stringify({
-            folderId: folder.folderId,
-            mimeType: "application/pdf",
-            name: "agreement.pdf",
-            sizeBytes,
-          }),
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: authenticated.cookie,
-          },
-          method: "POST",
+      const response = await authenticated.app.request("/api/files/multipart", {
+        body: JSON.stringify({
+          mimeType: "application/pdf",
+          name: "agreement.pdf",
+          sizeBytes,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: authenticated.cookie,
         },
-      );
+        method: "POST",
+      });
       const body = await parseJson(response, multipartInitSchema);
 
       expect(response.status).toBe(201);
@@ -96,116 +79,28 @@ describe("POST /clients/:clientId/files/multipart", () => {
     });
   });
 
-  test("rejects initiating into another user's folder and writes nothing", async () => {
-    await withTestDatabase(async ({ context, db }) => {
-      const owner = await createAuthenticatedApp({
-        context,
-        email: "multipart-init-owner@example.com",
-      });
-      const attacker = await createAuthenticatedApp({
-        context,
-        email: "multipart-init-attacker@example.com",
-      });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: owner.user.userId,
-      });
-      const folder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: owner.user.userId,
-      });
-
-      const response = await attacker.app.request(
-        `/api/clients/${client.clientId}/files/multipart`,
-        {
-          body: JSON.stringify({
-            folderId: folder.folderId,
-            mimeType: "application/pdf",
-            name: "agreement.pdf",
-            sizeBytes: MULTIPART_PART_SIZE_BYTES + 1,
-          }),
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: attacker.cookie,
-          },
-          method: "POST",
-        },
-      );
-      const rows = await db.select().from(filesTable);
-
-      expect(response.status).toBe(404);
-      expect(rows).toHaveLength(0);
-    });
-  });
-
   test("rejects a file larger than the maximum size and writes nothing", async () => {
     await withTestDatabase(async ({ context, db }) => {
       const authenticated = await createAuthenticatedApp({
         context,
         email: "multipart-init-oversized@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
 
-      const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart`,
-        {
-          body: JSON.stringify({
-            mimeType: "application/pdf",
-            name: "huge.pdf",
-            sizeBytes: MAX_FILE_SIZE_BYTES + 1,
-          }),
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: authenticated.cookie,
-          },
-          method: "POST",
+      const response = await authenticated.app.request("/api/files/multipart", {
+        body: JSON.stringify({
+          mimeType: "application/pdf",
+          name: "huge.pdf",
+          sizeBytes: MAX_FILE_SIZE_BYTES + 1,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: authenticated.cookie,
         },
-      );
+        method: "POST",
+      });
       const rows = await db.select().from(filesTable);
 
       expect(response.status).toBe(400);
-      expect(rows).toHaveLength(0);
-    });
-  });
-
-  test("creates a root-level upload session when no folderId is given", async () => {
-    await withTestDatabase(async ({ context, db }) => {
-      const authenticated = await createAuthenticatedApp({
-        context,
-        email: "multipart-init-root@example.com",
-      });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-
-      const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart`,
-        {
-          body: JSON.stringify({
-            mimeType: "application/pdf",
-            name: "agreement.pdf",
-            sizeBytes: 1024,
-          }),
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: authenticated.cookie,
-          },
-          method: "POST",
-        },
-      );
-
-      expect(response.status).toBe(201);
-
-      const rows = await db.select().from(filesTable);
       expect(rows).toHaveLength(0);
     });
   });
@@ -216,27 +111,19 @@ describe("POST /clients/:clientId/files/multipart", () => {
         context,
         email: "multipart-init-bad-extension@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
 
-      const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart`,
-        {
-          body: JSON.stringify({
-            mimeType: "application/x-msdownload",
-            name: "virus.exe",
-            sizeBytes: 1024,
-          }),
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: authenticated.cookie,
-          },
-          method: "POST",
+      const response = await authenticated.app.request("/api/files/multipart", {
+        body: JSON.stringify({
+          mimeType: "application/x-msdownload",
+          name: "virus.exe",
+          sizeBytes: 1024,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: authenticated.cookie,
         },
-      );
+        method: "POST",
+      });
       const rows = await db.select().from(filesTable);
 
       expect(response.status).toBe(400);
@@ -250,27 +137,19 @@ describe("POST /clients/:clientId/files/multipart", () => {
         context,
         email: "multipart-init-single-part@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
 
-      const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart`,
-        {
-          body: JSON.stringify({
-            mimeType: "application/pdf",
-            name: "agreement.pdf",
-            sizeBytes: 1024,
-          }),
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: authenticated.cookie,
-          },
-          method: "POST",
+      const response = await authenticated.app.request("/api/files/multipart", {
+        body: JSON.stringify({
+          mimeType: "application/pdf",
+          name: "agreement.pdf",
+          sizeBytes: 1024,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: authenticated.cookie,
         },
-      );
+        method: "POST",
+      });
       const body = await parseJson(response, multipartInitSchema);
 
       expect(body.parts).toHaveLength(1);
@@ -284,27 +163,19 @@ describe("POST /clients/:clientId/files/multipart", () => {
         context,
         email: "multipart-init-exact-multiple@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
 
-      const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart`,
-        {
-          body: JSON.stringify({
-            mimeType: "application/pdf",
-            name: "agreement.pdf",
-            sizeBytes: MULTIPART_PART_SIZE_BYTES * 2,
-          }),
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: authenticated.cookie,
-          },
-          method: "POST",
+      const response = await authenticated.app.request("/api/files/multipart", {
+        body: JSON.stringify({
+          mimeType: "application/pdf",
+          name: "agreement.pdf",
+          sizeBytes: MULTIPART_PART_SIZE_BYTES * 2,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: authenticated.cookie,
         },
-      );
+        method: "POST",
+      });
       const body = await parseJson(response, multipartInitSchema);
 
       expect(body.parts).toHaveLength(2);
@@ -317,62 +188,19 @@ describe("POST /clients/:clientId/files/multipart", () => {
         context,
         email: "multipart-init-zero-size@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
 
-      const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart`,
-        {
-          body: JSON.stringify({
-            mimeType: "application/pdf",
-            name: "agreement.pdf",
-            sizeBytes: 0,
-          }),
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: authenticated.cookie,
-          },
-          method: "POST",
+      const response = await authenticated.app.request("/api/files/multipart", {
+        body: JSON.stringify({
+          mimeType: "application/pdf",
+          name: "agreement.pdf",
+          sizeBytes: 0,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: authenticated.cookie,
         },
-      );
-      const rows = await db.select().from(filesTable);
-
-      expect(response.status).toBe(400);
-      expect(rows).toHaveLength(0);
-    });
-  });
-
-  test("rejects a folderId of zero on multipart init and writes nothing", async () => {
-    await withTestDatabase(async ({ context, db }) => {
-      const authenticated = await createAuthenticatedApp({
-        context,
-        email: "multipart-init-zero-folder@example.com",
+        method: "POST",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-
-      const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart`,
-        {
-          body: JSON.stringify({
-            folderId: 0,
-            mimeType: "application/pdf",
-            name: "agreement.pdf",
-            sizeBytes: 1024,
-          }),
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: authenticated.cookie,
-          },
-          method: "POST",
-        },
-      );
       const rows = await db.select().from(filesTable);
 
       expect(response.status).toBe(400);
@@ -386,27 +214,19 @@ describe("POST /clients/:clientId/files/multipart", () => {
         context,
         email: "multipart-init-long-name@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
 
-      const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart`,
-        {
-          body: JSON.stringify({
-            mimeType: "application/pdf",
-            name: `${"a".repeat(252)}.pdf`,
-            sizeBytes: 1024,
-          }),
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: authenticated.cookie,
-          },
-          method: "POST",
+      const response = await authenticated.app.request("/api/files/multipart", {
+        body: JSON.stringify({
+          mimeType: "application/pdf",
+          name: `${"a".repeat(252)}.pdf`,
+          sizeBytes: 1024,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: authenticated.cookie,
         },
-      );
+        method: "POST",
+      });
       const rows = await db.select().from(filesTable);
 
       expect(response.status).toBe(400);
@@ -415,30 +235,18 @@ describe("POST /clients/:clientId/files/multipart", () => {
   });
 });
 
-describe("POST /clients/:clientId/files/multipart/complete", () => {
+describe("POST /files/multipart/complete", () => {
   test("persists the file with the exact fields once all parts are reported", async () => {
     await withTestDatabase(async ({ context, db }) => {
       const authenticated = await createAuthenticatedApp({
         context,
         email: "multipart-complete@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-      const folder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: authenticated.user.userId,
-      });
 
       const initResponse = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart`,
+        "/api/files/multipart",
         {
           body: JSON.stringify({
-            folderId: folder.folderId,
             mimeType: "application/pdf",
             name: "agreement.pdf",
             sizeBytes: 1024,
@@ -453,10 +261,9 @@ describe("POST /clients/:clientId/files/multipart/complete", () => {
       const init = await parseJson(initResponse, multipartInitSchema);
 
       const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart/complete`,
+        "/api/files/multipart/complete",
         {
           body: JSON.stringify({
-            folderId: folder.folderId,
             key: init.key,
             mimeType: "application/pdf",
             name: init.name,
@@ -485,8 +292,6 @@ describe("POST /clients/:clientId/files/multipart/complete", () => {
         .where(eq(filesTable.fileId, body.fileId));
       expect(rows).toHaveLength(1);
       expect(rows[0]).toMatchObject({
-        clientId: client.clientId,
-        folderId: folder.folderId,
         key: init.key,
         mimeType: "application/pdf",
         name: "agreement.pdf",
@@ -496,98 +301,17 @@ describe("POST /clients/:clientId/files/multipart/complete", () => {
     });
   });
 
-  test("re-validates folder ownership independently of init and writes nothing", async () => {
-    await withTestDatabase(async ({ context, db }) => {
-      const owner = await createAuthenticatedApp({
-        context,
-        email: "multipart-complete-owner@example.com",
-      });
-      const attacker = await createAuthenticatedApp({
-        context,
-        email: "multipart-complete-attacker@example.com",
-      });
-      const ownerClient = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: owner.user.userId,
-      });
-      const ownerFolder = await context.repositories.folder.create({
-        clientId: ownerClient.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: owner.user.userId,
-      });
-
-      const initResponse = await owner.app.request(
-        `/api/clients/${ownerClient.clientId}/files/multipart`,
-        {
-          body: JSON.stringify({
-            folderId: ownerFolder.folderId,
-            mimeType: "application/pdf",
-            name: "agreement.pdf",
-            sizeBytes: 1024,
-          }),
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: owner.cookie,
-          },
-          method: "POST",
-        },
-      );
-      const init = await parseJson(initResponse, multipartInitSchema);
-
-      const response = await attacker.app.request(
-        `/api/clients/${ownerClient.clientId}/files/multipart/complete`,
-        {
-          body: JSON.stringify({
-            folderId: ownerFolder.folderId,
-            key: init.key,
-            mimeType: "application/pdf",
-            name: init.name,
-            parts: init.parts.map((part) => ({
-              eTag: `etag-${part.partNumber}`,
-              partNumber: part.partNumber,
-            })),
-            sizeBytes: 1024,
-            uploadId: init.uploadId,
-          }),
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: attacker.cookie,
-          },
-          method: "POST",
-        },
-      );
-      const rows = await db.select().from(filesTable);
-
-      expect(response.status).toBe(404);
-      expect(rows).toHaveLength(0);
-    });
-  });
-
   test("re-runs filename dedupe at complete time, not the stale name from init", async () => {
     await withTestDatabase(async ({ context }) => {
       const authenticated = await createAuthenticatedApp({
         context,
         email: "multipart-complete-dedupe@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-      const folder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: authenticated.user.userId,
-      });
 
       const initResponse = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart`,
+        "/api/files/multipart",
         {
           body: JSON.stringify({
-            folderId: folder.folderId,
             mimeType: "application/pdf",
             name: "agreement.pdf",
             sizeBytes: 1024,
@@ -601,11 +325,9 @@ describe("POST /clients/:clientId/files/multipart/complete", () => {
       );
       const init = await parseJson(initResponse, multipartInitSchema);
 
-      // Another file with the same name lands in the folder during the
+      // Another file with the same name lands for this user during the
       // upload window, after init previewed the name but before complete.
       await context.repositories.file.create({
-        clientId: client.clientId,
-        folderId: folder.folderId,
         key: "existing-key",
         mimeType: "application/pdf",
         name: "agreement.pdf",
@@ -615,10 +337,9 @@ describe("POST /clients/:clientId/files/multipart/complete", () => {
       });
 
       const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart/complete`,
+        "/api/files/multipart/complete",
         {
           body: JSON.stringify({
-            folderId: folder.folderId,
             key: init.key,
             mimeType: "application/pdf",
             name: init.name,
@@ -643,82 +364,15 @@ describe("POST /clients/:clientId/files/multipart/complete", () => {
     });
   });
 
-  test("creates a root-level file when no folderId is given", async () => {
-    await withTestDatabase(async ({ context, db }) => {
-      const authenticated = await createAuthenticatedApp({
-        context,
-        email: "multipart-complete-root@example.com",
-      });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-
-      const initResponse = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart`,
-        {
-          body: JSON.stringify({
-            mimeType: "application/pdf",
-            name: "agreement.pdf",
-            sizeBytes: 1024,
-          }),
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: authenticated.cookie,
-          },
-          method: "POST",
-        },
-      );
-      const init = await parseJson(initResponse, multipartInitSchema);
-
-      const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart/complete`,
-        {
-          body: JSON.stringify({
-            key: init.key,
-            mimeType: "application/pdf",
-            name: init.name,
-            parts: init.parts.map((part) => ({
-              eTag: `etag-${part.partNumber}`,
-              partNumber: part.partNumber,
-            })),
-            sizeBytes: 1024,
-            uploadId: init.uploadId,
-          }),
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: authenticated.cookie,
-          },
-          method: "POST",
-        },
-      );
-      const body = await parseJson(response, fileSchema);
-
-      expect(response.status).toBe(201);
-
-      const rows = await db
-        .select()
-        .from(filesTable)
-        .where(eq(filesTable.fileId, body.fileId));
-      expect(rows[0]?.folderId).toBeNull();
-    });
-  });
-
   test("rejects a disallowed file extension and writes nothing", async () => {
     await withTestDatabase(async ({ context, db }) => {
       const authenticated = await createAuthenticatedApp({
         context,
         email: "multipart-complete-bad-extension@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
 
       const initResponse = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart`,
+        "/api/files/multipart",
         {
           body: JSON.stringify({
             mimeType: "application/pdf",
@@ -735,7 +389,7 @@ describe("POST /clients/:clientId/files/multipart/complete", () => {
       const init = await parseJson(initResponse, multipartInitSchema);
 
       const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart/complete`,
+        "/api/files/multipart/complete",
         {
           body: JSON.stringify({
             key: init.key,
@@ -768,14 +422,9 @@ describe("POST /clients/:clientId/files/multipart/complete", () => {
         context,
         email: "multipart-complete-empty-parts@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
 
       const initResponse = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart`,
+        "/api/files/multipart",
         {
           body: JSON.stringify({
             mimeType: "application/pdf",
@@ -792,7 +441,7 @@ describe("POST /clients/:clientId/files/multipart/complete", () => {
       const init = await parseJson(initResponse, multipartInitSchema);
 
       const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart/complete`,
+        "/api/files/multipart/complete",
         {
           body: JSON.stringify({
             key: init.key,
@@ -822,14 +471,9 @@ describe("POST /clients/:clientId/files/multipart/complete", () => {
         context,
         email: "multipart-complete-oversized@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
 
       const initResponse = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart`,
+        "/api/files/multipart",
         {
           body: JSON.stringify({
             mimeType: "application/pdf",
@@ -846,7 +490,7 @@ describe("POST /clients/:clientId/files/multipart/complete", () => {
       const init = await parseJson(initResponse, multipartInitSchema);
 
       const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart/complete`,
+        "/api/files/multipart/complete",
         {
           body: JSON.stringify({
             key: init.key,
@@ -879,14 +523,7 @@ describe("POST /clients/:clientId/files/multipart/complete", () => {
         context,
         email: "multipart-complete-dotfile@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
       await context.repositories.file.create({
-        clientId: client.clientId,
-        folderId: null,
         key: "existing-key",
         mimeType: "text/plain",
         name: ".txt",
@@ -896,7 +533,7 @@ describe("POST /clients/:clientId/files/multipart/complete", () => {
       });
 
       const initResponse = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart`,
+        "/api/files/multipart",
         {
           body: JSON.stringify({
             mimeType: "text/plain",
@@ -913,7 +550,7 @@ describe("POST /clients/:clientId/files/multipart/complete", () => {
       const init = await parseJson(initResponse, multipartInitSchema);
 
       const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart/complete`,
+        "/api/files/multipart/complete",
         {
           body: JSON.stringify({
             key: init.key,
@@ -947,21 +584,16 @@ describe("POST /clients/:clientId/files/multipart/complete", () => {
   });
 });
 
-describe("DELETE /clients/:clientId/files/multipart", () => {
+describe("DELETE /files/multipart", () => {
   test("aborts the upload in storage and writes no DB row", async () => {
     await withTestDatabase(async ({ context, db }) => {
       const authenticated = await createAuthenticatedApp({
         context,
         email: "multipart-abort@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
 
       const initResponse = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart`,
+        "/api/files/multipart",
         {
           body: JSON.stringify({
             mimeType: "application/pdf",
@@ -977,17 +609,14 @@ describe("DELETE /clients/:clientId/files/multipart", () => {
       );
       const init = await parseJson(initResponse, multipartInitSchema);
 
-      const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart`,
-        {
-          body: JSON.stringify({ key: init.key, uploadId: init.uploadId }),
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: authenticated.cookie,
-          },
-          method: "DELETE",
+      const response = await authenticated.app.request("/api/files/multipart", {
+        body: JSON.stringify({ key: init.key, uploadId: init.uploadId }),
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: authenticated.cookie,
         },
-      );
+        method: "DELETE",
+      });
 
       expect(response.status).toBe(204);
 
@@ -1004,135 +633,50 @@ describe("DELETE /clients/:clientId/files/multipart", () => {
     });
   });
 
-  test("rejects aborting a client the user doesn't own and does not call storage", async () => {
-    await withTestDatabase(async ({ context, db }) => {
-      const owner = await createAuthenticatedApp({
-        context,
-        email: "multipart-abort-owner@example.com",
-      });
-      const attacker = await createAuthenticatedApp({
-        context,
-        email: "multipart-abort-attacker@example.com",
-      });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: owner.user.userId,
-      });
-
-      const initResponse = await owner.app.request(
-        `/api/clients/${client.clientId}/files/multipart`,
-        {
-          body: JSON.stringify({
-            mimeType: "application/pdf",
-            name: "agreement.pdf",
-            sizeBytes: 1024,
-          }),
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: owner.cookie,
-          },
-          method: "POST",
-        },
-      );
-      const init = await parseJson(initResponse, multipartInitSchema);
-
-      const response = await attacker.app.request(
-        `/api/clients/${client.clientId}/files/multipart`,
-        {
-          body: JSON.stringify({ key: init.key, uploadId: init.uploadId }),
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: attacker.cookie,
-          },
-          method: "DELETE",
-        },
-      );
-
-      expect(response.status).toBe(404);
-
-      if (!(context.storage instanceof TestStorage)) {
-        throw new Error("Expected the test context to use TestStorage.");
-      }
-      expect(context.storage.abortCalls).not.toContainEqual({
-        key: init.key,
-        uploadId: init.uploadId,
-      });
-
-      const rows = await db.select().from(filesTable);
-      expect(rows).toHaveLength(0);
-    });
-  });
-
   test("rejects aborting with a missing uploadId or key", async () => {
     await withTestDatabase(async ({ context }) => {
       const authenticated = await createAuthenticatedApp({
         context,
         email: "multipart-abort-missing-fields@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
 
-      const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/multipart`,
-        {
-          body: JSON.stringify({ key: "", uploadId: "" }),
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: authenticated.cookie,
-          },
-          method: "DELETE",
+      const response = await authenticated.app.request("/api/files/multipart", {
+        body: JSON.stringify({ key: "", uploadId: "" }),
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: authenticated.cookie,
         },
-      );
+        method: "DELETE",
+      });
 
       expect(response.status).toBe(400);
     });
   });
 });
 
-describe("POST /clients/:clientId/files", () => {
+describe("POST /files", () => {
   test("uploads a file directly and persists it with its real byte size", async () => {
     await withTestDatabase(async ({ context, db }) => {
       const authenticated = await createAuthenticatedApp({
         context,
         email: "upload@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-      const folder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: authenticated.user.userId,
-      });
       const content = "hello world";
       const formData = new FormData();
-      formData.append("folderId", folder.folderId.toString());
       formData.append(
         "file",
         new File([content], "notes.txt", { type: "text/plain" }),
       );
 
-      const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files`,
-        {
-          body: formData,
-          headers: { Cookie: authenticated.cookie },
-          method: "POST",
-        },
-      );
+      const response = await authenticated.app.request("/api/files", {
+        body: formData,
+        headers: { Cookie: authenticated.cookie },
+        method: "POST",
+      });
       const body = await parseJson(response, fileSchema);
 
       expect(response.status).toBe(201);
       expect(body).toMatchObject({
-        clientId: client.clientId,
-        folderId: folder.folderId,
         name: "notes.txt",
         sizeBytes: content.length,
         url: "https://storage.test/file",
@@ -1152,66 +696,13 @@ describe("POST /clients/:clientId/files", () => {
     });
   });
 
-  test("uploads a root-level file when no folderId is given", async () => {
-    await withTestDatabase(async ({ context, db }) => {
-      const authenticated = await createAuthenticatedApp({
-        context,
-        email: "upload-root@example.com",
-      });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-      const formData = new FormData();
-      formData.append(
-        "file",
-        new File(["hello"], "notes.txt", { type: "text/plain" }),
-      );
-
-      const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files`,
-        {
-          body: formData,
-          headers: { Cookie: authenticated.cookie },
-          method: "POST",
-        },
-      );
-      const body = await parseJson(response, fileSchema);
-
-      expect(response.status).toBe(201);
-      expect(body.folderId).toBeNull();
-
-      const rows = await db
-        .select()
-        .from(filesTable)
-        .where(eq(filesTable.fileId, body.fileId));
-      expect(rows[0]).toMatchObject({
-        clientId: client.clientId,
-        folderId: null,
-      });
-    });
-  });
-
   test("rejects a disallowed file extension and writes nothing", async () => {
     await withTestDatabase(async ({ context, db }) => {
       const authenticated = await createAuthenticatedApp({
         context,
         email: "upload-bad-extension@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-      const folder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: authenticated.user.userId,
-      });
       const formData = new FormData();
-      formData.append("folderId", folder.folderId.toString());
       formData.append(
         "file",
         new File(["MZ"], "virus.exe", {
@@ -1219,14 +710,11 @@ describe("POST /clients/:clientId/files", () => {
         }),
       );
 
-      const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files`,
-        {
-          body: formData,
-          headers: { Cookie: authenticated.cookie },
-          method: "POST",
-        },
-      );
+      const response = await authenticated.app.request("/api/files", {
+        body: formData,
+        headers: { Cookie: authenticated.cookie },
+        method: "POST",
+      });
       const rows = await db.select().from(filesTable);
 
       expect(response.status).toBe(400);
@@ -1234,69 +722,13 @@ describe("POST /clients/:clientId/files", () => {
     });
   });
 
-  test("rejects uploading into another user's folder and writes nothing", async () => {
-    await withTestDatabase(async ({ context, db }) => {
-      const owner = await createAuthenticatedApp({
-        context,
-        email: "upload-owner@example.com",
-      });
-      const attacker = await createAuthenticatedApp({
-        context,
-        email: "upload-attacker@example.com",
-      });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: owner.user.userId,
-      });
-      const folder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: owner.user.userId,
-      });
-      const formData = new FormData();
-      formData.append("folderId", folder.folderId.toString());
-      formData.append(
-        "file",
-        new File(["hello"], "notes.txt", { type: "text/plain" }),
-      );
-
-      const response = await attacker.app.request(
-        `/api/clients/${client.clientId}/files`,
-        {
-          body: formData,
-          headers: { Cookie: attacker.cookie },
-          method: "POST",
-        },
-      );
-      const rows = await db.select().from(filesTable);
-
-      expect(response.status).toBe(404);
-      expect(rows).toHaveLength(0);
-    });
-  });
-
-  test("auto-suffixes the name with (1) when a file with the same name already exists at the same location", async () => {
+  test("auto-suffixes the name with (1) when a file with the same name already exists for this user", async () => {
     await withTestDatabase(async ({ context, db }) => {
       const authenticated = await createAuthenticatedApp({
         context,
         email: "upload-dedupe@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-      const folder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: authenticated.user.userId,
-      });
       await context.repositories.file.create({
-        clientId: client.clientId,
-        folderId: folder.folderId,
         key: "existing-key",
         mimeType: "text/plain",
         name: "notes.txt",
@@ -1305,20 +737,16 @@ describe("POST /clients/:clientId/files", () => {
         userId: authenticated.user.userId,
       });
       const formData = new FormData();
-      formData.append("folderId", folder.folderId.toString());
       formData.append(
         "file",
         new File(["hello"], "notes.txt", { type: "text/plain" }),
       );
 
-      const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files`,
-        {
-          body: formData,
-          headers: { Cookie: authenticated.cookie },
-          method: "POST",
-        },
-      );
+      const response = await authenticated.app.request("/api/files", {
+        body: formData,
+        headers: { Cookie: authenticated.cookie },
+        method: "POST",
+      });
       const body = await parseJson(response, fileSchema);
 
       expect(response.status).toBe(201);
@@ -1338,20 +766,7 @@ describe("POST /clients/:clientId/files", () => {
         context,
         email: "upload-dedupe-2@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-      const folder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: authenticated.user.userId,
-      });
       await context.repositories.file.create({
-        clientId: client.clientId,
-        folderId: folder.folderId,
         key: "existing-key",
         mimeType: "text/plain",
         name: "notes.txt",
@@ -1360,8 +775,6 @@ describe("POST /clients/:clientId/files", () => {
         userId: authenticated.user.userId,
       });
       await context.repositories.file.create({
-        clientId: client.clientId,
-        folderId: folder.folderId,
         key: "existing-key-2",
         mimeType: "text/plain",
         name: "notes (1).txt",
@@ -1370,20 +783,16 @@ describe("POST /clients/:clientId/files", () => {
         userId: authenticated.user.userId,
       });
       const formData = new FormData();
-      formData.append("folderId", folder.folderId.toString());
       formData.append(
         "file",
         new File(["hello"], "notes.txt", { type: "text/plain" }),
       );
 
-      const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files`,
-        {
-          body: formData,
-          headers: { Cookie: authenticated.cookie },
-          method: "POST",
-        },
-      );
+      const response = await authenticated.app.request("/api/files", {
+        body: formData,
+        headers: { Cookie: authenticated.cookie },
+        method: "POST",
+      });
       const body = await parseJson(response, fileSchema);
 
       expect(response.status).toBe(201);
@@ -1403,20 +812,7 @@ describe("POST /clients/:clientId/files", () => {
         context,
         email: "upload-dedupe-ext@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-      const folder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: authenticated.user.userId,
-      });
       await context.repositories.file.create({
-        clientId: client.clientId,
-        folderId: folder.folderId,
         key: "existing-key",
         mimeType: "application/pdf",
         name: "agreement.final.pdf",
@@ -1425,7 +821,6 @@ describe("POST /clients/:clientId/files", () => {
         userId: authenticated.user.userId,
       });
       const formData = new FormData();
-      formData.append("folderId", folder.folderId.toString());
       formData.append(
         "file",
         new File(["hello"], "agreement.final.pdf", {
@@ -1433,14 +828,11 @@ describe("POST /clients/:clientId/files", () => {
         }),
       );
 
-      const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files`,
-        {
-          body: formData,
-          headers: { Cookie: authenticated.cookie },
-          method: "POST",
-        },
-      );
+      const response = await authenticated.app.request("/api/files", {
+        body: formData,
+        headers: { Cookie: authenticated.cookie },
+        method: "POST",
+      });
       const body = await parseJson(response, fileSchema);
 
       expect(response.status).toBe(201);
@@ -1448,54 +840,35 @@ describe("POST /clients/:clientId/files", () => {
     });
   });
 
-  test("does not suffix the name when a same-named file exists only at a different location", async () => {
+  test("does not suffix the name when a same-named file exists only for a different user", async () => {
     await withTestDatabase(async ({ context, db }) => {
+      const other = await createAuthenticatedApp({
+        context,
+        email: "upload-dedupe-other-user@example.com",
+      });
       const authenticated = await createAuthenticatedApp({
         context,
-        email: "upload-dedupe-diff-location@example.com",
-      });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-      const folderA = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: authenticated.user.userId,
-      });
-      const folderB = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Invoices",
-        parentId: null,
-        userId: authenticated.user.userId,
+        email: "upload-dedupe-this-user@example.com",
       });
       await context.repositories.file.create({
-        clientId: client.clientId,
-        folderId: folderA.folderId,
         key: "existing-key",
         mimeType: "text/plain",
         name: "notes.txt",
         sizeBytes: 5,
         url: "https://storage.test/existing",
-        userId: authenticated.user.userId,
+        userId: other.user.userId,
       });
       const formData = new FormData();
-      formData.append("folderId", folderB.folderId.toString());
       formData.append(
         "file",
         new File(["hello"], "notes.txt", { type: "text/plain" }),
       );
 
-      const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files`,
-        {
-          body: formData,
-          headers: { Cookie: authenticated.cookie },
-          method: "POST",
-        },
-      );
+      const response = await authenticated.app.request("/api/files", {
+        body: formData,
+        headers: { Cookie: authenticated.cookie },
+        method: "POST",
+      });
       const body = await parseJson(response, fileSchema);
 
       expect(response.status).toBe(201);
@@ -1512,35 +885,20 @@ describe("POST /clients/:clientId/files", () => {
   // Dropped "no extension" dedup case: the file validator rejects any name without an extension before it reaches FileService.
 });
 
-describe("GET /clients/:clientId/files", () => {
-  test("scopes results to the folder and paginates", async () => {
+describe("GET /files", () => {
+  test("scopes results to the requesting user and paginates", async () => {
     await withTestDatabase(async ({ context }) => {
       const authenticated = await createAuthenticatedApp({
         context,
         email: "list-files@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-      const folder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: authenticated.user.userId,
-      });
-      const otherFolder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Invoices",
-        parentId: null,
-        userId: authenticated.user.userId,
+      const other = await createAuthenticatedApp({
+        context,
+        email: "list-files-other@example.com",
       });
 
       for (let index = 0; index < 13; index += 1) {
         await context.repositories.file.create({
-          clientId: client.clientId,
-          folderId: folder.folderId,
           key: `key-${index}`,
           mimeType: "text/plain",
           name: `File ${index}.txt`,
@@ -1550,18 +908,16 @@ describe("GET /clients/:clientId/files", () => {
         });
       }
       await context.repositories.file.create({
-        clientId: client.clientId,
-        folderId: otherFolder.folderId,
-        key: "key-other",
+        key: "key-other-user",
         mimeType: "text/plain",
         name: "Other.txt",
         sizeBytes: 10,
         url: "https://storage.test/other",
-        userId: authenticated.user.userId,
+        userId: other.user.userId,
       });
 
       const firstPageResponse = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files?folderId=${folder.folderId}&page=1`,
+        "/api/files?page=1",
         { headers: { Cookie: authenticated.cookie } },
       );
       const firstPage = await parseJson(firstPageResponse, fileListSchema);
@@ -1569,11 +925,13 @@ describe("GET /clients/:clientId/files", () => {
       expect(firstPage.files).toHaveLength(12);
       expect(firstPage.meta).toEqual({ lastPage: 2, page: 1 });
       expect(
-        firstPage.files.every((file) => file.folderId === folder.folderId),
+        firstPage.files.every(
+          (file) => file.userId === authenticated.user.userId,
+        ),
       ).toBe(true);
 
       const secondPageResponse = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files?folderId=${folder.folderId}&page=2`,
+        "/api/files?page=2",
         { headers: { Cookie: authenticated.cookie } },
       );
       const secondPage = await parseJson(secondPageResponse, fileListSchema);
@@ -1583,85 +941,25 @@ describe("GET /clients/:clientId/files", () => {
     });
   });
 
-  test("returns an empty list for a folder with no files", async () => {
+  test("returns an empty list when the user has no files", async () => {
     await withTestDatabase(async ({ context }) => {
       const authenticated = await createAuthenticatedApp({
         context,
         email: "empty-files@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-      const folder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: authenticated.user.userId,
-      });
 
-      const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files?folderId=${folder.folderId}`,
-        { headers: { Cookie: authenticated.cookie } },
-      );
+      const response = await authenticated.app.request("/api/files", {
+        headers: { Cookie: authenticated.cookie },
+      });
       const body = await parseJson(response, fileListSchema);
 
       expect(body.files).toEqual([]);
       expect(body.meta).toEqual({ lastPage: 1, page: 1 });
     });
   });
-
-  test("lists only root-level files when folderId is omitted", async () => {
-    await withTestDatabase(async ({ context }) => {
-      const authenticated = await createAuthenticatedApp({
-        context,
-        email: "list-root-files@example.com",
-      });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-      const folder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: authenticated.user.userId,
-      });
-      await context.repositories.file.create({
-        clientId: client.clientId,
-        folderId: null,
-        key: "root-key",
-        mimeType: "text/plain",
-        name: "Root.txt",
-        sizeBytes: 10,
-        url: "https://storage.test/root",
-        userId: authenticated.user.userId,
-      });
-      await context.repositories.file.create({
-        clientId: client.clientId,
-        folderId: folder.folderId,
-        key: "nested-key",
-        mimeType: "text/plain",
-        name: "Nested.txt",
-        sizeBytes: 10,
-        url: "https://storage.test/nested",
-        userId: authenticated.user.userId,
-      });
-
-      const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files`,
-        { headers: { Cookie: authenticated.cookie } },
-      );
-      const body = await parseJson(response, fileListSchema);
-
-      expect(body.files.map((file) => file.name)).toEqual(["Root.txt"]);
-    });
-  });
 });
 
-describe("DELETE /clients/:clientId/files/:fileId", () => {
+describe("DELETE /files/:fileId", () => {
   test("removes only the caller's own file, rejects deleting another user's, and is not idempotent past the first call", async () => {
     await withTestDatabase(async ({ context, db }) => {
       const owner = await createAuthenticatedApp({
@@ -1672,20 +970,7 @@ describe("DELETE /clients/:clientId/files/:fileId", () => {
         context,
         email: "remove-other@example.com",
       });
-      const ownClient = await context.repositories.client.create({
-        email: "own@example.com",
-        name: "Own Client",
-        userId: owner.user.userId,
-      });
-      const ownFolder = await context.repositories.folder.create({
-        clientId: ownClient.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: owner.user.userId,
-      });
       const ownFile = await context.repositories.file.create({
-        clientId: ownClient.clientId,
-        folderId: ownFolder.folderId,
         key: "own-key",
         mimeType: "text/plain",
         name: "own.txt",
@@ -1693,20 +978,7 @@ describe("DELETE /clients/:clientId/files/:fileId", () => {
         url: "https://storage.test/own",
         userId: owner.user.userId,
       });
-      const foreignClient = await context.repositories.client.create({
-        email: "foreign@example.com",
-        name: "Foreign Client",
-        userId: other.user.userId,
-      });
-      const foreignFolder = await context.repositories.folder.create({
-        clientId: foreignClient.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: other.user.userId,
-      });
       const foreignFile = await context.repositories.file.create({
-        clientId: foreignClient.clientId,
-        folderId: foreignFolder.folderId,
         key: "foreign-key",
         mimeType: "text/plain",
         name: "foreign.txt",
@@ -1716,7 +988,7 @@ describe("DELETE /clients/:clientId/files/:fileId", () => {
       });
 
       const foreignDeleteResponse = await owner.app.request(
-        `/api/clients/${foreignClient.clientId}/files/${foreignFile.fileId}`,
+        `/api/files/${foreignFile.fileId}`,
         { headers: { Cookie: owner.cookie }, method: "DELETE" },
       );
       const foreignRowAfterAttempt = await db
@@ -1728,7 +1000,7 @@ describe("DELETE /clients/:clientId/files/:fileId", () => {
       expect(foreignRowAfterAttempt).toHaveLength(1);
 
       const deleteResponse = await owner.app.request(
-        `/api/clients/${ownClient.clientId}/files/${ownFile.fileId}`,
+        `/api/files/${ownFile.fileId}`,
         { headers: { Cookie: owner.cookie }, method: "DELETE" },
       );
       const ownRowAfter = await db
@@ -1740,7 +1012,7 @@ describe("DELETE /clients/:clientId/files/:fileId", () => {
       expect(ownRowAfter).toHaveLength(0);
 
       const secondDeleteResponse = await owner.app.request(
-        `/api/clients/${ownClient.clientId}/files/${ownFile.fileId}`,
+        `/api/files/${ownFile.fileId}`,
         { headers: { Cookie: owner.cookie }, method: "DELETE" },
       );
 
@@ -1754,20 +1026,7 @@ describe("DELETE /clients/:clientId/files/:fileId", () => {
         context,
         email: "invalid-file-id@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-      const folder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: authenticated.user.userId,
-      });
       await context.repositories.file.create({
-        clientId: client.clientId,
-        folderId: folder.folderId,
         key: "own-key",
         mimeType: "text/plain",
         name: "own.txt",
@@ -1778,7 +1037,7 @@ describe("DELETE /clients/:clientId/files/:fileId", () => {
       const before = await db.select().from(filesTable);
 
       const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/not-a-number`,
+        "/api/files/not-a-number",
         { headers: { Cookie: authenticated.cookie }, method: "DELETE" },
       );
       const after = await db.select().from(filesTable);
@@ -1787,70 +1046,16 @@ describe("DELETE /clients/:clientId/files/:fileId", () => {
       expect(after).toEqual(before);
     });
   });
-
-  test("rejects deleting a file that belongs to a different client than the one in the URL, even when both clients are owned by the same user", async () => {
-    await withTestDatabase(async ({ context, db }) => {
-      const authenticated = await createAuthenticatedApp({
-        context,
-        email: "cross-client-delete@example.com",
-      });
-      const clientA = await context.repositories.client.create({
-        email: "a@example.com",
-        name: "Client A",
-        userId: authenticated.user.userId,
-      });
-      const clientB = await context.repositories.client.create({
-        email: "b@example.com",
-        name: "Client B",
-        userId: authenticated.user.userId,
-      });
-      const file = await context.repositories.file.create({
-        clientId: clientA.clientId,
-        folderId: null,
-        key: "some-key",
-        mimeType: "text/plain",
-        name: "notes.txt",
-        sizeBytes: 10,
-        url: "https://storage.test/notes",
-        userId: authenticated.user.userId,
-      });
-
-      const response = await authenticated.app.request(
-        `/api/clients/${clientB.clientId}/files/${file.fileId}`,
-        { headers: { Cookie: authenticated.cookie }, method: "DELETE" },
-      );
-      const rows = await db
-        .select()
-        .from(filesTable)
-        .where(eq(filesTable.fileId, file.fileId));
-
-      expect(response.status).toBe(404);
-      expect(rows).toHaveLength(1);
-    });
-  });
 });
 
-describe("PATCH /clients/:clientId/files/:fileId", () => {
+describe("PATCH /files/:fileId", () => {
   test("renames only the caller's own file and persists the exact new name", async () => {
     await withTestDatabase(async ({ context, db }) => {
       const authenticated = await createAuthenticatedApp({
         context,
         email: "patch-owner@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-      const folder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: authenticated.user.userId,
-      });
       const file = await context.repositories.file.create({
-        clientId: client.clientId,
-        folderId: folder.folderId,
         key: "own-key",
         mimeType: "text/plain",
         name: "old-name.txt",
@@ -1860,7 +1065,7 @@ describe("PATCH /clients/:clientId/files/:fileId", () => {
       });
 
       const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/${file.fileId}`,
+        `/api/files/${file.fileId}`,
         {
           body: JSON.stringify({ name: "new-name.txt" }),
           headers: {
@@ -1894,20 +1099,7 @@ describe("PATCH /clients/:clientId/files/:fileId", () => {
         context,
         email: "patch-attacker@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: owner.user.userId,
-      });
-      const folder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: owner.user.userId,
-      });
       const file = await context.repositories.file.create({
-        clientId: client.clientId,
-        folderId: folder.folderId,
         key: "own-key",
         mimeType: "text/plain",
         name: "old-name.txt",
@@ -1916,17 +1108,14 @@ describe("PATCH /clients/:clientId/files/:fileId", () => {
         userId: owner.user.userId,
       });
 
-      const response = await attacker.app.request(
-        `/api/clients/${client.clientId}/files/${file.fileId}`,
-        {
-          body: JSON.stringify({ name: "hijacked.txt" }),
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: attacker.cookie,
-          },
-          method: "PATCH",
+      const response = await attacker.app.request(`/api/files/${file.fileId}`, {
+        body: JSON.stringify({ name: "hijacked.txt" }),
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: attacker.cookie,
         },
-      );
+        method: "PATCH",
+      });
       const rows = await db
         .select()
         .from(filesTable)
@@ -1943,20 +1132,7 @@ describe("PATCH /clients/:clientId/files/:fileId", () => {
         context,
         email: "patch-invalid-payload@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-      const folder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: authenticated.user.userId,
-      });
       const file = await context.repositories.file.create({
-        clientId: client.clientId,
-        folderId: folder.folderId,
         key: "own-key",
         mimeType: "text/plain",
         name: "old-name.txt",
@@ -1966,7 +1142,7 @@ describe("PATCH /clients/:clientId/files/:fileId", () => {
       });
 
       const emptyNameResponse = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/${file.fileId}`,
+        `/api/files/${file.fileId}`,
         {
           body: JSON.stringify({ name: "" }),
           headers: {
@@ -1980,7 +1156,7 @@ describe("PATCH /clients/:clientId/files/:fileId", () => {
       expect(emptyNameResponse.status).toBe(400);
 
       const badExtensionResponse = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/${file.fileId}`,
+        `/api/files/${file.fileId}`,
         {
           body: JSON.stringify({ name: "virus.exe" }),
           headers: {
@@ -2007,20 +1183,7 @@ describe("PATCH /clients/:clientId/files/:fileId", () => {
         context,
         email: "patch-invalid-id@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-      const folder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: authenticated.user.userId,
-      });
       await context.repositories.file.create({
-        clientId: client.clientId,
-        folderId: folder.folderId,
         key: "own-key",
         mimeType: "text/plain",
         name: "old-name.txt",
@@ -2031,7 +1194,7 @@ describe("PATCH /clients/:clientId/files/:fileId", () => {
       const before = await db.select().from(filesTable);
 
       const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/not-a-number`,
+        "/api/files/not-a-number",
         {
           body: JSON.stringify({ name: "new-name.txt" }),
           headers: {
@@ -2048,26 +1211,13 @@ describe("PATCH /clients/:clientId/files/:fileId", () => {
     });
   });
 
-  test("allows renaming to a name that collides with another file at the same location (documents current behavior: no dedupe on rename)", async () => {
+  test("allows renaming to a name that collides with another file owned by the same user (documents current behavior: no dedupe on rename)", async () => {
     await withTestDatabase(async ({ context, db }) => {
       const authenticated = await createAuthenticatedApp({
         context,
         email: "patch-collision@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-      const folder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: authenticated.user.userId,
-      });
       await context.repositories.file.create({
-        clientId: client.clientId,
-        folderId: folder.folderId,
         key: "existing-key",
         mimeType: "text/plain",
         name: "taken.txt",
@@ -2076,8 +1226,6 @@ describe("PATCH /clients/:clientId/files/:fileId", () => {
         userId: authenticated.user.userId,
       });
       const file = await context.repositories.file.create({
-        clientId: client.clientId,
-        folderId: folder.folderId,
         key: "own-key",
         mimeType: "text/plain",
         name: "old-name.txt",
@@ -2087,7 +1235,7 @@ describe("PATCH /clients/:clientId/files/:fileId", () => {
       });
 
       const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/${file.fileId}`,
+        `/api/files/${file.fileId}`,
         {
           body: JSON.stringify({ name: "taken.txt" }),
           headers: {
@@ -2111,27 +1259,14 @@ describe("PATCH /clients/:clientId/files/:fileId", () => {
   });
 });
 
-describe("GET /clients/:clientId/files/:fileId/download", () => {
+describe("GET /files/:fileId/download", () => {
   test("returns a signed download url for the caller's own file", async () => {
     await withTestDatabase(async ({ context }) => {
       const authenticated = await createAuthenticatedApp({
         context,
         email: "download-owner@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-      const folder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: authenticated.user.userId,
-      });
       const file = await context.repositories.file.create({
-        clientId: client.clientId,
-        folderId: folder.folderId,
         key: "own-key",
         mimeType: "text/plain",
         name: "own.txt",
@@ -2141,7 +1276,7 @@ describe("GET /clients/:clientId/files/:fileId/download", () => {
       });
 
       const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/${file.fileId}/download`,
+        `/api/files/${file.fileId}/download`,
         { headers: { Cookie: authenticated.cookie } },
       );
       const body = await parseJson(
@@ -2164,20 +1299,7 @@ describe("GET /clients/:clientId/files/:fileId/download", () => {
         context,
         email: "download-attacker@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: owner.user.userId,
-      });
-      const folder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: owner.user.userId,
-      });
       const file = await context.repositories.file.create({
-        clientId: client.clientId,
-        folderId: folder.folderId,
         key: "own-key",
         mimeType: "text/plain",
         name: "own.txt",
@@ -2187,7 +1309,7 @@ describe("GET /clients/:clientId/files/:fileId/download", () => {
       });
 
       const response = await attacker.app.request(
-        `/api/clients/${client.clientId}/files/${file.fileId}/download`,
+        `/api/files/${file.fileId}/download`,
         { headers: { Cookie: attacker.cookie } },
       );
 
@@ -2201,14 +1323,9 @@ describe("GET /clients/:clientId/files/:fileId/download", () => {
         context,
         email: "download-invalid-id@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
 
       const response = await authenticated.app.request(
-        `/api/clients/${client.clientId}/files/not-a-number/download`,
+        "/api/files/not-a-number/download",
         { headers: { Cookie: authenticated.cookie } },
       );
 
@@ -2224,20 +1341,7 @@ describe("Authentication", () => {
         context,
         email: "unauthenticated-files@example.com",
       });
-      const client = await context.repositories.client.create({
-        email: "acme@example.com",
-        name: "Acme Corp",
-        userId: authenticated.user.userId,
-      });
-      const folder = await context.repositories.folder.create({
-        clientId: client.clientId,
-        name: "Contracts",
-        parentId: null,
-        userId: authenticated.user.userId,
-      });
       const file = await context.repositories.file.create({
-        clientId: client.clientId,
-        folderId: folder.folderId,
         key: "own-key",
         mimeType: "text/plain",
         name: "own.txt",
@@ -2254,39 +1358,29 @@ describe("Authentication", () => {
       );
 
       const requests = [
-        new Request(`http://localhost/api/clients/${client.clientId}/files`),
-        new Request(
-          `http://localhost/api/clients/${client.clientId}/files/multipart`,
-          {
-            body: JSON.stringify({
-              folderId: folder.folderId,
-              mimeType: "application/pdf",
-              name: "agreement.pdf",
-              sizeBytes: 1024,
-            }),
-            headers: { "Content-Type": "application/json" },
-            method: "POST",
-          },
-        ),
-        new Request(`http://localhost/api/clients/${client.clientId}/files`, {
+        new Request("http://localhost/api/files"),
+        new Request("http://localhost/api/files/multipart", {
+          body: JSON.stringify({
+            mimeType: "application/pdf",
+            name: "agreement.pdf",
+            sizeBytes: 1024,
+          }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        }),
+        new Request("http://localhost/api/files", {
           body: formData,
           method: "POST",
         }),
-        new Request(
-          `http://localhost/api/clients/${client.clientId}/files/${file.fileId}`,
-          { method: "DELETE" },
-        ),
-        new Request(
-          `http://localhost/api/clients/${client.clientId}/files/${file.fileId}`,
-          {
-            body: JSON.stringify({ name: "renamed.txt" }),
-            headers: { "Content-Type": "application/json" },
-            method: "PATCH",
-          },
-        ),
-        new Request(
-          `http://localhost/api/clients/${client.clientId}/files/${file.fileId}/download`,
-        ),
+        new Request(`http://localhost/api/files/${file.fileId}`, {
+          method: "DELETE",
+        }),
+        new Request(`http://localhost/api/files/${file.fileId}`, {
+          body: JSON.stringify({ name: "renamed.txt" }),
+          headers: { "Content-Type": "application/json" },
+          method: "PATCH",
+        }),
+        new Request(`http://localhost/api/files/${file.fileId}/download`),
       ];
 
       const responses = await Promise.all(

@@ -2,59 +2,23 @@ import crypto from "crypto";
 import { NotFoundError } from "@server/lib/errors";
 import { BaseService } from "@server/lib/base-service";
 import { MULTIPART_PART_SIZE_BYTES } from "@repo/constants/files";
-import { isChunkableMimeType } from "@server/services/chunking";
-import { CHUNKING_MAX_FILE_SIZE_BYTES } from "@server/config/constants";
 
 export class FileService extends BaseService {
-  private async assertLocationOwnership(where: {
-    clientId: number;
-    folderId: number | null;
-    userId: string;
-  }) {
-    const client = await this.context.repositories.client.findByClientId(where);
-
-    if (!client) {
-      throw new NotFoundError({ message: "Client not found." });
-    }
-
-    if (where.folderId === null) return;
-
-    const folder = await this.context.repositories.folder.findByFolderId({
-      folderId: where.folderId,
-      clientId: where.clientId,
-      userId: where.userId,
-    });
-
-    if (!folder) {
-      throw new NotFoundError({ message: "Folder not found." });
-    }
-  }
-
-  public async list(where: {
-    clientId: number;
-    folderId: number | null;
-    userId: string;
-    page?: number;
-  }) {
-    await this.assertLocationOwnership(where);
-
+  public async list(where: { userId: string; page?: number; search?: string }) {
     const page = where.page || 1;
 
-    const { files, lastPage } =
-      await this.context.repositories.file.listByLocation({
-        clientId: where.clientId,
-        folderId: where.folderId,
+    const { files, lastPage } = await this.context.repositories.file.listByUser(
+      {
         userId: where.userId,
         page,
-      });
+        search: where.search,
+      },
+    );
 
     return { files, meta: { page, lastPage } };
   }
 
-  private async generateUniqueName(
-    where: { clientId: number; folderId: number | null; userId: string },
-    name: string,
-  ) {
+  private async generateUniqueName(where: { userId: string }, name: string) {
     const dotIndex = name.lastIndexOf(".");
     const hasExtension = dotIndex >= 0;
     const base = hasExtension ? name.slice(0, dotIndex) : name;
@@ -76,29 +40,10 @@ export class FileService extends BaseService {
     return candidate;
   }
 
-  private async enqueueChunkingIfSupported(file: {
-    fileId: number;
-    clientId: number | null;
-    userId: string | null;
-    mimeType: string;
-    sizeBytes: number;
-  }) {
-    if (!isChunkableMimeType(file.mimeType)) return;
-    if (file.sizeBytes > CHUNKING_MAX_FILE_SIZE_BYTES) return;
-    if (file.clientId === null || file.userId === null) return;
-
-    await this.context.queueHub.chunking.add(
-      { clientId: file.clientId, userId: file.userId, fileId: file.fileId },
-      { idempotencyKey: `chunking-${file.fileId}` },
-    );
-  }
-
   public async createMultipartUpload(
-    where: { clientId: number; folderId: number | null; userId: string },
+    where: { userId: string },
     input: { name: string; sizeBytes: number; mimeType: string },
   ) {
-    await this.assertLocationOwnership(where);
-
     const name = await this.generateUniqueName(where, input.name);
     const key = crypto.randomUUID() + name;
 
@@ -118,7 +63,7 @@ export class FileService extends BaseService {
   }
 
   public async completeMultipartUpload(
-    where: { clientId: number; folderId: number | null; userId: string },
+    where: { userId: string },
     input: {
       uploadId: string;
       key: string;
@@ -128,8 +73,6 @@ export class FileService extends BaseService {
       parts: { partNumber: number; eTag: string }[];
     },
   ) {
-    await this.assertLocationOwnership(where);
-
     const name = await this.generateUniqueName(where, input.name);
 
     const { url } = await this.context.storage.completeMultipartUpload({
@@ -144,22 +87,13 @@ export class FileService extends BaseService {
       sizeBytes: input.sizeBytes,
       mimeType: input.mimeType,
       url,
-      clientId: where.clientId,
-      folderId: where.folderId,
       userId: where.userId,
     });
-
-    await this.enqueueChunkingIfSupported(file);
 
     return file;
   }
 
-  public async abortMultipartUpload(
-    where: { clientId: number; folderId: number | null; userId: string },
-    input: { uploadId: string; key: string },
-  ) {
-    await this.assertLocationOwnership(where);
-
+  public async abortMultipartUpload(input: { uploadId: string; key: string }) {
     await this.context.storage.abortMultipartUpload({
       key: input.key,
       uploadId: input.uploadId,
@@ -167,11 +101,9 @@ export class FileService extends BaseService {
   }
 
   public async upload(
-    where: { clientId: number; folderId: number | null; userId: string },
+    where: { userId: string },
     input: { name: string; mimeType: string; sizeBytes: number; body: Buffer },
   ) {
-    await this.assertLocationOwnership(where);
-
     const name = await this.generateUniqueName(where, input.name);
     const key = crypto.randomUUID() + name;
     const { url } = await this.context.storage.uploadFile({
@@ -186,18 +118,14 @@ export class FileService extends BaseService {
       sizeBytes: input.sizeBytes,
       mimeType: input.mimeType,
       url,
-      clientId: where.clientId,
-      folderId: where.folderId,
       userId: where.userId,
     });
-
-    await this.enqueueChunkingIfSupported(file);
 
     return file;
   }
 
   public async update(
-    where: { clientId: number; userId: string; fileId: number },
+    where: { userId: string; fileId: number },
     input: { name: string },
   ) {
     const file = await this.context.repositories.file.update(where, input);
@@ -209,11 +137,7 @@ export class FileService extends BaseService {
     return file;
   }
 
-  public async getDownloadUrl(where: {
-    clientId: number;
-    userId: string;
-    fileId: number;
-  }) {
+  public async getDownloadUrl(where: { userId: string; fileId: number }) {
     const file = await this.context.repositories.file.findScoped(where);
 
     if (!file) {
@@ -226,11 +150,7 @@ export class FileService extends BaseService {
     });
   }
 
-  public async remove(where: {
-    clientId: number;
-    userId: string;
-    fileId: number;
-  }) {
+  public async remove(where: { userId: string; fileId: number }) {
     const file = await this.context.repositories.file.findScoped(where);
 
     if (!file) {

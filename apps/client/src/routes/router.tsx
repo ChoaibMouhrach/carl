@@ -13,8 +13,7 @@ import { userAccountRoute } from "./user/account";
 import { userDashboardRoute } from "./user/dashboard";
 import { userLayoutRoute } from "./user/layout";
 import { userBillingRoute } from "./user/billing";
-import { userClientsRoute } from "./user/clients";
-import { userClientFoldersRoute } from "./user/client-folders";
+import { userFilesRoute } from "./user/files";
 import { userSelectPlanRoute } from "./user/select-plan";
 
 export const routeTree = rootRoute.addChildren([
@@ -30,8 +29,7 @@ export const routeTree = rootRoute.addChildren([
     userDashboardRoute,
     userAccountRoute,
     userBillingRoute,
-    userClientsRoute,
-    userClientFoldersRoute,
+    userFilesRoute,
   ]),
   userSelectPlanRoute,
   authRouteTree,

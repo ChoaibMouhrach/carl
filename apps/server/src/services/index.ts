@@ -7,11 +7,7 @@ import { BillingAccessService } from "./billing-access";
 import { NotificationService } from "./notification";
 import { QueueService } from "./queue";
 import { HealthService } from "./health";
-import { ClientService } from "./client";
-import { FolderService } from "./folder";
 import { FileService } from "./file";
-import { ChunkingService } from "./chunking";
-import { McpService } from "./mcp";
 
 interface ServicesConstructorParams {
   context: Context;
@@ -26,11 +22,7 @@ export class Services {
   public notification;
   public queue;
   public health;
-  public client;
-  public folder;
   public file;
-  public chunking;
-  public mcp;
 
   public constructor({ context }: ServicesConstructorParams) {
     this.platformSetup = new PlatformSetupService({
@@ -57,14 +49,6 @@ export class Services {
 
     this.health = new HealthService({ context });
 
-    this.client = new ClientService({ context });
-
-    this.folder = new FolderService({ context });
-
     this.file = new FileService({ context });
-
-    this.chunking = new ChunkingService({ context });
-
-    this.mcp = new McpService({ context });
   }
 }

@@ -5,10 +5,6 @@ import { FileRepository } from "./file";
 import { BillingRepository } from "./billing";
 import { NotificationRepository } from "./notification";
 import { HealthRepository } from "./health";
-import { ClientRepository } from "./client";
-import { FolderRepository } from "./folder";
-import { ChunkRepository } from "./chunk";
-import { McpRepository } from "./mcp";
 
 interface RepositoriesConstructorProps {
   dbConnection: DBConnection;
@@ -24,10 +20,6 @@ export class Repositories {
   public billing;
   public notification;
   public health;
-  public client;
-  public folder;
-  public chunk;
-  public mcp;
 
   public constructor({ dbConnection }: RepositoriesConstructorProps) {
     this.pool = dbConnection.pool;
@@ -54,22 +46,6 @@ export class Repositories {
     });
 
     this.notification = new NotificationRepository({
-      db: dbConnection.db,
-    });
-
-    this.client = new ClientRepository({
-      db: dbConnection.db,
-    });
-
-    this.folder = new FolderRepository({
-      db: dbConnection.db,
-    });
-
-    this.chunk = new ChunkRepository({
-      db: dbConnection.db,
-    });
-
-    this.mcp = new McpRepository({
       db: dbConnection.db,
     });
   }

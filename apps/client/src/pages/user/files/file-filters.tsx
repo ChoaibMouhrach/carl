@@ -2,27 +2,27 @@ import { Search } from "@/components/search";
 import { Button } from "@repo/ui/components/ui/button";
 import { useTranslation } from "react-i18next";
 
-interface ClientFiltersProps {
-  onAddClick: () => void;
+interface FileFiltersProps {
+  onUploadClick: () => void;
   onSearch: (search: string | undefined) => void;
   search?: string;
 }
 
-export const ClientFilters = ({
-  onAddClick,
+export const FileFilters = ({
+  onUploadClick,
   onSearch,
   search,
-}: ClientFiltersProps) => {
+}: FileFiltersProps) => {
   const { t } = useTranslation();
 
   return (
     <div className="flex items-center justify-between gap-2">
       <Search
         onSearch={onSearch}
-        placeholder={t("clients.search")}
+        placeholder={t("files.search")}
         value={search}
       />
-      <Button onClick={onAddClick}>{t("clients.add")}</Button>
+      <Button onClick={onUploadClick}>{t("files.upload")}</Button>
     </div>
   );
 };

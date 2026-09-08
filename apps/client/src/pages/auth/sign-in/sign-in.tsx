@@ -18,8 +18,6 @@ import {
   unwrapAuthResponse,
 } from "@/lib/auth-client";
 import { onError } from "@/lib/base-api";
-import { env } from "@/config/env";
-import { getPendingMcpAuthorizeQuery } from "@/lib/mcp-authorize";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Separator } from "@repo/ui/components/ui/separator";
@@ -30,7 +28,6 @@ import {
   AlertTitle,
 } from "@repo/ui/components/ui/alert";
 import { MailCheck } from "lucide-react";
-import { useState } from "react";
 import { toast } from "sonner";
 
 const signInSchema = z.object({
@@ -43,10 +40,6 @@ type Output = z.output<typeof signInSchema>;
 export const SignIn = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const [pendingAuthorizeQuery] = useState(() =>
-    getPendingMcpAuthorizeQuery(window.location.search),
-  );
-  const [isConnecting, setIsConnecting] = useState(false);
 
   const form = useForm({
     resolver: zodResolver(signInSchema),
@@ -66,12 +59,6 @@ export const SignIn = () => {
       );
     },
     onSuccess: () => {
-      if (pendingAuthorizeQuery) {
-        setIsConnecting(true);
-        window.location.href = `${env.VITE_API_URL}/api/auth/mcp/authorize?${pendingAuthorizeQuery}`;
-        return;
-      }
-
       navigate({ to: "/dashboard" });
     },
     onError: (error) => {
@@ -108,22 +95,6 @@ export const SignIn = () => {
   const onSubmit = (output: Output) => {
     signIn.mutate(output);
   };
-
-  if (isConnecting) {
-    return (
-      <div className="flex w-full max-w-sm flex-col items-center gap-4 text-center">
-        <Spinner />
-        <div>
-          <h1 className="text-xl font-medium">
-            {t("auth.signIn.connecting.title")}
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            {t("auth.signIn.connecting.description")}
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)}>

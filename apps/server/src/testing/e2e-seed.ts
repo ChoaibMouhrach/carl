@@ -4,13 +4,7 @@ import IORedis from "ioredis";
 import { initDB, type DB } from "../infrastructure/database/client";
 import {
   billingCustomersTable,
-  chunksTable,
-  clientsTable,
   filesTable,
-  foldersTable,
-  oauthAccessTokenTable,
-  oauthApplicationTable,
-  oauthConsentTable,
   sessionTable,
   subscriptionsTable,
   userTable,
@@ -400,120 +394,9 @@ export const userExists = async (
     return Boolean(user);
   });
 
-export interface SeededClient {
-  clientId: number;
-  userId: string;
-  name: string;
-  email: string;
-}
-
-export const createClient = async (
-  config: SeedConfig,
-  input: { userId: string; name?: string; email?: string },
-): Promise<SeededClient> =>
-  withDb(config, async (db) => {
-    const [row] = await db
-      .insert(clientsTable)
-      .values({
-        userId: input.userId,
-        name: input.name ?? "E2E Client",
-        email: input.email ?? `e2e-client-${crypto.randomUUID()}@example.com`,
-      })
-      .returning();
-
-    if (!row) {
-      throw new Error("failed to create client");
-    }
-
-    return row;
-  });
-
-export const getClient = async (
-  config: SeedConfig,
-  clientId: number,
-): Promise<SeededClient | null> =>
-  withDb(config, async (db) => {
-    const [row] = await db
-      .select()
-      .from(clientsTable)
-      .where(eq(clientsTable.clientId, clientId))
-      .limit(1);
-
-    return row ?? null;
-  });
-
-export const findClientByEmail = async (
-  config: SeedConfig,
-  email: string,
-): Promise<SeededClient | null> =>
-  withDb(config, async (db) => {
-    const [row] = await db
-      .select()
-      .from(clientsTable)
-      .where(eq(clientsTable.email, email))
-      .limit(1);
-
-    return row ?? null;
-  });
-
-export const clientExists = async (
-  config: SeedConfig,
-  clientId: number,
-): Promise<boolean> => (await getClient(config, clientId)) !== null;
-
-export const countClientsByUser = async (
-  config: SeedConfig,
-  userId: string,
-): Promise<number> =>
-  withDb(config, async (db) => {
-    const [row] = await db
-      .select({ count: sql`COUNT(*)`.mapWith(Number) })
-      .from(clientsTable)
-      .where(eq(clientsTable.userId, userId));
-
-    return row?.count ?? 0;
-  });
-
-export interface SeededFolder {
-  folderId: number;
-  clientId: number;
-  userId: string;
-  parentId: number | null;
-  name: string;
-}
-
-export const createFolder = async (
-  config: SeedConfig,
-  input: {
-    clientId: number;
-    userId: string;
-    name: string;
-    parentId?: number | null;
-  },
-): Promise<SeededFolder> =>
-  withDb(config, async (db) => {
-    const [row] = await db
-      .insert(foldersTable)
-      .values({
-        clientId: input.clientId,
-        userId: input.userId,
-        name: input.name,
-        parentId: input.parentId ?? null,
-      })
-      .returning();
-
-    if (!row) {
-      throw new Error("failed to create folder");
-    }
-
-    return row;
-  });
-
 export interface SeededFile {
   fileId: number;
-  clientId: number | null;
-  userId: string | null;
-  folderId: number | null;
+  userId: string;
   name: string;
   sizeBytes: number;
   mimeType: string;
@@ -524,9 +407,7 @@ export interface SeededFile {
 export const createFile = async (
   config: SeedConfig,
   input: {
-    clientId: number;
     userId: string;
-    folderId?: number | null;
     name: string;
     sizeBytes?: number;
     mimeType?: string;
@@ -538,9 +419,7 @@ export const createFile = async (
     const [row] = await db
       .insert(filesTable)
       .values({
-        clientId: input.clientId,
         userId: input.userId,
-        folderId: input.folderId ?? null,
         name: input.name,
         sizeBytes: input.sizeBytes ?? 1024,
         mimeType: input.mimeType ?? "text/plain",
@@ -554,20 +433,6 @@ export const createFile = async (
     }
 
     return row;
-  });
-
-export const getFolder = async (
-  config: SeedConfig,
-  folderId: number,
-): Promise<SeededFolder | null> =>
-  withDb(config, async (db) => {
-    const [row] = await db
-      .select()
-      .from(foldersTable)
-      .where(eq(foldersTable.folderId, folderId))
-      .limit(1);
-
-    return row ?? null;
   });
 
 export const getFile = async (
@@ -584,82 +449,39 @@ export const getFile = async (
     return row ?? null;
   });
 
-export const findFolderByName = async (
-  config: SeedConfig,
-  where: { clientId: number; parentId: number | null; name: string },
-): Promise<SeededFolder | null> =>
-  withDb(config, async (db) => {
-    const conditions = [
-      eq(foldersTable.clientId, where.clientId),
-      eq(foldersTable.name, where.name),
-      where.parentId === null
-        ? sql`${foldersTable.parentId} IS NULL`
-        : eq(foldersTable.parentId, where.parentId),
-    ];
-
-    const [row] = await db
-      .select()
-      .from(foldersTable)
-      .where(and(...conditions))
-      .limit(1);
-
-    return row ?? null;
-  });
-
 export const findFileByName = async (
   config: SeedConfig,
-  where: { clientId: number; folderId: number | null; name: string },
+  where: { userId: string; name: string },
 ): Promise<SeededFile | null> =>
   withDb(config, async (db) => {
-    const conditions = [
-      eq(filesTable.clientId, where.clientId),
-      eq(filesTable.name, where.name),
-      where.folderId === null
-        ? sql`${filesTable.folderId} IS NULL`
-        : eq(filesTable.folderId, where.folderId),
-    ];
-
     const [row] = await db
       .select()
       .from(filesTable)
-      .where(and(...conditions))
+      .where(
+        and(
+          eq(filesTable.userId, where.userId),
+          eq(filesTable.name, where.name),
+        ),
+      )
       .limit(1);
 
     return row ?? null;
   });
-
-export const folderExists = async (
-  config: SeedConfig,
-  folderId: number,
-): Promise<boolean> => (await getFolder(config, folderId)) !== null;
 
 export const fileExists = async (
   config: SeedConfig,
   fileId: number,
 ): Promise<boolean> => (await getFile(config, fileId)) !== null;
 
-export const countFoldersByClient = async (
+export const countFilesByUser = async (
   config: SeedConfig,
-  clientId: number,
-): Promise<number> =>
-  withDb(config, async (db) => {
-    const [row] = await db
-      .select({ count: sql`COUNT(*)`.mapWith(Number) })
-      .from(foldersTable)
-      .where(eq(foldersTable.clientId, clientId));
-
-    return row?.count ?? 0;
-  });
-
-export const countFilesByClient = async (
-  config: SeedConfig,
-  clientId: number,
+  userId: string,
 ): Promise<number> =>
   withDb(config, async (db) => {
     const [row] = await db
       .select({ count: sql`COUNT(*)`.mapWith(Number) })
       .from(filesTable)
-      .where(eq(filesTable.clientId, clientId));
+      .where(eq(filesTable.userId, userId));
 
     return row?.count ?? 0;
   });
@@ -689,110 +511,3 @@ export const getPasswordResetToken = async (
 
     return verification.identifier.slice(RESET_PASSWORD_PREFIX.length);
   });
-
-export interface SeededMcpConnection {
-  clientId: string;
-  userId: string;
-  name: string;
-}
-
-export const createMcpConnection = async (
-  config: SeedConfig,
-  input: {
-    userId: string;
-    clientId?: string;
-    name?: string;
-    lastUsedAt?: Date;
-  },
-): Promise<SeededMcpConnection> =>
-  withDb(config, async (db) => {
-    const clientId = input.clientId ?? crypto.randomUUID();
-    const name = input.name ?? "E2E MCP App";
-
-    await db.insert(oauthApplicationTable).values({
-      id: crypto.randomUUID(),
-      clientId,
-      name,
-      redirectUrls: "",
-      type: "public",
-      userId: input.userId,
-    });
-
-    await db.insert(oauthAccessTokenTable).values({
-      id: crypto.randomUUID(),
-      accessToken: crypto.randomUUID(),
-      refreshToken: crypto.randomUUID(),
-      accessTokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
-      refreshTokenExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      clientId,
-      userId: input.userId,
-      scopes: "openid",
-      createdAt: input.lastUsedAt,
-    });
-
-    await db.insert(oauthConsentTable).values({
-      id: crypto.randomUUID(),
-      clientId,
-      userId: input.userId,
-      scopes: "openid",
-      consentGiven: true,
-    });
-
-    return { clientId, userId: input.userId, name };
-  });
-
-export const mcpConnectionExists = async (
-  config: SeedConfig,
-  where: { clientId: string; userId: string },
-): Promise<boolean> =>
-  withDb(config, async (db) => {
-    const [row] = await db
-      .select({ clientId: oauthAccessTokenTable.clientId })
-      .from(oauthAccessTokenTable)
-      .where(
-        and(
-          eq(oauthAccessTokenTable.clientId, where.clientId),
-          eq(oauthAccessTokenTable.userId, where.userId),
-        ),
-      )
-      .limit(1);
-
-    return Boolean(row);
-  });
-
-export const countChunksByFile = async (
-  config: SeedConfig,
-  fileId: number,
-): Promise<number> =>
-  withDb(config, async (db) => {
-    const [row] = await db
-      .select({ count: sql`COUNT(*)`.mapWith(Number) })
-      .from(chunksTable)
-      .where(eq(chunksTable.fileId, fileId));
-
-    return row?.count ?? 0;
-  });
-
-export interface SeededChunk {
-  chunkId: number;
-  fileId: number;
-  position: number;
-  content: string;
-}
-
-export const getChunksByFile = async (
-  config: SeedConfig,
-  fileId: number,
-): Promise<SeededChunk[]> =>
-  withDb(config, async (db) =>
-    db
-      .select({
-        chunkId: chunksTable.chunkId,
-        fileId: chunksTable.fileId,
-        position: chunksTable.position,
-        content: chunksTable.content,
-      })
-      .from(chunksTable)
-      .where(eq(chunksTable.fileId, fileId))
-      .orderBy(chunksTable.position),
-  );

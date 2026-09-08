@@ -7,8 +7,7 @@ import { billingController } from "./billing";
 import { notificationController } from "./notification";
 import { queueController } from "./queue";
 import { accountController } from "./account";
-import { clientController } from "./client";
-import { mcpController } from "./mcp";
+import { fileController } from "./file";
 
 export const controllers = new Hono<AppContext>()
   .route("/account", accountController)
@@ -18,5 +17,4 @@ export const controllers = new Hono<AppContext>()
   .route("/notifications", notificationController)
   .route("/users", userController)
   .route("/queues", queueController)
-  .route("/clients", clientController)
-  .route("/mcp", mcpController);
+  .route("/files", fileController);

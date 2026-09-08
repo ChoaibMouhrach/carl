@@ -14,11 +14,13 @@ export const storageController = new Hono<AppContext>()
     describeRoute({ tags: ["storage"] }),
     validator("json", createSignedUrlSchema),
     async (context) => {
+      const { userId } = context.get("auth").user;
       const body = context.req.valid("json");
 
       const { signedUrl, fileId, url } = await context
         .get("services")
         .storage.getSignedUrl({
+          userId,
           name: body.name,
           mimeType: body.mimeType,
           sizeBytes: body.sizeBytes,

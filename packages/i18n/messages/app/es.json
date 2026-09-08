@@ -8,7 +8,8 @@
     "dashboard": "Panel",
     "billing": "Facturación",
     "users": "Usuarios",
-    "queues": "Colas"
+    "queues": "Colas",
+    "files": "Archivos"
   },
   "auth": {
     "signIn": {
@@ -22,11 +23,7 @@
       "verificationSent": "Correo de verificación enviado",
       "verificationSentDescription": "Enviamos un nuevo enlace de verificación a {{email}}. Revisa tu bandeja de entrada.",
       "verificationResent": "Se envió un nuevo enlace de verificación.",
-      "createAccount": "Crear una cuenta",
-      "connecting": {
-        "title": "Has iniciado sesión",
-        "description": "Te estamos llevando de vuelta para terminar de conectar la app…"
-      }
+      "createAccount": "Crear una cuenta"
     },
     "signUp": {
       "title": "Crear una cuenta",
@@ -178,31 +175,6 @@
         "description": "Esto cerrará todas las demás sesiones activas. Tu sesión actual seguirá activa.",
         "keep": "Mantener los dispositivos conectados",
         "confirm": "Cerrar sesión en otros dispositivos"
-      }
-    },
-    "mcpConnections": {
-      "title": "Conexiones MCP",
-      "description": "Apps conectadas a tu cuenta mediante el Model Context Protocol.",
-      "endpointLabel": "Endpoint de MCP",
-      "copy": "Copiar",
-      "copied": "¡Copiado!",
-      "howTo": {
-        "title": "Cómo conectar",
-        "step1": "Copia el endpoint de MCP de arriba.",
-        "step2": "Añádelo como servidor MCP remoto en tu cliente MCP (por ejemplo, Claude).",
-        "step3": "Inicia sesión y aprueba el acceso cuando se te solicite.",
-        "step4": "La conexión aparecerá en la lista de abajo."
-      },
-      "empty": "Todavía no hay ninguna app conectada.",
-      "connectedAt": "Conectada el {{date}}",
-      "lastUsedAt": "Último uso {{date}}",
-      "revoke": "Revocar",
-      "revokedToast": "Conexión revocada.",
-      "dialog": {
-        "title": "¿Revocar esta conexión?",
-        "description": "La app perderá el acceso a tu cuenta y a sus datos a través de MCP. Podrás volver a conectarla más adelante.",
-        "cancel": "Cancelar",
-        "confirm": "Revocar"
       }
     },
     "language": {
