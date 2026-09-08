@@ -1,5 +1,5 @@
 {
-  "name": "docucy",
+  "name": "saasTemplate",
   "short_name": "SaaS",
   "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }],
   "theme_color": "#7c3aed",

@@ -1,11 +1,11 @@
 {
   "metadata": {
-    "title": "docucy — Build what only you can build",
+    "title": "saasTemplate — Build what only you can build",
     "description": "A clean, typed foundation for building focused SaaS products.",
-    "siteName": "docucy"
+    "siteName": "saasTemplate"
   },
   "nav": {
-    "home": "docucy home",
+    "home": "saasTemplate home",
     "blog": "Blog",
     "signIn": "Sign in"
   },
@@ -78,7 +78,7 @@
   "hero": {
     "badge": "A clean foundation for your next product",
     "title": "Build the part only you can build.",
-    "description": "docucy gives you the essential infrastructure—accounts, setup, database, API, and a polished app shell—without inheriting another product's assumptions.",
+    "description": "saasTemplate gives you the essential infrastructure—accounts, setup, database, API, and a polished app shell—without inheriting another product's assumptions.",
     "openApp": "Open the app",
     "exploreFoundation": "Explore the foundation"
   },

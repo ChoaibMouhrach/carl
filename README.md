@@ -1,4 +1,4 @@
-# docucy
+# saasTemplate
 
 A clean, typed, batteries-included foundation for building focused SaaS products.
 It gives you the essential infrastructure — accounts, first-admin setup, billing,
@@ -178,7 +178,7 @@ POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
 POSTGRES_USER=postgres
 POSTGRES_PASS=postgres
-POSTGRES_NAME=docucy
+POSTGRES_NAME=saasTemplate
 
 REDIS_HOST=localhost
 REDIS_PORT=6379

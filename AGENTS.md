@@ -1,4 +1,4 @@
-# docucy
+# saasTemplate
 
 At the start of each conversation, read the following package.json files to understand available scripts and dependencies:
 

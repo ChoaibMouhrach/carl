@@ -1,6 +1,6 @@
 services:
   postgres:
-    container_name: docucy-postgres
+    container_name: saasTemplate-postgres
     image: pgvector/pgvector:pg17
     ports:
       - "${POSTGRES_PORT}:5432"
@@ -18,7 +18,7 @@ services:
       start_period: 10s
 
   redis:
-    container_name: docucy-redis
+    container_name: saasTemplate-redis
     image: redis:8-alpine
     command: redis-server --requirepass ${REDIS_PASSWORD}
     ports:
@@ -32,11 +32,11 @@ services:
       retries: 5
       start_period: 5s
 
-  # Presigned S3 URLs point browsers straight at this endpoint, so docucy
+  # Presigned S3 URLs point browsers straight at this endpoint, so saasTemplate
   # shares this container's network namespace instead of talking to it over
   # the compose network — S3_ENDPOINT must resolve identically for both.
   minio:
-    container_name: docucy-minio
+    container_name: saasTemplate-minio
     image: minio/minio:latest
     command: server /data --console-address ":9001"
     environment:
@@ -58,7 +58,7 @@ services:
   # multipart uploads are auto-aborted after stale_uploads_expiry (24h) —
   # this step only needs to create the bucket.
   minio-init:
-    container_name: docucy-minio-init
+    container_name: saasTemplate-minio-init
     image: minio/mc:latest
     depends_on:
       minio:
