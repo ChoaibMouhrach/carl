@@ -1,6 +1,6 @@
 import * as React from "react";
-
 import { cn } from "@repo/ui/utils";
+
 import { Button } from "@repo/ui/components/ui/button";
 import {
   ChevronLeftIcon,
@@ -27,7 +27,7 @@ function PaginationContent({
   return (
     <ul
       data-slot="pagination-content"
-      className={cn("flex items-center gap-0.5", className)}
+      className={cn("flex items-center gap-1", className)}
       {...props}
     />
   );
@@ -39,55 +39,46 @@ function PaginationItem({ ...props }: React.ComponentProps<"li">) {
 
 type PaginationLinkProps = {
   isActive?: boolean;
+  disabled?: boolean;
 } & Pick<React.ComponentProps<typeof Button>, "size"> &
   React.ComponentProps<"a">;
 
 function PaginationLink({
   className,
   isActive,
+  disabled,
   size = "icon",
   ...props
 }: PaginationLinkProps) {
   return (
     <Button
-      asChild
       variant={isActive ? "outline" : "ghost"}
       size={size}
       className={cn(className)}
-    >
-      <a
-        aria-current={isActive ? "page" : undefined}
-        data-slot="pagination-link"
-        data-active={isActive}
-        {...props}
-      />
-    </Button>
+      disabled={disabled}
+      nativeButton={false}
+      render={
+        <a
+          aria-current={isActive ? "page" : undefined}
+          data-slot="pagination-link"
+          data-active={isActive}
+          {...props}
+        />
+      }
+    />
   );
 }
 
 function PaginationPrevious({
   className,
   text = "Previous",
-  disabled = false,
   ...props
-}: React.ComponentProps<typeof PaginationLink> & {
-  text?: string;
-  disabled?: boolean;
-}) {
-  if (disabled) {
-    return (
-      <Button disabled size="default" variant="ghost">
-        <ChevronLeftIcon data-icon="inline-start" />
-        <span className="hidden sm:block">{text}</span>
-      </Button>
-    );
-  }
-
+}: React.ComponentProps<typeof PaginationLink> & { text?: string }) {
   return (
     <PaginationLink
       aria-label="Go to previous page"
       size="default"
-      className={cn("pl-1.5!", className)}
+      className={cn("pl-2!", className)}
       {...props}
     >
       <ChevronLeftIcon data-icon="inline-start" />
@@ -99,26 +90,13 @@ function PaginationPrevious({
 function PaginationNext({
   className,
   text = "Next",
-  disabled = false,
   ...props
-}: React.ComponentProps<typeof PaginationLink> & {
-  text?: string;
-  disabled?: boolean;
-}) {
-  if (disabled) {
-    return (
-      <Button disabled size="default" variant="ghost">
-        <span className="hidden sm:block">{text}</span>
-        <ChevronRightIcon data-icon="inline-end" />
-      </Button>
-    );
-  }
-
+}: React.ComponentProps<typeof PaginationLink> & { text?: string }) {
   return (
     <PaginationLink
       aria-label="Go to next page"
       size="default"
-      className={cn("pr-1.5!", className)}
+      className={cn("pr-2!", className)}
       {...props}
     >
       <span className="hidden sm:block">{text}</span>
@@ -136,7 +114,7 @@ function PaginationEllipsis({
       aria-hidden
       data-slot="pagination-ellipsis"
       className={cn(
-        "flex size-8 items-center justify-center [&_svg:not([class*='size-'])]:size-4",
+        "flex size-9 items-center justify-center [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       {...props}
