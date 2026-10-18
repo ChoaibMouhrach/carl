@@ -57,7 +57,10 @@ jobs:
       # production and avoids dev-server flakiness. Postgres/redis are
       # already up and healthy at this point (started by ci-setup, from
       # the same compose project), so this only builds and starts the app
-      # container. POSTGRES_HOST/REDIS_HOST are overridden to the sibling
+      # container. The image holds no config: compose passes .env (the CI
+      # env) to the container at runtime via env_file, the same way
+      # Dockploy injects its environment. POSTGRES_HOST/REDIS_HOST are
+      # overridden to the sibling
       # containers' names since the app runs on the docker network, not
       # the runner's host network where .env's "localhost" resolves.
       - name: Build and start carl
@@ -96,17 +99,12 @@ jobs:
   build:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: prod
     permissions:
       contents: read
       packages: write
 
     steps:
       - uses: actions/checkout@v6
-
-      - name: Create .env from secrets
-        run: |
-          echo '${{ toJson(secrets) }}' | jq -r 'to_entries[] | select(.key != "github_token") | "\(.key)=\(.value)"' > .env
 
       - uses: docker/setup-buildx-action@v3
 

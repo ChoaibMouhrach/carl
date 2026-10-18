@@ -292,9 +292,18 @@ dashboard doesn't have a test setup yet.
 the dashboard (`./client`) from one
 process on `API_PORT`.
 
-CI ([`.github/workflows/build-and-push.yml`](.github/workflows/build-and-push.yml))
-builds the image and pushes it to GitHub Container Registry on every push to
-`main`. Secrets are materialized into `.env` at build time.
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) builds the image and
+pushes it to GitHub Container Registry on every push to `main`. The image
+contains **no configuration and no secrets**: nothing is read from GitHub
+secrets or a `.env` at build time (`.env*` files are excluded from the build
+context). Set every variable from [`.env.example`](.env.example) in your
+platform's environment manager (e.g. Dockploy) instead; the container reads
+them when it starts.
+
+The dashboard's `VITE_API_URL` and `VITE_SENTRY_DSN` are runtime values too:
+the server injects them into `index.html` as `window.__ENV__` on each request,
+so the same image works for any environment. (In `bun run dev`, Vite reads them
+from `.env` as usual.)
 
 > **Note:** when adding a new workspace package, add a matching
 > `COPY packages/<name>/package.json …` line to the `Dockerfile`'s install stage,
