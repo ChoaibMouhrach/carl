@@ -20,14 +20,23 @@ export const CLIENT_URL = process.env.E2E_BASE_URL ?? WEB_ORIGIN;
 
 export const API_URL = process.env.VITE_API_URL ?? "http://localhost:3002";
 
-export const seedConfig = (): SeedConfig => ({
-  apiUrl: API_URL,
-  authSecret: required("BETTER_AUTH_SECRET"),
-  redisUrl: `redis://:${encodeURIComponent(required("REDIS_PASSWORD"))}@${required("REDIS_HOST")}:${required("REDIS_PORT")}`,
-  webOrigin: WEB_ORIGIN,
-  databaseUrl: `postgresql://${required("POSTGRES_USER")}:${encodeURIComponent(
+// Same rule as the server: a connection URL wins, otherwise the individual keys are used.
+const redisUrl = () =>
+  process.env.REDIS_URL ||
+  `redis://:${encodeURIComponent(required("REDIS_PASSWORD"))}@${required("REDIS_HOST")}:${required("REDIS_PORT")}`;
+
+const databaseUrl = () =>
+  process.env.POSTGRES_URL ||
+  `postgresql://${encodeURIComponent(required("POSTGRES_USER"))}:${encodeURIComponent(
     required("POSTGRES_PASS"),
   )}@${required("POSTGRES_HOST")}:${required("POSTGRES_PORT")}/${required(
     "POSTGRES_NAME",
-  )}`,
+  )}`;
+
+export const seedConfig = (): SeedConfig => ({
+  apiUrl: API_URL,
+  authSecret: required("BETTER_AUTH_SECRET"),
+  redisUrl: redisUrl(),
+  webOrigin: WEB_ORIGIN,
+  databaseUrl: databaseUrl(),
 });
