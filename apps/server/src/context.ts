@@ -1,6 +1,7 @@
 import { initDB } from "./infrastructure/database/client";
 import { PinoLogger } from "./infrastructure/logger/pino";
 import { initENV } from "./config/env";
+import { DEFAULT_SKOOL_SEARCHES } from "./config/constants";
 import { Repositories } from "./repositories";
 import type { BaseLogger } from "./lib/base-logger";
 import type { BaseMailer } from "./lib/base-mailer";
@@ -16,6 +17,8 @@ import { createAuth } from "./infrastructure/auth";
 import type { BaseErrorMonitor } from "./lib/base-error-monitor";
 import { DisabledErrorMonitor } from "./infrastructure/error-monitor/disabled";
 import { SentryErrorMonitor } from "./infrastructure/error-monitor/sentry";
+import type { BaseSkoolScraper } from "./lib/base-skool-scraper";
+import { CustomSkoolScraper } from "./infrastructure/skool/custom";
 
 export const initContext = async () => {
   const logger: BaseLogger = new PinoLogger();
@@ -73,6 +76,8 @@ export const initContext = async () => {
         redisUrl: env.REDIS_CONNECTION_STRING,
       });
 
+  const skoolScraper: BaseSkoolScraper = new CustomSkoolScraper();
+
   const auth = createAuth({ db: dbConnection.db, env, queueHub });
 
   return {
@@ -84,6 +89,8 @@ export const initContext = async () => {
     env,
     auth,
     errorMonitor,
+    skoolScraper,
+    discoveryCriteria: DEFAULT_SKOOL_SEARCHES,
   };
 };
 

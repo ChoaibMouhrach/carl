@@ -6,6 +6,7 @@ import {
   getTableColumns,
   gte,
   ilike,
+  inArray,
   or,
   sql,
 } from "drizzle-orm";
@@ -136,6 +137,30 @@ export class CommunityRepository extends BaseRepository {
         sql`${CommunityRepository.table.estMonthlyRevenue} DESC NULLS LAST`,
         desc(CommunityRepository.table.communityId),
       );
+  }
+
+  public async findLeadIdsBySkoolIds(where: { skoolIds: string[] }) {
+    if (where.skoolIds.length === 0) return [];
+
+    return await this.db
+      .select({
+        skoolId: CommunityRepository.table.skoolId,
+        leadId: CommunityRepository.table.leadId,
+      })
+      .from(CommunityRepository.table)
+      .where(inArray(CommunityRepository.table.skoolId, where.skoolIds));
+  }
+
+  public async createIfMissing(
+    input: CommunityInsert,
+  ): Promise<Community | null> {
+    const communities = await this.db
+      .insert(CommunityRepository.table)
+      .values(input)
+      .onConflictDoNothing()
+      .returning();
+
+    return communities.at(0) || null;
   }
 
   public async create(input: CommunityInsert): Promise<Community> {

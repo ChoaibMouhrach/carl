@@ -4,6 +4,8 @@ import { QueueService } from "./queue";
 import { HealthService } from "./health";
 import { LeadService } from "./lead";
 import { CommunityService } from "./community";
+import { ScrapeService } from "./scrape";
+import { CampaignService } from "./campaign";
 
 interface ServicesConstructorParams {
   context: Context;
@@ -15,6 +17,8 @@ export class Services {
   public health;
   public lead;
   public community;
+  public scrape;
+  public campaign;
 
   public constructor({ context }: ServicesConstructorParams) {
     this.platformSetup = new PlatformSetupService({
@@ -28,5 +32,9 @@ export class Services {
     this.lead = new LeadService({ context });
 
     this.community = new CommunityService({ context });
+
+    this.scrape = new ScrapeService({ context });
+
+    this.campaign = new CampaignService({ context });
   }
 }

@@ -1,4 +1,5 @@
 import {
+  boolean,
   doublePrecision,
   integer,
   jsonb,
@@ -23,6 +24,21 @@ export type MembershipQuestion = {
   options?: string[];
 };
 
+export type CommunityTier = {
+  tier: string;
+  model: string;
+  benefits: string[];
+  hasMonthly: boolean;
+  hasAnnual: boolean;
+  hasOneTime: boolean;
+  active: boolean;
+};
+
+export type CommunityLink = {
+  url: string;
+  label: string;
+};
+
 export const communitiesTable = pgTable("communities", {
   communityId: id(),
 
@@ -45,6 +61,30 @@ export const communitiesTable = pgTable("communities", {
     .$type<MembershipQuestion[]>()
     .notNull()
     .default([]),
+
+  accessType: text().$type<"public" | "private">(),
+  /** Skool's internal membership model: 1 free, 2 paid, 3 freemium, 4 tiers, 5 one-time */
+  membershipModel: integer(),
+  plan: text(),
+  freeTrialEnabled: boolean().notNull().default(false),
+  logoUrl: text(),
+  coverUrl: text(),
+  freeBenefits: jsonb().$type<string[]>().notNull().default([]),
+  tiers: jsonb().$type<CommunityTier[]>().notNull().default([]),
+  links: jsonb().$type<CommunityLink[]>().notNull().default([]),
+
+  // -- activity
+  postCount: integer(),
+  adminCount: integer(),
+  courseCount: integer(),
+  moduleCount: integer(),
+  reviewCount: integer(),
+  reviewRating: doublePrecision(),
+  affiliatePercent: integer(),
+
+  // -- discovery
+  discoveryKeyword: text(),
+  discoverySearch: text(),
 
   // -- pricing
   pricingType: text().$type<CommunityPrice["type"]>().notNull(),

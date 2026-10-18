@@ -4,6 +4,9 @@ import { SettingRepository } from "./setting";
 import { HealthRepository } from "./health";
 import { LeadRepository } from "./lead";
 import { CommunityRepository } from "./community";
+import { CampaignRepository } from "./campaign";
+import { CampaignLeadRepository } from "./campaign-lead";
+import { ScrapeRunRepository } from "./scrape-run";
 
 interface RepositoriesConstructorProps {
   dbConnection: DBConnection;
@@ -18,6 +21,9 @@ export class Repositories {
   public health;
   public lead;
   public community;
+  public campaign;
+  public campaignLead;
+  public scrapeRun;
 
   public constructor({ dbConnection }: RepositoriesConstructorProps) {
     this.pool = dbConnection.pool;
@@ -40,6 +46,18 @@ export class Repositories {
     });
 
     this.community = new CommunityRepository({
+      db: dbConnection.db,
+    });
+
+    this.campaign = new CampaignRepository({
+      db: dbConnection.db,
+    });
+
+    this.campaignLead = new CampaignLeadRepository({
+      db: dbConnection.db,
+    });
+
+    this.scrapeRun = new ScrapeRunRepository({
       db: dbConnection.db,
     });
   }

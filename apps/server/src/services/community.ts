@@ -1,4 +1,5 @@
 import { BaseService } from "@server/lib/base-service";
+import { derivePricing } from "@server/lib/pricing";
 import {
   BadRequestError,
   ConflictError,
@@ -78,7 +79,7 @@ export class CommunityService extends BaseService {
 
     return await this.context.repositories.community.create({
       ...input,
-      ...this.derivePricing(input.prices, input.memberCount),
+      ...derivePricing(this.normalizePrices(input.prices), input.memberCount),
     });
   }
 
@@ -95,8 +96,8 @@ export class CommunityService extends BaseService {
 
     const pricing =
       prices !== undefined || fields.memberCount !== undefined
-        ? this.derivePricing(
-            prices ?? current.prices,
+        ? derivePricing(
+            this.normalizePrices(prices ?? current.prices),
             fields.memberCount ?? current.memberCount,
           )
         : {};
@@ -138,11 +139,10 @@ export class CommunityService extends BaseService {
     }
   }
 
-  private derivePricing(
+  private normalizePrices(
     inputPrices: (PriceInput | CommunityPrice)[],
-    memberCount: number,
-  ) {
-    const prices: CommunityPrice[] = inputPrices.map((price) =>
+  ): CommunityPrice[] {
+    return inputPrices.map((price) =>
       price.type === "free"
         ? { type: "free", interval: null, amount: 0, currency: null }
         : {
@@ -152,28 +152,5 @@ export class CommunityService extends BaseService {
             currency: price.currency,
           },
     );
-
-    const primary = prices[0]!;
-
-    const monthly = prices.find(
-      (price) => price.type === "paid" && price.interval === "month",
-    );
-    const yearly = prices.find(
-      (price) => price.type === "paid" && price.interval === "year",
-    );
-    const monthlyCents =
-      monthly?.amount ?? (yearly ? yearly.amount / 12 : null);
-    const monthlyPriceUsd = monthlyCents === null ? null : monthlyCents / 100;
-
-    return {
-      prices,
-      pricingType: primary.type,
-      pricingInterval: primary.interval,
-      priceAmount: primary.amount,
-      priceCurrency: primary.currency,
-      monthlyPriceUsd,
-      estMonthlyRevenue:
-        monthlyPriceUsd === null ? null : monthlyPriceUsd * memberCount,
-    };
   }
 }

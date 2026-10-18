@@ -22,6 +22,20 @@
       "when": 1792353351182,
       "tag": "0002_orange_susan_delgado",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792355720193,
+      "tag": "0003_skool_scrape_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792357350575,
+      "tag": "0004_campaigns",
+      "breakpoints": true
     }
   ]
 }

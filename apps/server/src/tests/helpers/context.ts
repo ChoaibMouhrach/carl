@@ -12,6 +12,7 @@ import {
   type ListFailedInput,
   type ListFailedResult,
   type MaintenanceJob,
+  type ScrapeJob,
   type QueueConsumer,
   type QueueJobCounts,
   type RegisteredQueue,
@@ -24,6 +25,9 @@ import type { AppContext, AuthAppContext } from "@server/app";
 import type { MiddlewareHandler } from "hono";
 import type { Pool } from "pg";
 import { createAuth } from "@server/infrastructure/auth";
+import type { BaseSkoolScraper } from "@server/lib/base-skool-scraper";
+import { CustomSkoolScraper } from "@server/infrastructure/skool/custom";
+import { DEFAULT_SKOOL_SEARCHES } from "@server/config/constants";
 
 class TestLogger extends BaseLogger {
   public override async info(_message: string | object): Promise<void> {}
@@ -186,6 +190,7 @@ const toTestFailedJob = <Input>(job: TestJob<Input>): FailedJob => ({
 export class TestQueueHub extends BaseQueueHub {
   public email: TestQueue<EmailJob>;
   public maintenance: TestQueue<MaintenanceJob>;
+  public scrape: TestQueue<ScrapeJob>;
 
   public constructor(init: { mailer: BaseMailer }) {
     super();
@@ -197,12 +202,16 @@ export class TestQueueHub extends BaseQueueHub {
     this.maintenance = new TestQueue<MaintenanceJob>({
       process: async () => {},
     });
+    this.scrape = new TestQueue<ScrapeJob>({
+      process: async () => {},
+    });
   }
 
   public override queues(): RegisteredQueue[] {
     return [
       { name: "email", queue: this.email },
       { name: "maintenance", queue: this.maintenance },
+      { name: "scrape", queue: this.scrape },
     ];
   }
 
@@ -243,6 +252,7 @@ export const createContext = (
   env: ENV,
   mailer: BaseMailer = new TestMailer(),
   rateLimiter: BaseRateLimiter = new TestRateLimiter(),
+  skoolScraper: BaseSkoolScraper = new CustomSkoolScraper(),
 ): Context => {
   const queueHub = new TestQueueHub({ mailer });
 
@@ -255,5 +265,7 @@ export const createContext = (
     queueHub,
     rateLimiter,
     repositories: new Repositories({ dbConnection: { db, pool } }),
+    skoolScraper,
+    discoveryCriteria: DEFAULT_SKOOL_SEARCHES,
   };
 };

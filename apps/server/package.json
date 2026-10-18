@@ -16,6 +16,7 @@
     "typecheck": "tsc -b --noEmit",
     "check:env": "bun run src/config/env.ts",
     "seed": "bun run src/seed.ts",
+    "scrape": "bun run src/scripts/scrape.ts",
     "build": "bun build ./src/index.ts --compile --outfile dist/carl",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

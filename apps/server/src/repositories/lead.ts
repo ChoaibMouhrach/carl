@@ -106,6 +106,16 @@ export class LeadRepository extends BaseRepository {
     return leads.at(0) || null;
   }
 
+  public async createIfMissing(input: LeadInsert): Promise<Lead | null> {
+    const leads = await this.db
+      .insert(LeadRepository.table)
+      .values(input)
+      .onConflictDoNothing()
+      .returning();
+
+    return leads.at(0) || null;
+  }
+
   public async create(input: LeadInsert): Promise<Lead> {
     const leads = await this.db
       .insert(LeadRepository.table)

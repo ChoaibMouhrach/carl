@@ -4,6 +4,8 @@ export type EmailSender = "auth";
 
 export type EmailJob = SendEmailProps<EmailSender>;
 
+export type ScrapeJob = { scrapeRunId: number };
+
 export type MaintenanceJob = { type: "check-queue-backlog" };
 
 export type QueueConsumer<Input> = (input: Input) => Promise<void>;
@@ -76,6 +78,7 @@ export interface RegisteredQueue {
 export abstract class BaseQueueHub {
   public abstract email: BaseQueue<EmailJob>;
   public abstract maintenance: BaseQueue<MaintenanceJob>;
+  public abstract scrape: BaseQueue<ScrapeJob>;
 
   public abstract queues(): RegisteredQueue[];
 

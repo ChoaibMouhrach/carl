@@ -10,6 +10,7 @@ import {
   type ListFailedInput,
   type ListFailedResult,
   type MaintenanceJob,
+  type ScrapeJob,
   type QueueConsumer,
   type QueueJobCounts,
   type RegisteredQueue,
@@ -22,6 +23,10 @@ const emailJobName = "send";
 const maintenanceQueueName = "maintenance";
 const maintenanceJobName = "run";
 const maintenanceConcurrency = 1;
+
+const scrapeQueueName = "scrape";
+const scrapeJobName = "run";
+const scrapeConcurrency = 1;
 
 const FAILED_JOB_RETENTION_SECONDS = 60 * 60 * 24 * 7;
 const FAILED_JOB_RETENTION_COUNT = 5_000;
@@ -260,14 +265,31 @@ export class MaintenanceQueue extends BullQueue<MaintenanceJob> {
   }
 }
 
+export class ScrapeQueue extends BullQueue<ScrapeJob> {
+  public constructor(init: MaintenanceQueueInit) {
+    super({
+      ...init,
+      concurrency: scrapeConcurrency,
+      jobName: scrapeJobName,
+      name: scrapeQueueName,
+    });
+  }
+}
+
 export class QueueHub extends BaseQueueHub {
   public email: EmailQueue;
   public maintenance: MaintenanceQueue;
+  public scrape: ScrapeQueue;
 
   public constructor(init: EmailQueueInit) {
     super();
     this.email = new EmailQueue(init);
     this.maintenance = new MaintenanceQueue({
+      errorMonitor: init.errorMonitor,
+      logger: init.logger,
+      redisUrl: init.redisUrl,
+    });
+    this.scrape = new ScrapeQueue({
       errorMonitor: init.errorMonitor,
       logger: init.logger,
       redisUrl: init.redisUrl,
@@ -278,11 +300,13 @@ export class QueueHub extends BaseQueueHub {
     return [
       { name: emailQueueName, queue: this.email },
       { name: maintenanceQueueName, queue: this.maintenance },
+      { name: scrapeQueueName, queue: this.scrape },
     ];
   }
 
   public override async close(): Promise<void> {
     await this.email.close();
     await this.maintenance.close();
+    await this.scrape.close();
   }
 }
