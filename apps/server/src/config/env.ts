@@ -12,6 +12,7 @@ const schema = z.object({
   // API
   API_PORT: z.coerce.number().int().positive(),
   VITE_API_URL: z.url(),
+  VITE_SENTRY_DSN: z.url().optional(),
 
   // CLIENT
   CLIENT_URL: z.url(),

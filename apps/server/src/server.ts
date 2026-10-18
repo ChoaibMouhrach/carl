@@ -1,5 +1,6 @@
 import { initApp } from "./app";
 import { initContext } from "./context";
+import { readClientHtml } from "./http/client-html";
 import { Workers } from "./workers";
 
 const CHECK_QUEUE_BACKLOG_CRON = "* * * * *";
@@ -18,7 +19,9 @@ export const initServer = async () => {
       return c.notFound();
     }
 
-    return c.html(await Bun.file("./client/index.html").text());
+    const html = await readClientHtml(context.env);
+
+    return html ? c.html(html) : c.notFound();
   });
 
   await context.queueHub.maintenance.schedule({

@@ -1,10 +1,11 @@
-import { Hono } from "hono";
+import { Hono, type Context as HonoContext } from "hono";
 import { cors } from "hono/cors";
 import { serveStatic } from "hono/bun";
 import { Services } from "./services";
 import { AppError } from "./lib/errors";
 import type { Context } from "./context";
 import { AppRedirect } from "./http/utils";
+import { readClientHtml } from "./http/client-html";
 import type { Role } from "./config/constants";
 import { controllers } from "./http/controllers";
 import { openAPIRouteHandler } from "hono-openapi";
@@ -124,6 +125,14 @@ export const initApp = async (params: initAppParams) => {
     return context.json(report, report.status === "unhealthy" ? 503 : 200);
   });
 
+  const serveClientHtml = async (context: HonoContext<AppContext>) => {
+    const html = await readClientHtml(params.context.env);
+
+    return html ? context.html(html) : context.notFound();
+  };
+
+  app.get("/", serveClientHtml);
+  app.get("/index.html", serveClientHtml);
   app.use("/*", serveStatic({ root: "./client" }));
 
   return app;
