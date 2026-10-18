@@ -1,0 +1,108 @@
+import { api } from "@/api";
+import { DataPagination } from "@/components/data-pagination";
+import { TableSkeleton } from "@/components/table-skeleton";
+import { onError } from "@/lib/base-api";
+import { invalidateLeadData } from "@/lib/invalidate";
+import { adminCommunitiesRoute } from "@/routes/admin/communities";
+import { Button } from "@repo/ui/components/ui/button";
+import { Card, CardContent } from "@repo/ui/components/ui/card";
+import { Link } from "@tanstack/react-router";
+import { PlusIcon } from "lucide-react";
+import { Skeleton } from "@repo/ui/components/ui/skeleton";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import { CommunityFilters } from "./community-filters";
+import { CommunityTable } from "./community-table";
+
+export const Communities = () => {
+  const { t } = useTranslation();
+  const searchParams = adminCommunitiesRoute.useSearch();
+  const navigate = adminCommunitiesRoute.useNavigate();
+  const queryClient = useQueryClient();
+
+  const communities = useQuery({
+    queryKey: ["admin", "communities", searchParams],
+    queryFn: () => api.community.list(searchParams),
+    placeholderData: (previousData) => previousData,
+  });
+
+  const remove = useMutation({
+    mutationFn: (communityId: number) => api.community.remove({ communityId }),
+    onError,
+    onSuccess: async () => {
+      toast.success(t("adminCommunities.deleted"));
+      await invalidateLeadData(queryClient);
+    },
+  });
+
+  if (communities.isPending) {
+    return (
+      <Card>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Skeleton className="h-9 w-64" />
+              <Skeleton className="h-9 w-24" />
+              <Skeleton className="ml-auto h-9 w-40" />
+            </div>
+            <TableSkeleton columns={5} />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (communities.isError) {
+    throw communities.error;
+  }
+
+  return (
+    <Card>
+      <CardContent>
+        <div className="space-y-4">
+          <CommunityFilters
+            createAction={
+              <Button render={<Link to="/admin/communities/new" search={{}} />}>
+                <PlusIcon />
+                {t("adminCommunities.create")}
+              </Button>
+            }
+            onApplyFilters={(filters) =>
+              navigate({
+                search: (current) => ({ ...current, page: 1, ...filters }),
+              })
+            }
+            onSearch={(search) =>
+              navigate({
+                search: (current) => ({ ...current, page: 1, search }),
+              })
+            }
+            filters={{
+              minMembers: searchParams.minMembers,
+              minRevenue: searchParams.minRevenue,
+              pricingType: searchParams.pricingType,
+              sortBy: searchParams.sortBy,
+              sortOrder: searchParams.sortOrder,
+            }}
+            search={searchParams.search}
+          />
+          <CommunityTable
+            communities={communities.data.communities}
+            isMutating={remove.isPending}
+            onRemove={(communityId) => remove.mutate(communityId)}
+            removingCommunityId={remove.variables}
+            showLead
+          />
+          <DataPagination
+            currentPage={communities.data.meta.page}
+            lastPage={communities.data.meta.lastPage}
+            onPageChange={(page) =>
+              navigate({ search: (current) => ({ ...current, page }) })
+            }
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+};

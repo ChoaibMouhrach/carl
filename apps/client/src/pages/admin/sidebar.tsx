@@ -16,6 +16,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Logo, LogoWithText } from "@repo/ui/logo-mark";
 import {
+  Building2Icon,
   LayersIcon,
   LayoutDashboardIcon,
   UsersIcon,
@@ -31,8 +32,12 @@ interface AdminSidebarProps {
 }
 
 interface NavigationItem {
-  labelKey: "nav.dashboard" | "nav.users" | "nav.queues";
-  to: "/admin/dashboard" | "/admin/users" | "/admin/queues";
+  labelKey: "nav.dashboard" | "nav.leads" | "nav.communities" | "nav.queues";
+  to:
+    | "/admin/dashboard"
+    | "/admin/leads"
+    | "/admin/communities"
+    | "/admin/queues";
   icon: LucideIcon;
 }
 
@@ -43,9 +48,14 @@ const navigation: NavigationItem[] = [
     icon: LayoutDashboardIcon,
   },
   {
-    labelKey: "nav.users",
-    to: "/admin/users",
+    labelKey: "nav.leads",
+    to: "/admin/leads",
     icon: UsersIcon,
+  },
+  {
+    labelKey: "nav.communities",
+    to: "/admin/communities",
+    icon: Building2Icon,
   },
   {
     labelKey: "nav.queues",
@@ -69,21 +79,19 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              asChild
               size="lg"
-              tooltip="Rizon"
+              tooltip="Carl"
               className="[&>svg]:size-8! [&>svg:first-child]:h-8! [&>svg:first-child]:w-auto!"
+              render={<Link to="/admin/dashboard" />}
             >
-              <Link to="/admin/dashboard">
-                <LogoWithText
-                  size={64}
-                  className="group-data-[collapsible=icon]:hidden"
-                />
-                <Logo
-                  size={28}
-                  className="hidden group-data-[collapsible=icon]:block"
-                />
-              </Link>
+              <LogoWithText
+                size={64}
+                className="group-data-[collapsible=icon]:hidden"
+              />
+              <Logo
+                size={28}
+                className="hidden group-data-[collapsible=icon]:block"
+              />
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -96,14 +104,15 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
               {navigation.map((item) => (
                 <SidebarMenuItem key={item.to}>
                   <SidebarMenuButton
-                    asChild
-                    isActive={location.pathname === item.to}
+                    isActive={
+                      location.pathname === item.to ||
+                      location.pathname.startsWith(`${item.to}/`)
+                    }
                     tooltip={t(item.labelKey)}
+                    render={<Link to={item.to} onClick={closeOnMobile} />}
                   >
-                    <Link to={item.to} onClick={closeOnMobile}>
-                      <item.icon />
-                      <span>{t(item.labelKey)}</span>
-                    </Link>
+                    <item.icon />
+                    <span>{t(item.labelKey)}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -115,7 +124,6 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
       <SidebarFooter>
         <ProfileDropdown
           user={user}
-          accountPath="/admin/account"
           onNavigate={closeOnMobile}
           className="w-full justify-start overflow-hidden group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:p-0!"
         />

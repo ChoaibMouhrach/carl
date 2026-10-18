@@ -139,15 +139,17 @@ export const FailedJobsTable = ({
                     {t("adminQueues.retry")}
                   </Button>
                   <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button disabled={isMutating} size="sm" variant="ghost">
-                        {removingJobId === job.id ? (
-                          <Spinner />
-                        ) : (
-                          <Trash2Icon />
-                        )}
-                        {t("adminQueues.remove")}
-                      </Button>
+                    <AlertDialogTrigger
+                      render={
+                        <Button
+                          disabled={isMutating}
+                          size="sm"
+                          variant="ghost"
+                        />
+                      }
+                    >
+                      {removingJobId === job.id ? <Spinner /> : <Trash2Icon />}
+                      {t("adminQueues.remove")}
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
@@ -162,7 +164,10 @@ export const FailedJobsTable = ({
                         <AlertDialogCancel>
                           {t("adminQueues.cancel")}
                         </AlertDialogCancel>
-                        <AlertDialogAction onClick={() => onRemove(job.id)}>
+                        <AlertDialogAction
+                          onClick={() => onRemove(job.id)}
+                          variant="destructive"
+                        >
                           {t("adminQueues.remove")}
                         </AlertDialogAction>
                       </AlertDialogFooter>

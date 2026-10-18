@@ -9,10 +9,12 @@ interface SearchProps {
   value?: string;
   delay?: number;
   className?: string;
+  id?: string;
 }
 
 export const Search: React.FC<SearchProps> = ({
   className,
+  id,
   onSearch,
   placeholder = "Search...",
   value,
@@ -38,6 +40,7 @@ export const Search: React.FC<SearchProps> = ({
 
   return (
     <Input
+      id={id}
       placeholder={placeholder}
       value={input}
       onChange={onChange}
