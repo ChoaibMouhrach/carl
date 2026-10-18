@@ -10,6 +10,7 @@ import { LanguageCard } from "@/components/language-card";
 import { getRouteApi } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { ChangeEmail } from "./change-email";
+import { Passkeys } from "./passkeys";
 import { SessionManagement } from "./session-management";
 
 const route = getRouteApi("/admin-layout");
@@ -37,6 +38,18 @@ export const Account = () => {
         </CardHeader>
         <CardContent>
           <ChangePassword />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("settings.passkeys.title")}</CardTitle>
+          <CardDescription>
+            {t("settings.passkeys.description")}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Passkeys />
         </CardContent>
       </Card>
 

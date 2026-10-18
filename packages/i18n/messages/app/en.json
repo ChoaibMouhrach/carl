@@ -145,6 +145,26 @@
     "language": {
       "title": "Language",
       "description": "Choose the language used across the app."
+    },
+    "passkeys": {
+      "title": "Passkeys",
+      "description": "Sign in with your fingerprint, face or a security key instead of a password.",
+      "nameLabel": "Passkey name",
+      "namePlaceholder": "e.g. MacBook Touch ID (optional)",
+      "add": "Add passkey",
+      "addedToast": "Passkey added.",
+      "removedToast": "Passkey removed.",
+      "empty": "You haven't added any passkeys yet.",
+      "unsupported": "This browser doesn't support passkeys.",
+      "unnamed": "Passkey",
+      "createdOn": "Added {{date}}",
+      "synced": "Synced across devices",
+      "deviceBound": "This device only",
+      "actions": "Passkey actions",
+      "delete": "Delete",
+      "cancel": "Cancel",
+      "deleteTitle": "Delete this passkey?",
+      "deleteDescription": "You won't be able to sign in with it any more. This action cannot be undone."
     }
   },
   "password": {

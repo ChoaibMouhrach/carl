@@ -24,8 +24,8 @@ interface RowActionsProps {
   deleteDescription: string;
   deleteLabel: string;
   deleteTitle: string;
-  edit: React.ReactElement;
-  editLabel: string;
+  edit?: React.ReactElement;
+  editLabel?: string;
   isDeleting: boolean;
   isDisabled: boolean;
   menuLabel: string;
@@ -65,10 +65,12 @@ export const RowActions = ({
           {isDeleting ? <Spinner /> : <MoreHorizontalIcon />}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem render={edit}>
-            <PencilIcon />
-            {editLabel}
-          </DropdownMenuItem>
+          {edit && (
+            <DropdownMenuItem render={edit}>
+              <PencilIcon />
+              {editLabel}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem
             onClick={() => setIsDeleteOpen(true)}
             variant="destructive"

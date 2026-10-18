@@ -145,6 +145,26 @@
     "language": {
       "title": "Idioma",
       "description": "Elige el idioma utilizado en la aplicación."
+    },
+    "passkeys": {
+      "title": "Llaves de acceso (passkeys)",
+      "description": "Inicia sesión con tu huella, tu rostro o una llave de seguridad en lugar de una contraseña.",
+      "nameLabel": "Nombre de la llave de acceso",
+      "namePlaceholder": "p. ej. Touch ID del MacBook (opcional)",
+      "add": "Añadir llave de acceso",
+      "addedToast": "Llave de acceso añadida.",
+      "removedToast": "Llave de acceso eliminada.",
+      "empty": "Aún no has añadido ninguna llave de acceso.",
+      "unsupported": "Este navegador no admite llaves de acceso.",
+      "unnamed": "Llave de acceso",
+      "createdOn": "Añadida el {{date}}",
+      "synced": "Sincronizada entre dispositivos",
+      "deviceBound": "Solo este dispositivo",
+      "actions": "Acciones de la llave de acceso",
+      "delete": "Eliminar",
+      "cancel": "Cancelar",
+      "deleteTitle": "¿Eliminar esta llave de acceso?",
+      "deleteDescription": "Ya no podrás iniciar sesión con ella. Esta acción no se puede deshacer."
     }
   },
   "password": {

@@ -145,6 +145,26 @@
     "language": {
       "title": "Langue",
       "description": "Choisissez la langue utilisée dans l’application."
+    },
+    "passkeys": {
+      "title": "Clés d'accès (passkeys)",
+      "description": "Connectez-vous avec votre empreinte, votre visage ou une clé de sécurité plutôt qu'un mot de passe.",
+      "nameLabel": "Nom de la clé d'accès",
+      "namePlaceholder": "ex. Touch ID du MacBook (facultatif)",
+      "add": "Ajouter une clé d'accès",
+      "addedToast": "Clé d'accès ajoutée.",
+      "removedToast": "Clé d'accès supprimée.",
+      "empty": "Vous n'avez pas encore ajouté de clé d'accès.",
+      "unsupported": "Ce navigateur ne prend pas en charge les clés d'accès.",
+      "unnamed": "Clé d'accès",
+      "createdOn": "Ajoutée le {{date}}",
+      "synced": "Synchronisée entre appareils",
+      "deviceBound": "Cet appareil uniquement",
+      "actions": "Actions de la clé d'accès",
+      "delete": "Supprimer",
+      "cancel": "Annuler",
+      "deleteTitle": "Supprimer cette clé d'accès ?",
+      "deleteDescription": "Vous ne pourrez plus vous connecter avec. Cette action est irréversible."
     }
   },
   "password": {
