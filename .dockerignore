@@ -12,3 +12,5 @@
 **/coverage
 **/*.log
 **/.s3rver_data
+**/.env
+**/.env.*

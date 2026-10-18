@@ -50,6 +50,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - "${API_PORT:?API_PORT is required}:${API_PORT:?API_PORT is required}"
+    env_file:
+      - path: .env
+        required: false
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST:?POSTGRES_HOST is required}
       REDIS_HOST: ${REDIS_HOST:?REDIS_HOST is required}

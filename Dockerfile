@@ -17,12 +17,12 @@ RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
 
 
 #BUILD
+# No environment is needed (or baked in) here: every value is read at runtime.
 FROM install AS build
 WORKDIR /app
 
 COPY . .
 
-RUN bun run check:env
 RUN --mount=type=cache,target=/app/.turbo,sharing=locked \
     bun run build
 
@@ -31,7 +31,8 @@ RUN --mount=type=cache,target=/app/.turbo,sharing=locked \
 FROM oven/bun:1.3.5-slim AS runtime
 WORKDIR /app/apps/server
 
-COPY --from=build /app/.env /app/.env
+ENV NODE_ENV=production
+
 COPY --from=build /app/apps/server/dist/carl /app/apps/server/carl
 COPY --from=build /app/apps/server/drizzle /app/apps/server/drizzle
 COPY --from=build /app/apps/client/dist /app/apps/server/client
@@ -40,7 +41,9 @@ RUN chown -R bun:bun /app
 USER bun
 
 #RUN
+# Configuration (database, redis, secrets, URLs...) is provided by the
+# platform's environment variables when the container starts.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD bun --env-file=/app/.env -e 'const res = await fetch("http://localhost:" + process.env.API_PORT + "/health"); process.exit(res.ok ? 0 : 1)'
+    CMD bun -e 'const res = await fetch("http://localhost:" + process.env.API_PORT + "/health"); process.exit(res.ok ? 0 : 1)'
 
 CMD ["./carl"]
