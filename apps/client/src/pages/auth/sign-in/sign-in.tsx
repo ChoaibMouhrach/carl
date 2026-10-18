@@ -20,7 +20,6 @@ import {
 import { onError } from "@/lib/base-api";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Separator } from "@repo/ui/components/ui/separator";
 import {
   Alert,
   AlertAction,
@@ -59,7 +58,7 @@ export const SignIn = () => {
       );
     },
     onSuccess: () => {
-      navigate({ to: "/dashboard" });
+      navigate({ to: "/admin/dashboard" });
     },
     onError: (error) => {
       if (
@@ -77,7 +76,7 @@ export const SignIn = () => {
 
       return await unwrapAuthResponse(
         authClient.sendVerificationEmail({
-          callbackURL: `${window.location.origin}/app/email-verified?email=${encodeURIComponent(email)}`,
+          callbackURL: `${window.location.origin}/email-verified?email=${encodeURIComponent(email)}`,
           email,
         }),
       );
@@ -166,16 +165,6 @@ export const SignIn = () => {
             </AlertAction>
           </Alert>
         )}
-
-        <div className="flex items-center gap-4 text-muted-foreground">
-          <Separator className="shrink flex-1" />
-          <span className="text-sm">{t("common.or")}</span>
-          <Separator className="shrink flex-1" />
-        </div>
-
-        <Button size="lg" variant="outline" disabled={signIn.isPending} asChild>
-          <Link to="/sign-up">{t("auth.signIn.createAccount")}</Link>
-        </Button>
       </FieldGroup>
     </form>
   );

@@ -23,16 +23,18 @@ function PasswordInput(props: React.ComponentProps<"input">) {
       <InputGroupAddon align="inline-end">
         <TooltipProvider>
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                aria-label={showPassword ? "Hide password" : "Show password"}
-                onClick={() => setShowPassword(!showPassword)}
-                size="icon-xs"
-                variant="ghost"
-                type="button"
-              >
-                {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-              </Button>
+            <TooltipTrigger
+              render={
+                <Button
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => setShowPassword(!showPassword)}
+                  size="icon-xs"
+                  variant="ghost"
+                  type="button"
+                />
+              }
+            >
+              {showPassword ? <EyeOffIcon /> : <EyeIcon />}
             </TooltipTrigger>
             <TooltipContent>
               {showPassword ? "Hide password" : "Show password"}

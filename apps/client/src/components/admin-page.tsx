@@ -43,8 +43,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                   {index === breadcrumbs.length - 1 ? (
                     <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
                   ) : crumb.href ? (
-                    <BreadcrumbLink asChild>
-                      <Link to={crumb.href}>{crumb.label}</Link>
+                    <BreadcrumbLink render={<Link to={crumb.href} />}>
+                      {crumb.label}
                     </BreadcrumbLink>
                   ) : (
                     <span>{crumb.label}</span>

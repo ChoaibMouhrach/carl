@@ -39,7 +39,7 @@ export const ForgotPassword = () => {
       return unwrapAuthResponse(
         authClient.requestPasswordReset({
           email: output.email,
-          redirectTo: `${window.location.origin}/app/reset-password`,
+          redirectTo: `${window.location.origin}/reset-password`,
         }),
       );
     },
@@ -90,9 +90,10 @@ export const ForgotPassword = () => {
           size="lg"
           variant="outline"
           disabled={forgotPassword.isPending}
-          asChild
+          nativeButton={false}
+          render={<Link to="/sign-in" />}
         >
-          <Link to="/sign-in">{t("common.signIn")}</Link>
+          {t("common.signIn")}
         </Button>
       </FieldGroup>
     </form>

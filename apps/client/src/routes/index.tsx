@@ -5,7 +5,7 @@ export const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
   beforeLoad: () => {
-    throw redirect({ to: "/dashboard" });
+    throw redirect({ to: "/admin/dashboard" });
   },
   component: () => null,
 });

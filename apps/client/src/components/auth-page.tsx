@@ -1,7 +1,5 @@
-import { env } from "@/config/env";
 import { cn } from "@repo/ui/utils";
 import { Logo } from "@repo/ui/logo-mark";
-import { Link } from "@tanstack/react-router";
 
 interface AuthPageProps {
   children?: React.ReactNode;
@@ -20,12 +18,9 @@ interface AuthLogoProps {
 
 export const AuthLogo: React.FC<AuthLogoProps> = ({ className }) => {
   return (
-    <Link
-      to={env.VITE_LP_URL}
-      className={cn("mb-5 flex w-fit items-center", className)}
-    >
+    <div className={cn("mb-5 flex w-fit items-center", className)}>
       <Logo size={48} />
-    </Link>
+    </div>
   );
 };
 

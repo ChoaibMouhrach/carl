@@ -121,9 +121,10 @@ export const ResetPassword = () => {
           size="lg"
           variant="outline"
           disabled={resetPassword.isPending}
-          asChild
+          nativeButton={false}
+          render={<Link to="/sign-in" />}
         >
-          <Link to="/sign-in">{t("common.signIn")}</Link>
+          {t("common.signIn")}
         </Button>
       </FieldGroup>
     </form>

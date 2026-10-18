@@ -2,7 +2,6 @@ import { createRoute } from "@tanstack/react-router";
 import { rootRoute } from "./root";
 import { AuthLayout } from "@/pages/auth/layout";
 import { SignInPage } from "@/pages/auth/sign-in/page";
-import { SignUpPage } from "@/pages/auth/sign-up/page";
 import { EmailVerifiedPage } from "@/pages/auth/email-verified/page";
 import z from "zod";
 import { ForgotPasswordPage } from "@/pages/auth/forgot-password/page";
@@ -20,12 +19,6 @@ export const signInRoute = createRoute({
   getParentRoute: () => authLayout,
   component: () => <SignInPage />,
   path: "/sign-in",
-});
-
-export const signUpRoute = createRoute({
-  getParentRoute: () => authLayout,
-  component: () => <SignUpPage />,
-  path: "/sign-up",
 });
 
 export const emailVerifiedRoute = createRoute({
@@ -53,7 +46,6 @@ export const resetPasswordRoute = createRoute({
 
 export const authRouteTree = authLayout.addChildren([
   signInRoute,
-  signUpRoute,
   emailVerifiedRoute,
   forgotPasswordRoute,
   resetPasswordRoute,

@@ -6,6 +6,6 @@ import { rootRoute } from "../root";
 export const adminLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: "admin-layout",
-  beforeLoad: () => requireAuth("admin"),
+  beforeLoad: () => requireAuth(),
   component: AdminLayout,
 });

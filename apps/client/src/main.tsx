@@ -10,14 +10,13 @@ import "./lib/i18n";
 import { routeTree } from "./routes/router";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "./components/theme-provider";
-import { ROUTER_BASEPATH } from "./config/constants";
 import { env } from "./config/env";
 
 if (env.VITE_SENTRY_DSN) {
   Sentry.init({ dsn: env.VITE_SENTRY_DSN });
 }
 
-const router = createRouter({ routeTree, basepath: ROUTER_BASEPATH });
+const router = createRouter({ routeTree });
 
 declare module "@tanstack/react-router" {
   interface Register {

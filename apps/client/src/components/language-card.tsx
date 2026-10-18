@@ -27,7 +27,12 @@ export const LanguageCard = () => {
         <CardDescription>{t("settings.language.description")}</CardDescription>
       </CardHeader>
       <CardContent>
-        <Select value={current} onValueChange={changeLanguage}>
+        <Select
+          value={current}
+          onValueChange={(value) => {
+            if (value) changeLanguage(value);
+          }}
+        >
           <SelectTrigger className="w-full">
             <SelectValue />
           </SelectTrigger>

@@ -15,11 +15,11 @@ export const LanguageSwitcher = () => {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <Languages className="size-4" />
-          {localeLabels[current]}
-        </Button>
+      <DropdownMenuTrigger
+        render={<Button variant="outline" size="sm" className="gap-2" />}
+      >
+        <Languages className="size-4" />
+        {localeLabels[current]}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuRadioGroup value={current} onValueChange={changeLanguage}>

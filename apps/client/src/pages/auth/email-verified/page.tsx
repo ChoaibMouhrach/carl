@@ -18,7 +18,7 @@ export const EmailVerifiedPage = () => {
     mutationFn: () =>
       unwrapAuthResponse(
         authClient.sendVerificationEmail({
-          callbackURL: `${window.location.origin}/app/email-verified?email=${encodeURIComponent(search.email)}`,
+          callbackURL: `${window.location.origin}/email-verified?email=${encodeURIComponent(search.email)}`,
           email: search.email,
         }),
       ),

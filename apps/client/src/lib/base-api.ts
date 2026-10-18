@@ -5,7 +5,6 @@ import { serverErrorCodes, type ServerErrorCode } from "@repo/constants/errors";
 import { AuthClientError } from "@/lib/auth-client";
 import { getAuthErrorTranslationCode } from "@/lib/auth-errors";
 import i18n from "@/lib/i18n";
-import { ROUTER_BASEPATH } from "@/config/constants";
 
 export type FieldError = {
   field: string;
@@ -91,14 +90,13 @@ export abstract class BaseApi {
           const currentPath = window.location.pathname;
           const isOnAuthPage = [
             "/sign-in",
-            "/sign-up",
             "/email-verified",
             "/forgot-password",
             "/reset-password",
           ].some((path) => currentPath.endsWith(path));
 
           if (!isOnAuthPage) {
-            window.location.href = `${ROUTER_BASEPATH}/sign-in`;
+            window.location.href = "/sign-in";
           }
         }
 
