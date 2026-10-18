@@ -5,7 +5,13 @@ config({
   path: "../../.env",
 });
 
-const schema = z.object({
+const emptyToUndefined = (value: unknown) => (value === "" ? undefined : value);
+
+// Platforms like Dockploy keep unset keys as empty strings.
+const optional = <T extends z.ZodType>(type: T) =>
+  z.preprocess(emptyToUndefined, type.optional());
+
+const baseSchema = z.object({
   // APP
   NODE_ENV: z.enum(["development", "production", "test"]),
 
@@ -20,17 +26,19 @@ const schema = z.object({
   // AUTH
   BETTER_AUTH_SECRET: z.string().min(32),
 
-  // Database
-  POSTGRES_HOST: z.string().nonempty(),
-  POSTGRES_PORT: z.coerce.number().int().positive(),
-  POSTGRES_USER: z.string().nonempty(),
-  POSTGRES_PASS: z.string().nonempty(),
-  POSTGRES_NAME: z.string().nonempty(),
+  // Database: either POSTGRES_URL or all of the individual POSTGRES_* keys
+  POSTGRES_URL: optional(z.url({ protocol: /^postgres(ql)?$/ })),
+  POSTGRES_HOST: optional(z.string()),
+  POSTGRES_PORT: optional(z.coerce.number().int().positive()),
+  POSTGRES_USER: optional(z.string()),
+  POSTGRES_PASS: optional(z.string()),
+  POSTGRES_NAME: optional(z.string()),
 
-  // Queue
-  REDIS_HOST: z.string().nonempty(),
-  REDIS_PORT: z.coerce.number().int().positive(),
-  REDIS_PASSWORD: z.string().nonempty(),
+  // Queue: either REDIS_URL or all of the individual REDIS_* keys
+  REDIS_URL: optional(z.url({ protocol: /^rediss?$/ })),
+  REDIS_HOST: optional(z.string()),
+  REDIS_PORT: optional(z.coerce.number().int().positive()),
+  REDIS_PASSWORD: optional(z.string()),
   RATE_LIMIT_KEY_SECRET: z.string().min(32),
   TRUST_PROXY: z.stringbool().default(false),
   QUEUE_CONCURRENCY: z.coerce.number().int().positive().default(5),
@@ -45,6 +53,72 @@ const schema = z.object({
   SENTRY_DSN: z.url().optional(),
 });
 
+type BaseEnv = z.infer<typeof baseSchema>;
+
+const reportMissing = (
+  ctx: z.core.$RefinementCtx<BaseEnv>,
+  alternative: string,
+  values: Record<string, unknown>,
+) => {
+  for (const [key, value] of Object.entries(values)) {
+    if (value === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        message: `${key} is required unless ${alternative} is set`,
+        path: [key],
+      });
+    }
+  }
+
+  return z.NEVER;
+};
+
+const resolvePostgres = (env: BaseEnv, ctx: z.core.$RefinementCtx<BaseEnv>) => {
+  if (env.POSTGRES_URL) return env.POSTGRES_URL;
+
+  const host = env.POSTGRES_HOST;
+  const port = env.POSTGRES_PORT;
+  const user = env.POSTGRES_USER;
+  const pass = env.POSTGRES_PASS;
+  const name = env.POSTGRES_NAME;
+
+  if (host && port && user && pass && name) {
+    return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(pass)}@${host}:${port}/${name}`;
+  }
+
+  return reportMissing(ctx, "POSTGRES_URL", {
+    POSTGRES_HOST: host,
+    POSTGRES_PORT: port,
+    POSTGRES_USER: user,
+    POSTGRES_PASS: pass,
+    POSTGRES_NAME: name,
+  });
+};
+
+const resolveRedis = (env: BaseEnv, ctx: z.core.$RefinementCtx<BaseEnv>) => {
+  if (env.REDIS_URL) return env.REDIS_URL;
+
+  const host = env.REDIS_HOST;
+  const port = env.REDIS_PORT;
+  const password = env.REDIS_PASSWORD;
+
+  if (host && port && password) {
+    return `redis://:${encodeURIComponent(password)}@${host}:${port}`;
+  }
+
+  return reportMissing(ctx, "REDIS_URL", {
+    REDIS_HOST: host,
+    REDIS_PORT: port,
+    REDIS_PASSWORD: password,
+  });
+};
+
+const schema = baseSchema.transform((env, ctx) => ({
+  ...env,
+  POSTGRES_CONNECTION_STRING: resolvePostgres(env, ctx),
+  REDIS_CONNECTION_STRING: resolveRedis(env, ctx),
+}));
+
 export const initENV = () => {
   const env = schema.parse({
     ...process.env,
@@ -52,12 +126,6 @@ export const initENV = () => {
 
   return {
     ...env,
-
-    // DATABASE
-    POSTGRES_CONNECTION_STRING: `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASS}@${env.POSTGRES_HOST}:${env.POSTGRES_PORT}/${env.POSTGRES_NAME}`,
-
-    // QUEUE
-    REDIS_CONNECTION_STRING: `redis://:${encodeURIComponent(env.REDIS_PASSWORD)}@${env.REDIS_HOST}:${env.REDIS_PORT}`,
 
     // ASSETS — the marketing site (served at the client origin's root) hosts /logo.png
     LOGO_URL: new URL("/logo.png", env.CLIENT_URL).toString(),

@@ -7,6 +7,7 @@ import type { Context } from "@server/context";
 import type { Pool } from "pg";
 import { TEST_DB_TEMPLATE } from "../setup";
 import { createContext } from "./context";
+import { withDatabaseName } from "./database-url";
 
 interface TestDatabase {
   context: Context;
@@ -26,13 +27,10 @@ export const withTestDatabase = async (
     sql.raw(`CREATE DATABASE ${databaseName} TEMPLATE ${TEST_DB_TEMPLATE}`),
   );
   const connection = await initDB({
-    connectionCredentials: {
-      host: env.POSTGRES_HOST,
-      name: databaseName,
-      pass: env.POSTGRES_PASS,
-      port: env.POSTGRES_PORT,
-      user: env.POSTGRES_USER,
-    },
+    connectionCredentials: withDatabaseName(
+      env.POSTGRES_CONNECTION_STRING,
+      databaseName,
+    ),
   });
 
   try {

@@ -2,6 +2,7 @@ import { afterAll, beforeAll } from "bun:test";
 import { sql } from "drizzle-orm";
 import { initENV } from "@server/config/env";
 import { initDB } from "@server/infrastructure/database/client";
+import { withDatabaseName } from "./helpers/database-url";
 
 export const TEST_DB_TEMPLATE = "carl_test_template";
 
@@ -15,13 +16,10 @@ beforeAll(async () => {
   await connection.pool.end();
 
   const template = await initDB({
-    connectionCredentials: {
-      host: env.POSTGRES_HOST,
-      name: TEST_DB_TEMPLATE,
-      pass: env.POSTGRES_PASS,
-      port: env.POSTGRES_PORT,
-      user: env.POSTGRES_USER,
-    },
+    connectionCredentials: withDatabaseName(
+      env.POSTGRES_CONNECTION_STRING,
+      TEST_DB_TEMPLATE,
+    ),
   });
 
   await template.migrate();
