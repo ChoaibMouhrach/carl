@@ -5,71 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1785074843261,
-      "tag": "0000_sloppy_synch",
+      "when": 1792327356194,
+      "tag": "0000_init",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1788517196087,
-      "tag": "0001_chunky_invisible_woman",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1788554156379,
-      "tag": "0002_bright_martin_li",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1788557631291,
-      "tag": "0003_good_multiple_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1788560748080,
-      "tag": "0004_mysterious_thunderball",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1788642512394,
-      "tag": "0005_living_william_stryker",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1788644849246,
-      "tag": "0006_breezy_scrambler",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1788646599946,
-      "tag": "0007_demonic_ben_grimm",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1788829835887,
-      "tag": "0008_puzzling_turbo",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1788864221697,
-      "tag": "0009_perfect_black_tarantula",
+      "when": 1792333920111,
+      "tag": "0001_colossal_magneto",
       "breakpoints": true
     }
   ]

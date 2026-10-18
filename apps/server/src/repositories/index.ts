@@ -1,10 +1,9 @@
 import { UserRepository } from "./user";
 import type { DBConnection } from "@server/infrastructure/database/client";
 import { SettingRepository } from "./setting";
-import { FileRepository } from "./file";
-import { BillingRepository } from "./billing";
-import { NotificationRepository } from "./notification";
 import { HealthRepository } from "./health";
+import { LeadRepository } from "./lead";
+import { CommunityRepository } from "./community";
 
 interface RepositoriesConstructorProps {
   dbConnection: DBConnection;
@@ -16,10 +15,9 @@ export class Repositories {
 
   public user;
   public setting;
-  public file;
-  public billing;
-  public notification;
   public health;
+  public lead;
+  public community;
 
   public constructor({ dbConnection }: RepositoriesConstructorProps) {
     this.pool = dbConnection.pool;
@@ -37,15 +35,11 @@ export class Repositories {
       db: dbConnection.db,
     });
 
-    this.file = new FileRepository({
+    this.lead = new LeadRepository({
       db: dbConnection.db,
     });
 
-    this.billing = new BillingRepository({
-      db: dbConnection.db,
-    });
-
-    this.notification = new NotificationRepository({
+    this.community = new CommunityRepository({
       db: dbConnection.db,
     });
   }
