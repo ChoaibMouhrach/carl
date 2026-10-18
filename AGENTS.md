@@ -1,11 +1,10 @@
-# saasTemplate
+# Carl
 
 At the start of each conversation, read the following package.json files to understand available scripts and dependencies:
 
 - `package.json` (root)
 - `apps/server/package.json`
 - `apps/client/package.json`
-- `apps/front/package.json`
 - `apps/e2e/package.json`
 
 ## Server Architecture
@@ -15,7 +14,7 @@ The server follows a strict three-layer architecture. Never skip or mix layers.
 **Controllers** (`src/http/controllers/`)
 
 - HTTP concerns only: parse request, call one service method, return response.
-- No business logic. No direct repository access. No direct Stripe/DB calls.
+- No business logic. No direct repository access. No direct provider/DB calls.
 - Validation is declared with `validator("json" | "param" | "query", schema)` — schemas live in `src/http/validations/`.
 - Auth-protected routes go after `.use(authMiddleware)` in the chain.
 
@@ -34,15 +33,15 @@ The server follows a strict three-layer architecture. Never skip or mix layers.
 
 **Infrastructure** (`src/infrastructure/`)
 
-- Concrete implementations of abstract base classes (`BaseBilling`, `BaseMailer`, `BaseStorage`, etc.).
+- Concrete implementations of abstract base classes (`BaseMailer`, `BaseQueueHub`, `BaseRateLimiter`, etc.).
 - Provide a `disabled.ts` stub only when the external integration is optional and the app can operate without it.
 
 ### Infrastructure strategy pattern
 
-External integrations always use the same strategy pattern as mailer, logger, and storage:
+External integrations always use the same strategy pattern as mailer, logger, and queue:
 
 1. Define the provider-agnostic contract in `src/lib/base-<domain>.ts`.
-2. Create one concrete provider implementation in `src/infrastructure/<domain>/` for each provider (for example, `ResendMailer`, `S3Storage`, or `StripeBilling`).
+2. Create one concrete provider implementation in `src/infrastructure/<domain>/` for each provider (for example, `ResendMailer`, `BullMQ`, or `RedisRateLimiter`).
 3. Type the dependency in `Context` and services as the base contract only. Never expose a concrete provider type outside its infrastructure module.
 4. Select the concrete provider once in `initContext`; services call only the base contract.
 5. Provide a disabled implementation when the external service is optional.
@@ -74,8 +73,6 @@ The env schema lives in `apps/server/src/config/env.ts`. When you add a new key 
 - `.env.ci` — give the key a deterministic, non-secret value so the CI `check` job boots and runs tests. Never put a real secret here.
 
 A key missing from `.env.ci` fails CI at env-parse time before any test runs; a key missing from `.env.example` leaves setup undocumented. Keep both in sync with the schema.
-
-A `NEXT_PUBLIC_*` var used in **client** components (front) must also be added to the `env` map in `apps/front/next.config.ts`. The schema only validates that the key exists in `.env` — not that Next inlines it into the browser bundle. Miss this and the value is `undefined` at runtime with no build error.
 
 ## Client Architecture
 
@@ -110,10 +107,11 @@ A `NEXT_PUBLIC_*` var used in **client** components (front) must also be added t
 **Destructive actions**
 
 - Always wrap in an `AlertDialog` before executing. Follow the pattern in `change-password.tsx`.
+- The confirm button of a delete dialog is an `AlertDialogAction` with `variant="destructive"`. `AlertDialogAction` already renders a `Button`, so no `asChild`/`render` wrapper is needed.
 
 **Loading states**
 
-- Any page-level `useQuery` that gates the page's main content (e.g. `/files`) must render a skeleton matching the loaded layout while pending — never a bare `Spinner` or blank screen. Use the shared `Skeleton` component from `@repo/ui/components/ui/skeleton`.
+- Any page-level `useQuery` that gates the page's main content (e.g. the queues page) must render a skeleton matching the loaded layout while pending — never a bare `Spinner` or blank screen. Use the shared `Skeleton` component from `@repo/ui/components/ui/skeleton`.
 - The skeleton must mirror the real structure (row count, card grid, table columns), not a single generic placeholder block.
 - This is mandatory: any new or edited data-fetching page must be checked for a skeleton state before merging.
 
@@ -122,29 +120,31 @@ A `NEXT_PUBLIC_*` var used in **client** components (front) must also be added t
 Pages in `apps/client/src/pages/` follow a strict separation of concerns:
 
 - `page.tsx` — shell only. Contains the page wrapper, header, title, and description. Imports and renders the main feature component. No logic, no queries, no mutations.
-- The main feature component (e.g. `billing.tsx`, `sign-in.tsx`) — owns all queries, mutations, and state. Composes sub-components.
-- Sub-components (e.g. `current-plan.tsx`, `plan-cards.tsx`) — receive props, own only local UI state (open/close, selected value). No data fetching.
+- The main feature component (e.g. `account.tsx`, `sign-in.tsx`) — owns all queries, mutations, and state. Composes sub-components.
+- Sub-components (e.g. `queue-counts.tsx`, `failed-jobs-table.tsx`) — receive props, own only local UI state (open/close, selected value). No data fetching.
 
 Example structure for a complex page:
 
 ```
-pages/user/billing/
-  page.tsx          ← shell: UserPage + header + <Billing />
-  billing.tsx       ← queries, mutations, isAnyMutating, composition
-  current-plan.tsx  ← receives props, owns dialog open state
-  plan-cards.tsx    ← receives props, owns interval toggle state
+pages/admin/queues/
+  page.tsx               ← shell: AdminPage + header + <Queues />
+  queues.tsx             ← queries, mutations, isAnyMutating, composition
+  queue-counts.tsx       ← receives props
+  failed-jobs-table.tsx  ← receives props, owns dialog open state
 ```
 
 When creating or editing pages, always check if there is already a pattern to follow in the existing pages before deciding on structure.
 
 ## Management Pages
 
-Management pages (lists of users, records, subscriptions, and similar resources) follow these rules:
+Management pages (lists of records and similar resources) follow these rules:
 
 - `page.tsx` is shell-only: page layout, title, description, and the main feature component.
 - The main feature component owns route search params, queries, mutations, query invalidation, and composition.
 - Split filters, tables or lists, and row actions into sub-components. Sub-components receive props and do not fetch server data.
 - Put the main content inside `Card` and `CardContent`.
+- When a table row or list item is meant to be clickable, make the entire row or item the click target (a link across the full row), not just one cell or a name, and give it `cursor-pointer`.
+- Row actions always go in a `DropdownMenu`, even when there is only one action. Never render standalone action buttons or icon buttons in a row.
 - Validate all list state in the route search schema: page, search text, filters, sorting, and similar controls.
 - Use the shared `Search` component for text search. It debounces input and updates route search params; changing search resets `page` to `1`.
 - Never put a `key` prop on `Search`. It syncs its internal value from the `value` prop on its own; a `key` forces a remount instead, which can drop focus/state.
@@ -188,7 +188,7 @@ Rules:
 
 - Route file `component` is always a direct reference: `component: PageComponent`. No anonymous wrapper, no prop forwarding, no children wrapping.
 - Layouts render `<Outlet />` inside themselves — the layout route's `component: LayoutComponent` is still a direct reference, and the layout component both self-fetches route context and renders `<Outlet />`.
-- Pages consume route context via `getRouteApi("/route-id").useRouteContext()`. Route IDs always start with `/` (e.g. `/user-layout`, `/user/select-plan`).
+- Pages consume route context via `getRouteApi("/route-id").useRouteContext()`. Route IDs always start with `/` (e.g. `/admin-layout`, `/admin/queues`).
 - Pages never take `user` (or similar route-context data) as a prop.
 
 ## Code Comments
@@ -222,7 +222,7 @@ E2E tests live in `apps/e2e` (a standalone Playwright package), never in `apps/c
 - Seed only through the `seed` fixture, backed by `@repo/server/testing/e2e-seed`. Never hardcode a user, password, or token, and never read a real inbox. Seeding logic belongs in that exported module — never raw SQL in the test package; extend it when a flow needs new data.
 - Every test creates its own data with a unique token (`faker.string.uuid()`) and is fully independent. The database is shared across tests and parallel workers — never assert exact global counts or unscoped list contents; scope every list assertion by a unique search term.
 - Authenticate with `seed.authenticate` (session cookie), not by driving the sign-in form — unless sign-in itself is under test.
-- Bulk-seed with direct-insert helpers (e.g. `createUsers`); never loop the sign-up API — it is slow and rate-limited.
+- Bulk-seed with direct-insert helpers (e.g. `createVerifiedAdmin`); public sign-up is closed, so never create users through the sign-up API.
 
 **Locators** — verify against the real DOM and i18n before writing; never guess labels.
 
@@ -231,19 +231,19 @@ E2E tests live in `apps/e2e` (a standalone Playwright package), never in `apps/c
 - Pagination `PaginationLink` is an `<a>` with no `href` (no `link` role): scope to `getByRole("navigation", { name: "pagination" })` and click the page-number text.
 - Use `{ exact: true }` on `getByText` for short or ambiguous strings (status and plan badges) and to avoid strict-mode collisions when the same text appears twice (e.g. a card title and a disabled button).
 - The sign-in password field's label embeds the "Forgot password?" link and is ambiguous — target it with `#password`.
-- Clean up whatever `playwright codegen` emits: drop stray `.click()`/`.press(...)` cruft and hardcoded hosts (use the config `baseURL`, e.g. `page.goto("/app/sign-in")`).
+- Clean up whatever `playwright codegen` emits: drop stray `.click()`/`.press(...)` cruft and hardcoded hosts (use the config `baseURL`, e.g. `page.goto("/sign-in")`).
 
 **Assertions**
 
 - Assert on behavior, never translated copy or transient toasts: `toHaveURL(...)`, reaching an auth-protected page, HTTP status via `page.waitForResponse(...)`, and persisted state via `seed.*` reads.
 - For state that appears asynchronously after a request, use `expect.poll` — never `waitForTimeout` or a fixed sleep.
 - When a spec covers a form, assert every required field shows the `RequiredIndicator` asterisk next to its label and that its input has a `placeholder`.
-- For a page whose main content is gated by a `useQuery` (e.g. `/files`), assert the skeleton loading state is present. This is mandatory, not optional: delay the underlying request with `page.route(...)` to make the pending state observable, then assert the `Skeleton` element is visible before the real content appears.
+- For a page whose main content is gated by a `useQuery` (e.g. `/admin/queues`), assert the skeleton loading state is present. This is mandatory, not optional: delay the underlying request with `page.route(...)` to make the pending state observable, then assert the `Skeleton` element is visible before the real content appears.
 
 **Scope**
 
 - Prefer few deep flows over many shallow ones; do not duplicate coverage another file already owns.
-- Do not E2E what the environment cannot exercise deterministically — real Stripe checkout, email delivery, or rate-limit thresholds — cover those with server tests. Auth is IP-rate-limited on the shared localhost; the fixture clears that budget before each test.
+- Do not E2E what the environment cannot exercise deterministically — email delivery, or rate-limit thresholds — cover those with server tests. Auth is IP-rate-limited on the shared localhost; the fixture clears that budget before each test.
 - Know the real behavior before asserting it — don't assert intended behavior the app doesn't have.
 
 ## Git
