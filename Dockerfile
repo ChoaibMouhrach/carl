@@ -7,13 +7,13 @@ WORKDIR /app
 COPY package.json bun.lock turbo.json ./
 COPY apps/server/package.json apps/server/package.json
 COPY apps/client/package.json apps/client/package.json
-COPY apps/front/package.json apps/front/package.json
+COPY apps/e2e/package.json apps/e2e/package.json
 COPY packages/constants/package.json packages/constants/package.json
 COPY packages/i18n/package.json packages/i18n/package.json
 COPY packages/ui/package.json packages/ui/package.json
 
 RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
-    bun install --ignore-scripts
+    bun install --frozen-lockfile --ignore-scripts
 
 
 #BUILD
@@ -32,11 +32,15 @@ FROM oven/bun:1.3.5-slim AS runtime
 WORKDIR /app/apps/server
 
 COPY --from=build /app/.env /app/.env
-COPY --from=build /app/apps/server/dist/saasTemplate /app/apps/server/saasTemplate
+COPY --from=build /app/apps/server/dist/carl /app/apps/server/carl
 COPY --from=build /app/apps/server/drizzle /app/apps/server/drizzle
 COPY --from=build /app/apps/client/dist /app/apps/server/client
-COPY --from=build /app/apps/front/out /app/apps/server/front
+
+RUN chown -R bun:bun /app
+USER bun
 
 #RUN
-EXPOSE 3000
-CMD ["./saasTemplate"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD bun --env-file=/app/.env -e 'const res = await fetch("http://localhost:" + process.env.API_PORT + "/health"); process.exit(res.ok ? 0 : 1)'
+
+CMD ["./carl"]

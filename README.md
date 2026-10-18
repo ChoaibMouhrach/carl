@@ -1,8 +1,8 @@
-# saasTemplate
+# Carl
 
 A clean, typed, batteries-included foundation for building focused SaaS products.
-It gives you the essential infrastructure — accounts, first-admin setup, billing,
-notifications, a marketing site, and a polished app shell — without inheriting
+It gives you the essential infrastructure — a single admin account, first-admin setup,
+and a polished app shell — without inheriting
 another product's domain assumptions. Add your own domain model on top.
 
 ## Contents
@@ -23,23 +23,20 @@ another product's domain assumptions. Add your own domain model on top.
 
 ## Overview
 
-This is a Turborepo monorepo containing three deployable apps and a set of shared
+This is a Turborepo monorepo containing two deployable apps and a set of shared
 packages. In production, a **single compiled server binary** serves everything:
-the API, the marketing site, and the dashboard SPA.
+the API and the dashboard SPA.
 
 **What's included out of the box:**
 
-- Secure, session-based authentication (sign up, sign in, email verification,
-  password reset, change password with optional other-session revocation)
-- A first-admin **setup flow** — the first account created becomes the admin;
-  no demo data
-- **Billing** via Stripe (checkout, plan changes with proration, cancel/resume,
-  billing portal, webhooks) gated behind a paywall/onboarding step
-- **Notifications** with unread counts and a background email queue
+- Secure, session-based authentication (sign in, email verification,
+  password reset, change email, change password with optional other-session
+  revocation). There is no public sign-up
+- A first-admin **setup flow** — the setup page creates the one verified admin
+  account; no demo data
 - **Internationalization** across the whole stack (English, French, Spanish)
-- Rate limiting (Redis-backed), storage and email abstractions, and a
+- Rate limiting (Redis-backed), a background email queue, and a
   provider-agnostic infrastructure layer
-- Marketing landing page with localized, statically-exported pages
 
 Every external integration is required. Environment validation fails immediately
 when any required configuration is missing.
@@ -54,50 +51,42 @@ when any required configuration is missing.
 | Database        | PostgreSQL + [Drizzle ORM](https://orm.drizzle.team)                              |
 | Queue / cache   | Redis + [BullMQ](https://docs.bullmq.io)                                          |
 | Dashboard (SPA) | Vite + React 19 + [TanStack Router](https://tanstack.com/router) + TanStack Query |
-| Marketing site  | [Next.js 16](https://nextjs.org) (App Router, static export)                      |
 | UI              | Tailwind CSS v4 + shadcn/ui (shared in `@repo/ui`)                                |
 | Forms           | react-hook-form + Zod                                                             |
-| i18n            | next-intl (front) + react-i18next (client), shared catalogs                       |
-| Billing         | [Stripe](https://stripe.com)                                                      |
+| i18n            | react-i18next, shared catalogs                                                    |
 | Email           | [Resend](https://resend.com)                                                      |
-| Storage         | S3-compatible (AWS S3, or [MinIO](https://min.io) locally)                        |
 
 ## Monorepo layout
 
 ```
 apps/
-  server/   Hono API + background workers; in prod serves the front & client too
-  client/   Vite + React SPA — the authenticated dashboard, mounted at /app
-  front/    Next.js marketing site — statically exported, localized per locale
+  server/   Hono API + background workers; in prod serves the client too
+  client/   Vite + React SPA — the authenticated dashboard, served at /
 packages/
-  constants/  Shared types & constants (@repo/constants): billing, error codes…
+  constants/  Shared types & constants (@repo/constants): error codes…
   ui/         Shared shadcn/ui component library (@repo/ui)
   i18n/       Shared locale config + message catalogs (@repo/i18n)
 ```
 
 The server follows a strict three-layer architecture (controllers → services →
 repositories) with a provider-agnostic **infrastructure** layer
-(`billing`, `mailer`, `storage`, `queue`, `rate-limiter`, `logger`, …). See
+(`mailer`, `queue`, `rate-limiter`, `logger`, …). See
 [Architecture & conventions](#architecture--conventions).
 
 ## How requests are routed
 
 In production the server (`apps/server`) is the single entry point:
 
-| Path          | Served by                                                                          |
-| ------------- | ---------------------------------------------------------------------------------- |
-| `/`           | Redirect to `/{locale}/` (from `NEXT_LOCALE` cookie → `Accept-Language` → default) |
-| `/{locale}/…` | Marketing site — the Next.js static export (`./front`)                             |
-| `/app/*`      | Dashboard SPA — the Vite build (`./client`), router basepath `/app`                |
-| `/api/*`      | The Hono API                                                                       |
+| Path     | Served by                                                  |
+| -------- | ---------------------------------------------------------- |
+| `/api/*` | The Hono API                                               |
+| `/*`     | Dashboard SPA — the Vite build (`./client`), router at `/` |
 
 ## Prerequisites
 
 - [Bun](https://bun.sh) `1.3.5+`
 - Docker (for local PostgreSQL and Redis) — or your own Postgres/Redis instances
-- Optional, only if you exercise those features: a Stripe account, a Resend API
-  key, and an S3 bucket (a local [MinIO](https://min.io) container covers
-  storage, see below)
+- Optional: a Resend API key (emails are logged in development)
 
 ## Getting started
 
@@ -114,51 +103,32 @@ bun run containers:up        # docker compose up
 # 4. Apply database migrations
 bun run db:migrate
 
-# 5. Start everything in dev (API + dashboard + marketing site)
+# 5. Start everything in dev (API + dashboard)
 bun run dev
 ```
 
-Then open the marketing site, or go straight to the dashboard at `/app`. The
-**first account you create becomes the admin** — the app redirects you to the
-setup flow until that account exists.
-
-For local file storage, run a MinIO container (an S3-compatible server) and
-point the `S3_*` variables at it (`S3_FORCE_PATH_STYLE=true`):
-
-```bash
-docker run -p 9000:9000 -p 9001:9001 \
-  -e MINIO_ROOT_USER=<S3_ACCESS_KEY> -e MINIO_ROOT_PASSWORD=<S3_SECRET_KEY> \
-  minio/minio server /data --console-address ":9001"
-```
-
-Then create the bucket once (via the console at `http://localhost:9001`, or
-`mc mb local/<S3_BUCKET_NAME>`) — MinIO's defaults already expose the `ETag`
-header multipart uploads need and auto-abort incomplete multipart uploads
-after 24h, so nothing else to configure.
+Then open the dashboard at `/`. Run
+the setup flow once to create the admin account (it is created already verified);
+after that, sign in at `/sign-in`. There is no sign-up page and
+`/api/auth/sign-up/*` is closed.
 
 ## Environment variables
 
 All apps read a single root `.env`. Copy `.env.example` and fill it in.
 
-| Variable                                                                              | Description                                                     |
-| ------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `NODE_ENV`                                                                            | `development` or `production`                                   |
-| `API_PORT`                                                                            | Port the server listens on                                      |
-| `VITE_API_URL`                                                                        | Base URL the dashboard uses to reach the API                    |
-| `CLIENT_URL`                                                                          | Public URL of the dashboard (server builds email links from it) |
-| `NEXT_PUBLIC_CLIENT_URL`                                                              | Marketing site's link target for the app (used to build `/app`) |
-| `NEXT_PUBLIC_SITE_URL`                                                                | Marketing site's own public URL (sitemap, robots, SEO)          |
-| `VITE_LP_URL`                                                                         | Dashboard's link back to the marketing/landing page             |
-| `POSTGRES_HOST` / `PORT` / `USER` / `PASS` / `NAME`                                   | PostgreSQL connection                                           |
-| `REDIS_HOST` / `PORT` / `PASSWORD`                                                    | Redis connection (queue + rate limiting)                        |
-| `RATE_LIMIT_KEY_SECRET`                                                               | Secret used to hash rate-limit keys                             |
-| `TRUST_PROXY`                                                                         | `true` when running behind a reverse proxy (for client IPs)     |
-| `QUEUE_CONCURRENCY`                                                                   | Max concurrent background jobs                                  |
-| `QUEUE_BACKLOG_THRESHOLD`                                                             | Waiting-jobs count that triggers a backlog alert (default 100)  |
-| `S3_ENDPOINT` / `REGION` / `ACCESS_KEY` / `SECRET_KEY` / `BUCKET_NAME` / `PUBLIC_URL` | Object storage                                                  |
-| `RESEND_API_KEY` / `MAIL_DOMAIN` / `MAIL_RATE_LIMIT_PER_SECOND`                       | Transactional email                                             |
-| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`                                         | Billing                                                         |
-| `NEXT_PUBLIC_UMAMI_SRC` / `WEBSITE_ID` / `DOMAINS`                                    | Marketing site analytics (Umami)                                |
+| Variable                                                        | Description                                                     |
+| --------------------------------------------------------------- | --------------------------------------------------------------- |
+| `NODE_ENV`                                                      | `development` or `production`                                   |
+| `API_PORT`                                                      | Port the server listens on                                      |
+| `VITE_API_URL`                                                  | Base URL the dashboard uses to reach the API                    |
+| `CLIENT_URL`                                                    | Public URL of the dashboard (server builds email links from it) |
+| `POSTGRES_HOST` / `PORT` / `USER` / `PASS` / `NAME`             | PostgreSQL connection                                           |
+| `REDIS_HOST` / `PORT` / `PASSWORD`                              | Redis connection (queue + rate limiting)                        |
+| `RATE_LIMIT_KEY_SECRET`                                         | Secret used to hash rate-limit keys                             |
+| `TRUST_PROXY`                                                   | `true` when running behind a reverse proxy (for client IPs)     |
+| `QUEUE_CONCURRENCY`                                             | Max concurrent background jobs                                  |
+| `QUEUE_BACKLOG_THRESHOLD`                                       | Waiting-jobs count that triggers a backlog alert (default 100)  |
+| `RESEND_API_KEY` / `MAIL_DOMAIN` / `MAIL_RATE_LIMIT_PER_SECOND` | Transactional email                                             |
 
 Run `bun run check:env` to validate that your `.env` satisfies every app's schema.
 
@@ -170,15 +140,12 @@ NODE_ENV=development
 API_PORT=3002
 VITE_API_URL=http://localhost:3002
 CLIENT_URL=http://localhost:3002
-NEXT_PUBLIC_CLIENT_URL=http://localhost:3002
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
-VITE_LP_URL=http://localhost:3000
 
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
 POSTGRES_USER=postgres
 POSTGRES_PASS=postgres
-POSTGRES_NAME=saasTemplate
+POSTGRES_NAME=carl
 
 REDIS_HOST=localhost
 REDIS_PORT=6379
@@ -189,39 +156,12 @@ QUEUE_CONCURRENCY=5
 QUEUE_BACKLOG_THRESHOLD=100
 
 # Required infrastructure
-S3_ENDPOINT=
-S3_REGION=
-S3_ACCESS_KEY=
-S3_SECRET_KEY=
-S3_BUCKET_NAME=
-S3_PUBLIC_URL=
 RESEND_API_KEY=
 MAIL_DOMAIN=
 MAIL_RATE_LIMIT_PER_SECOND=2
-STRIPE_SECRET_KEY=
-STRIPE_WEBHOOK_SECRET=
-
-# Analytics
-NEXT_PUBLIC_UMAMI_SRC=
-NEXT_PUBLIC_UMAMI_WEBSITE_ID=
-NEXT_PUBLIC_UMAMI_DOMAINS=
 ```
 
 </details>
-
-## Stripe Customer Portal
-
-The app uses Stripe Checkout for a customer's first subscription and provides
-plan changes, cancellation, and resumption in the billing page. Stripe Customer
-Portal is used for invoice history and payment-method management. Configure the
-portal in both Stripe test mode and live mode before enabling billing in an
-environment:
-
-1. Enable invoice history and payment method updates.
-2. Set the portal return URL to `/app/user/billing`.
-
-For local webhook forwarding, run `bun run stripe:listen`, copy the printed
-`whsec_...` value into `STRIPE_WEBHOOK_SECRET`, and restart the server.
 
 ## Observability
 
@@ -246,12 +186,11 @@ green is `200 {status:"ok"}`.
 
 Signals reported through `errorMonitor`:
 
-| Signal                 | Where it fires                                                 | Tags                                   |
-| ---------------------- | -------------------------------------------------------------- | -------------------------------------- |
-| Unhandled 500s         | HTTP `onError`                                                 | —                                      |
-| Stripe webhook failure | `POST /api/billing/webhooks/stripe` failing                    | `signal=stripe_webhook`                |
-| Failed background job  | A job that exhausts all retries                                | `signal=job_failed`, `queue=<name>`    |
-| Queue backlog          | Waiting jobs ≥ `QUEUE_BACKLOG_THRESHOLD` (checked each minute) | `signal=queue_backlog`, `queue=<name>` |
+| Signal                | Where it fires                                                 | Tags                                   |
+| --------------------- | -------------------------------------------------------------- | -------------------------------------- |
+| Unhandled 500s        | HTTP `onError`                                                 | —                                      |
+| Failed background job | A job that exhausts all retries                                | `signal=job_failed`, `queue=<name>`    |
+| Queue backlog         | Waiting jobs ≥ `QUEUE_BACKLOG_THRESHOLD` (checked each minute) | `signal=queue_backlog`, `queue=<name>` |
 
 By default `errorMonitor` is `DisabledErrorMonitor` (`apps/server/src/infrastructure/error-monitor/disabled.ts`)
 — a no-op, so these signals go nowhere. To wire up a real error-tracking
@@ -267,8 +206,7 @@ provider is unreachable — the app still works, jobs just retry.
 
 ### Scheduled maintenance
 
-Periodic tasks — the backlog check (every minute) and Stripe reconciliation
-(hourly, only when Stripe is configured) — run as **BullMQ job schedulers**
+Periodic tasks — the backlog check (every minute) — runs as **BullMQ job schedulers**
 consumed by the maintenance worker, not `setInterval`. A scheduled occurrence is
 processed by exactly one worker across the cluster, so running multiple server
 instances does not duplicate the work or the alerts. Schedules are registered in
@@ -302,7 +240,6 @@ Run from the repo root; Turborepo fans them out to each workspace.
 | `bun run db:generate`     | Generate a Drizzle migration from schema changes |
 | `bun run db:migrate`      | Apply pending migrations                         |
 | `bun run db:studio`       | Open Drizzle Studio                              |
-| `bun run stripe:listen`   | Forward Stripe CLI webhooks to the local server  |
 | `bun run containers:up`   | `docker compose up` (Postgres + Redis)           |
 | `bun run containers:down` | `docker compose down`                            |
 
@@ -325,16 +262,9 @@ Supported locales: **English (`en`), French (`fr`), Spanish (`es`)**.
 
 - **Shared foundation** — `@repo/i18n` holds the locale config (`locales`,
   `defaultLocale`, `Locale`, `localeLabels`) and the message catalogs:
-  `messages/{en,fr,es}.json` for the marketing site and `messages/app/*` for the
-  dashboard. Both apps import the same config; each has its own catalogs.
-- **Marketing site (next-intl)** — a `[locale]` route segment statically
-  exports one HTML page per language (`/en/`, `/fr/`, `/es/`).
+  `messages/app/*` for the dashboard.
 - **Dashboard (react-i18next)** — language is detected in this order:
   `?lng=` query → `NEXT_LOCALE` cookie → `localStorage` → browser.
-- **One shared cookie** — locale is unified across all three surfaces on the
-  `NEXT_LOCALE` cookie: the marketing switcher writes it, the server's `/`
-  redirect reads it, and the dashboard reads **and** writes it — so a choice made
-  in either app follows the user to the other.
 - **Errors** — form validation (Zod) is localized via a custom error map, and
   API errors carry a stable `code` (`@repo/constants/errors`) that the client
   translates, falling back to the server's message.
@@ -352,14 +282,14 @@ bun --cwd apps/server test        # server only
 
 Testing rules (see [`AGENTS.md`](AGENTS.md)): no `any`, no `as`, every mutation
 test verifies the change in the database, and quality over quantity. The
-dashboard and marketing app don't have test setups yet.
+dashboard doesn't have a test setup yet.
 
 ## Deployment
 
 `bun run build` compiles the server into a single self-contained binary
-(`bun build --compile`) and builds the marketing and dashboard bundles; the
+(`bun build --compile`) and builds the dashboard bundle; the
 [`Dockerfile`](Dockerfile) assembles them so the runtime image serves the API,
-the marketing export (`./front`), and the dashboard (`./client`) from one
+the dashboard (`./client`) from one
 process on `API_PORT`.
 
 CI ([`.github/workflows/build-and-push.yml`](.github/workflows/build-and-push.yml))

@@ -36,16 +36,16 @@ Tests get a `seed` fixture backed by the server's own DB layer
 import { test, expect } from "../fixtures";
 
 test("...", async ({ page, seed }) => {
-  const user = await seed.createVerifiedUser(); // real signup + verified
+  const user = await seed.createVerifiedAdmin(); // verified admin with credentials
   const token = await seed.getPasswordResetToken(user.email); // from the DB
   // ...
 });
 ```
 
-`createVerifiedUser` signs up through the real API (correct password hashing),
+`createVerifiedAdmin` inserts a verified admin with a hashed credential directly in the database (public sign-up is closed),
 then flips `emailVerified` in the database so the user can sign in.
 `getPasswordResetToken` reads the token better-auth stores in the `verification`
-table, so you can build a `/app/reset-password?token=...` URL without an inbox.
+table, so you can build a `/reset-password?token=...` URL without an inbox.
 
 ## Locator conventions
 

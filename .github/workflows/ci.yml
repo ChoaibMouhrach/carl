@@ -52,7 +52,7 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      # Build and run the real saasTemplate image (server + client + front, one
+      # Build and run the real carl image (server + client, one
       # origin) instead of driving three separate dev processes — matches
       # production and avoids dev-server flakiness. Postgres/redis are
       # already up and healthy at this point (started by ci-setup, from
@@ -60,12 +60,12 @@ jobs:
       # container. POSTGRES_HOST/REDIS_HOST are overridden to the sibling
       # containers' names since the app runs on the docker network, not
       # the runner's host network where .env's "localhost" resolves.
-      - name: Build and start saasTemplate
+      - name: Build and start carl
         run: |
-          POSTGRES_HOST=saasTemplate-postgres REDIS_HOST=saasTemplate-redis \
-            docker compose -f compose.prod.yml --env-file .env up -d --build saasTemplate minio minio-init
+          POSTGRES_HOST=carl-postgres REDIS_HOST=carl-redis \
+            docker compose -f compose.prod.yml --env-file .env up -d --build carl
 
-      - name: Wait for saasTemplate
+      - name: Wait for carl
         run: |
           for i in $(seq 1 60); do
             if curl -sf "http://localhost:${API_PORT}/health" >/dev/null; then
@@ -73,8 +73,8 @@ jobs:
             fi
             sleep 1
           done
-          echo "saasTemplate did not become ready" >&2
-          docker compose -f compose.prod.yml logs saasTemplate
+          echo "carl did not become ready" >&2
+          docker compose -f compose.prod.yml logs carl
           exit 1
 
       - name: Run E2E tests
@@ -124,7 +124,7 @@ jobs:
           file: Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/saasTemplate:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/saasTemplate:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/carl:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/carl:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

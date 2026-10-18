@@ -1,7 +1,7 @@
 services:
   postgres:
-    container_name: saasTemplate-postgres
-    image: pgvector/pgvector:pg17
+    container_name: carl-postgres
+    image: postgres:17-alpine
     ports:
       - "${POSTGRES_PORT:?POSTGRES_PORT is required}:5432"
     environment:
@@ -22,7 +22,7 @@ services:
       start_period: 10s
 
   redis:
-    container_name: saasTemplate-redis
+    container_name: carl-redis
     image: redis:8-alpine
     command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     ports:
@@ -43,52 +43,13 @@ services:
       retries: 5
       start_period: 5s
 
-  # Presigned S3 URLs point browsers straight at this endpoint, so saasTemplate
-  # shares this container's network namespace instead of talking to it over
-  # the compose network — S3_ENDPOINT must resolve identically for both.
-  minio:
-    container_name: saasTemplate-minio
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
-    ports:
-      - "${API_PORT:?API_PORT is required}:${API_PORT:?API_PORT is required}"
-      - "9000:9000"
-    volumes:
-      - minio_data:/data
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  # MinIO's defaults already cover what a presigned multipart flow needs:
-  # cors_allow_origin=* exposes ETag to the browser, and incomplete
-  # multipart uploads are auto-aborted after stale_uploads_expiry (24h) —
-  # this step only needs to create the bucket.
-  minio-init:
-    container_name: saasTemplate-minio-init
-    image: minio/mc:latest
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
-      mc mb --ignore-existing local/${S3_BUCKET_NAME:?S3_BUCKET_NAME is required}
-      "
-    environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
-
-  saasTemplate:
-    container_name: saasTemplate
+  carl:
+    container_name: carl
     build:
       context: .
       dockerfile: Dockerfile
-    network_mode: "service:minio"
+    ports:
+      - "${API_PORT:?API_PORT is required}:${API_PORT:?API_PORT is required}"
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST:?POSTGRES_HOST is required}
       REDIS_HOST: ${REDIS_HOST:?REDIS_HOST is required}
@@ -97,10 +58,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio-init:
-        condition: service_completed_successfully
 
 volumes:
   postgres_data:
   redis_data:
-  minio_data:
