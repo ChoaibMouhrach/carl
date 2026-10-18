@@ -6,3 +6,7 @@ export const invalidateLeadData = async (queryClient: QueryClient) => {
     queryClient.invalidateQueries({ queryKey: ["admin", "communities"] }),
   ]);
 };
+
+export const invalidateCampaignData = async (queryClient: QueryClient) => {
+  await queryClient.invalidateQueries({ queryKey: ["admin", "campaigns"] });
+};

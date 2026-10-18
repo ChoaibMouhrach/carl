@@ -17,6 +17,7 @@ import { useTranslation } from "react-i18next";
 import { Logo, LogoWithText } from "@repo/ui/logo-mark";
 import {
   Building2Icon,
+  MegaphoneIcon,
   LayersIcon,
   LayoutDashboardIcon,
   UsersIcon,
@@ -32,9 +33,15 @@ interface AdminSidebarProps {
 }
 
 interface NavigationItem {
-  labelKey: "nav.dashboard" | "nav.leads" | "nav.communities" | "nav.queues";
+  labelKey:
+    | "nav.dashboard"
+    | "nav.campaigns"
+    | "nav.leads"
+    | "nav.communities"
+    | "nav.queues";
   to:
     | "/admin/dashboard"
+    | "/admin/campaigns"
     | "/admin/leads"
     | "/admin/communities"
     | "/admin/queues";
@@ -46,6 +53,11 @@ const navigation: NavigationItem[] = [
     labelKey: "nav.dashboard",
     to: "/admin/dashboard",
     icon: LayoutDashboardIcon,
+  },
+  {
+    labelKey: "nav.campaigns",
+    to: "/admin/campaigns",
+    icon: MegaphoneIcon,
   },
   {
     labelKey: "nav.leads",

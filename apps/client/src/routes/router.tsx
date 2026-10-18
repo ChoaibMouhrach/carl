@@ -11,6 +11,10 @@ import { adminLeadsRoute } from "./admin/leads";
 import { adminLeadRoute } from "./admin/lead";
 import { adminLeadCreateRoute } from "./admin/lead-create";
 import { adminLeadEditRoute } from "./admin/lead-edit";
+import { adminCampaignsRoute } from "./admin/campaigns";
+import { adminCampaignRoute } from "./admin/campaign";
+import { adminCampaignCreateRoute } from "./admin/campaign-create";
+import { adminCampaignEditRoute } from "./admin/campaign-edit";
 import { adminCommunitiesRoute } from "./admin/communities";
 import { adminCommunityCreateRoute } from "./admin/community-create";
 import { adminCommunityEditRoute } from "./admin/community-edit";
@@ -21,6 +25,10 @@ export const routeTree = rootRoute.addChildren([
     adminDashboardRoute,
     adminAccountRoute,
     adminQueuesRoute,
+    adminCampaignsRoute,
+    adminCampaignCreateRoute,
+    adminCampaignRoute,
+    adminCampaignEditRoute,
     adminLeadsRoute,
     adminLeadRoute,
     adminLeadCreateRoute,
