@@ -1,5 +1,4 @@
 import { BaseWorker } from "@server/lib/base-worker";
-import { BillingService } from "@server/services/billing";
 import { QueueService } from "@server/services/queue";
 
 export class MaintenanceWorker extends BaseWorker {
@@ -8,20 +7,11 @@ export class MaintenanceWorker extends BaseWorker {
 
     await this.context.queueHub.maintenance.consume(async (job) => {
       switch (job.type) {
-        case "reconcile-billing":
-          await this.reconcileBilling();
-          return;
         case "check-queue-backlog":
           await this.checkQueueBacklog();
           return;
       }
     });
-  }
-
-  private async reconcileBilling(): Promise<void> {
-    const billing = new BillingService({ context: this.context });
-
-    await billing.reconcile();
   }
 
   private async checkQueueBacklog(): Promise<void> {

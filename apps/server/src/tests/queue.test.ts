@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { z } from "zod";
 import { initENV } from "@server/config/env";
 import { QueueService } from "@server/services/queue";
-import { createContext, TestMailer } from "./helpers/billing";
+import { createContext, TestMailer } from "./helpers/context";
 import { createAuthenticatedApp, withTestDatabase } from "./helpers/http";
 
 const notificationEmail = {
@@ -16,7 +16,7 @@ test("failed jobs are listed and clear once retried", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const mailer = new TestMailer();
     mailer.shouldFail = true;
-    const context = createContext(db, pool, initENV(), undefined, mailer);
+    const context = createContext(db, pool, initENV(), mailer);
     const queue = new QueueService({ context });
 
     await expect(
@@ -56,7 +56,7 @@ test("retrying a missing job or unknown queue is rejected", async () => {
 test("an idempotency key collapses duplicate enqueues", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const mailer = new TestMailer();
-    const context = createContext(db, pool, initENV(), undefined, mailer);
+    const context = createContext(db, pool, initENV(), mailer);
 
     await context.queueHub.email.add(notificationEmail, {
       idempotencyKey: "notification:1",

@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { initApp } from "@server/app";
 import { initENV } from "@server/config/env";
 import { userTable } from "@server/infrastructure/database/schemas";
-import { createContext, TestMailer } from "./helpers/billing";
+import { createContext, TestMailer } from "./helpers/context";
 import { withTestDatabase } from "./helpers/http";
 
 const getVerificationUrl = (html: string): string => {
@@ -32,7 +32,7 @@ test("email verification completes through the callback and resends safely", asy
   await withTestDatabase(async ({ db, pool }) => {
     const env = initENV();
     const mailer = new TestMailer();
-    const context = createContext(db, pool, env, undefined, mailer);
+    const context = createContext(db, pool, env, mailer);
     const app = await initApp({ context });
     const email = "verify@example.com";
     const callbackURL = `${env.CLIENT_URL}/email-verified?email=${encodeURIComponent(email)}`;
@@ -151,11 +151,11 @@ test("email changes require approval from the current and new email addresses", 
   await withTestDatabase(async ({ db, pool }) => {
     const env = initENV();
     const mailer = new TestMailer();
-    const context = createContext(db, pool, env, undefined, mailer);
+    const context = createContext(db, pool, env, mailer);
     const app = await initApp({ context });
     const oldEmail = "before-change@example.com";
     const newEmail = "after-change@example.com";
-    const callbackURL = `${env.CLIENT_URL}/app/user/account`;
+    const callbackURL = `${env.CLIENT_URL}/user/account`;
     const created = await context.auth.api.signUpEmail({
       body: {
         email: oldEmail,
@@ -245,7 +245,7 @@ test("email changes do not alter an account for invalid or unavailable targets",
   await withTestDatabase(async ({ db, pool }) => {
     const env = initENV();
     const mailer = new TestMailer();
-    const context = createContext(db, pool, env, undefined, mailer);
+    const context = createContext(db, pool, env, mailer);
     const app = await initApp({ context });
     const email = "edge-email@example.com";
     const existingEmail = "existing-email@example.com";
@@ -296,7 +296,7 @@ test("email changes do not alter an account for invalid or unavailable targets",
     expect(mailer.emails).toHaveLength(0);
 
     const invalidVerification = await app.request(
-      `/api/auth/verify-email?token=invalid&callbackURL=${encodeURIComponent(`${env.CLIENT_URL}/app/user/account`)}`,
+      `/api/auth/verify-email?token=invalid&callbackURL=${encodeURIComponent(`${env.CLIENT_URL}/user/account`)}`,
       { headers: { cookie }, redirect: "manual" },
     );
     expect(invalidVerification.status).toBe(302);

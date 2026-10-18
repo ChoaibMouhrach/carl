@@ -13,7 +13,6 @@ import type { BaseQueueHub } from "@server/lib/base-queue";
 import {
   renderConfirmEmailChange,
   renderResetPassword,
-  renderSignupAttempt,
   renderVerifyEmail,
 } from "@server/emails";
 
@@ -48,15 +47,6 @@ export const createAuth = (input: {
           from: "auth",
           html,
           subject: "Reset your password",
-          to: [user.email],
-        });
-      },
-      onExistingUserSignUp: async ({ user }) => {
-        const html = await renderSignupAttempt({ logoUrl: input.env.LOGO_URL });
-        await input.queueHub.email.add({
-          from: "auth",
-          html,
-          subject: "Someone tried to sign up with your email",
           to: [user.email],
         });
       },

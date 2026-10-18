@@ -1,12 +1,10 @@
 import type { SendEmailProps } from "./base-mailer";
 
-export type EmailSender = "auth" | "notifications";
+export type EmailSender = "auth";
 
 export type EmailJob = SendEmailProps<EmailSender>;
 
-export type MaintenanceJob =
-  | { type: "reconcile-billing" }
-  | { type: "check-queue-backlog" };
+export type MaintenanceJob = { type: "check-queue-backlog" };
 
 export type QueueConsumer<Input> = (input: Input) => Promise<void>;
 

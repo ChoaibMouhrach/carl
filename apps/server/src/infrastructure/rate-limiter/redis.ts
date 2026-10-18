@@ -17,7 +17,6 @@ interface RateLimitPolicy<E extends Env> {
   key: (context: Context<E>) => Promise<string> | string;
   limit: number;
   name: string;
-  skip?: (context: Context<E>) => Promise<boolean> | boolean;
   windowMs: number;
 }
 
@@ -112,9 +111,7 @@ export class RedisRateLimiter extends BaseRateLimiter {
   public authEmail: MiddlewareHandler<AppContext>;
   public authIp: MiddlewareHandler<AppContext>;
   public authenticated: MiddlewareHandler<AuthAppContext>;
-  public billing: MiddlewareHandler<AuthAppContext>;
   public platformSetup: MiddlewareHandler<AppContext>;
-  public storage: MiddlewareHandler<AuthAppContext>;
   private client: IORedis;
   private keySecret: string;
 
@@ -130,7 +127,6 @@ export class RedisRateLimiter extends BaseRateLimiter {
       key: getClientIp,
       limit: 120,
       name: "anonymous",
-      skip: (context) => context.req.path === "/api/billing/webhooks/stripe",
       windowMs: 60_000,
     });
     this.authIp = this.createMiddleware<AppContext>({
@@ -160,18 +156,6 @@ export class RedisRateLimiter extends BaseRateLimiter {
       key: (context) => `user:${context.get("auth").user.userId}`,
       limit: 300,
       name: "authenticated",
-      windowMs: 60_000,
-    });
-    this.billing = this.createMiddleware<AuthAppContext>({
-      key: (context) => `user:${context.get("auth").user.userId}`,
-      limit: 10,
-      name: "billing",
-      windowMs: 10 * 60_000,
-    });
-    this.storage = this.createMiddleware<AuthAppContext>({
-      key: (context) => `user:${context.get("auth").user.userId}`,
-      limit: 30,
-      name: "storage",
       windowMs: 60_000,
     });
     this.platformSetup = this.createMiddleware<AppContext>({
@@ -217,7 +201,6 @@ export class RedisRateLimiter extends BaseRateLimiter {
           throw new Error("Unexpected Redis response for rate limiter.");
         },
       }),
-      ...(policy.skip ? { skip: policy.skip } : {}),
       windowMs: policy.windowMs,
     });
   }

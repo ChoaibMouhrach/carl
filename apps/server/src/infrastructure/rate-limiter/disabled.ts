@@ -8,11 +8,7 @@ export class DisabledRateLimiter extends BaseRateLimiter {
   public authIp: MiddlewareHandler<AppContext> = async (_c, next) => next();
   public authenticated: MiddlewareHandler<AuthAppContext> = async (_c, next) =>
     next();
-  public billing: MiddlewareHandler<AuthAppContext> = async (_c, next) =>
-    next();
   public platformSetup: MiddlewareHandler<AppContext> = async (_c, next) =>
-    next();
-  public storage: MiddlewareHandler<AuthAppContext> = async (_c, next) =>
     next();
 
   public async ping() {}

@@ -2,10 +2,9 @@ import { afterEach, expect, test } from "bun:test";
 import IORedis from "ioredis";
 import { initApp } from "@server/app";
 import { initENV } from "@server/config/env";
-import { checkoutAttemptsTable } from "@server/infrastructure/database/schemas";
 import { RedisRateLimiter } from "@server/infrastructure/rate-limiter/redis";
-import { createContext } from "./helpers/billing";
-import { createAuthenticatedApp, withTestDatabase } from "./helpers/http";
+import { createContext } from "./helpers/context";
+import { withTestDatabase } from "./helpers/http";
 
 const rateLimitKeyPattern = "rate-limit:v1:*";
 const activeLimiters: RedisRateLimiter[] = [];
@@ -55,17 +54,10 @@ test("auth limits are shared through Redis across app instances and keyed by ema
     const firstLimiter = createLimiter();
     const secondLimiter = createLimiter();
     const firstApp = await initApp({
-      context: createContext(db, pool, env, undefined, undefined, firstLimiter),
+      context: createContext(db, pool, env, undefined, firstLimiter),
     });
     const secondApp = await initApp({
-      context: createContext(
-        db,
-        pool,
-        env,
-        undefined,
-        undefined,
-        secondLimiter,
-      ),
+      context: createContext(db, pool, env, undefined, secondLimiter),
     });
     const request = {
       body: JSON.stringify({
@@ -138,21 +130,14 @@ test("verification resend uses the shared Redis email limit", async () => {
     const firstLimiter = createLimiter();
     const secondLimiter = createLimiter();
     const firstApp = await initApp({
-      context: createContext(db, pool, env, undefined, undefined, firstLimiter),
+      context: createContext(db, pool, env, undefined, firstLimiter),
     });
     const secondApp = await initApp({
-      context: createContext(
-        db,
-        pool,
-        env,
-        undefined,
-        undefined,
-        secondLimiter,
-      ),
+      context: createContext(db, pool, env, undefined, secondLimiter),
     });
     const request = {
       body: JSON.stringify({
-        callbackURL: `${env.CLIENT_URL}/app/email-verified`,
+        callbackURL: `${env.CLIENT_URL}/email-verified`,
         email: "resend-limit@example.com",
       }),
       headers: { "Content-Type": "application/json" },
@@ -347,50 +332,5 @@ test("malformed auth payloads still consume the IP limit", async () => {
     });
 
     expect(limited.status).toBe(429);
-  });
-});
-
-test("billing limits isolate users and reject checkout before it writes to the database", async () => {
-  await withTestDatabase(async ({ context, db }) => {
-    context.rateLimiter = createLimiter();
-    const first = await createAuthenticatedApp({
-      context,
-      email: "billing-first@example.com",
-    });
-    const second = await createAuthenticatedApp({
-      context,
-      email: "billing-second@example.com",
-    });
-
-    for (let index = 0; index < 10; index += 1) {
-      const response = await first.app.request("/api/billing/portal", {
-        headers: { Cookie: first.cookie },
-        method: "POST",
-      });
-
-      expect(response.status).toBe(404);
-    }
-
-    const before = await db.select().from(checkoutAttemptsTable);
-    const limited = await first.app.request("/api/billing/checkout", {
-      body: JSON.stringify({
-        billingInterval: "monthly",
-        planKey: "starter",
-      }),
-      headers: {
-        "Content-Type": "application/json",
-        Cookie: first.cookie,
-      },
-      method: "POST",
-    });
-    const after = await db.select().from(checkoutAttemptsTable);
-    const secondUser = await second.app.request("/api/billing/portal", {
-      headers: { Cookie: second.cookie },
-      method: "POST",
-    });
-
-    expect(limited.status).toBe(429);
-    expect(after).toEqual(before);
-    expect(secondUser.status).toBe(404);
   });
 });

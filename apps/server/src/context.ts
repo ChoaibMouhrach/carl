@@ -7,10 +7,6 @@ import type { BaseMailer } from "./lib/base-mailer";
 import { DevMailer } from "./infrastructure/mailer/dev";
 import { ResendMailer } from "./infrastructure/mailer/resend";
 import { RateLimitedMailer } from "./infrastructure/mailer/rate-limited";
-import type { BaseStorage } from "./lib/base-storage";
-import { S3Storage } from "./infrastructure/storage/s3";
-import type { BaseBilling } from "./lib/base-billing";
-import { StripeBilling } from "./infrastructure/billing/stripe";
 import type { BaseQueueHub } from "./lib/base-queue";
 import { QueueHub } from "./infrastructure/queue/bullmq";
 import type { BaseRateLimiter } from "./lib/base-rate-limiter";
@@ -20,9 +16,6 @@ import { createAuth } from "./infrastructure/auth";
 import type { BaseErrorMonitor } from "./lib/base-error-monitor";
 import { DisabledErrorMonitor } from "./infrastructure/error-monitor/disabled";
 import { SentryErrorMonitor } from "./infrastructure/error-monitor/sentry";
-import type { BaseEmbeddings } from "./lib/base-embeddings";
-import { OpenAIEmbeddings } from "./infrastructure/embeddings/openai";
-import { FakeEmbeddings } from "./infrastructure/embeddings/fake";
 
 export const initContext = async () => {
   const logger: BaseLogger = new PinoLogger();
@@ -66,16 +59,6 @@ export const initContext = async () => {
         mailer: baseMailer,
       });
 
-  const storage: BaseStorage = new S3Storage({
-    endpoint: env.S3_ENDPOINT,
-    region: env.S3_REGION,
-    accessKeyId: env.S3_ACCESS_KEY,
-    secretAccessKey: env.S3_SECRET_KEY,
-    bucket: env.S3_BUCKET_NAME,
-    publicUrl: env.S3_PUBLIC_URL,
-    forcePathStyle: env.S3_FORCE_PATH_STYLE,
-  });
-
   const queueHub: BaseQueueHub = new QueueHub({
     concurrency: env.QUEUE_CONCURRENCY,
     errorMonitor,
@@ -92,24 +75,8 @@ export const initContext = async () => {
 
   const auth = createAuth({ db: dbConnection.db, env, queueHub });
 
-  const billing: BaseBilling = new StripeBilling({
-    cancelUrl: new URL("/app/user/select-plan", env.CLIENT_URL).toString(),
-    portalReturnUrl: new URL("/app/user/billing", env.CLIENT_URL).toString(),
-    secretKey: env.STRIPE_SECRET_KEY,
-    successUrl: new URL("/app/user/select-plan", env.CLIENT_URL).toString(),
-    webhookSecret: env.STRIPE_WEBHOOK_SECRET,
-  });
-
-  const embeddings: BaseEmbeddings = env.IS_TEST
-    ? new FakeEmbeddings()
-    : new OpenAIEmbeddings({
-        apiKey: env.OPENAI_API_KEY,
-      });
-
   return {
-    billing,
     repositories,
-    storage,
     queueHub,
     rateLimiter,
     logger,
@@ -117,7 +84,6 @@ export const initContext = async () => {
     env,
     auth,
     errorMonitor,
-    embeddings,
   };
 };
 

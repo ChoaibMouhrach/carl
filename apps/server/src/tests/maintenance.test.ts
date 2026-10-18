@@ -5,12 +5,7 @@ import {
   BaseErrorMonitor,
   type ErrorMonitorScope,
 } from "@server/lib/base-error-monitor";
-import {
-  createContext,
-  TestBilling,
-  TestMailer,
-  TestQueueHub,
-} from "./helpers/billing";
+import { createContext, TestMailer, TestQueueHub } from "./helpers/context";
 import { withTestDatabase } from "./helpers/http";
 
 class SpyErrorMonitor extends BaseErrorMonitor {
@@ -28,23 +23,10 @@ class SpyErrorMonitor extends BaseErrorMonitor {
   }
 }
 
-test("the maintenance worker reconciles billing on a reconcile job", async () => {
-  await withTestDatabase(async ({ db, pool }) => {
-    const billing = new TestBilling();
-    const context = createContext(db, pool, initENV(), billing);
-    const worker = new MaintenanceWorker({ context });
-
-    await worker.run();
-    await context.queueHub.maintenance.add({ type: "reconcile-billing" });
-
-    expect(billing.listSubscriptionIdsCalls).toBe(1);
-  });
-});
-
 test("the maintenance worker alerts when a queue exceeds the backlog threshold", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const mailer = new TestMailer();
-    const context = createContext(db, pool, initENV(), undefined, mailer);
+    const context = createContext(db, pool, initENV(), mailer);
     const queueHub = new TestQueueHub({ mailer });
     context.queueHub = queueHub;
 
@@ -69,7 +51,7 @@ test("the maintenance worker alerts when a queue exceeds the backlog threshold",
 test("the maintenance worker stays quiet when queues are below the threshold", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const mailer = new TestMailer();
-    const context = createContext(db, pool, initENV(), undefined, mailer);
+    const context = createContext(db, pool, initENV(), mailer);
     const queueHub = new TestQueueHub({ mailer });
     context.queueHub = queueHub;
 

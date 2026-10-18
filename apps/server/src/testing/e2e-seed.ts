@@ -1,12 +1,10 @@
-import { and, desc, eq, like, sql } from "drizzle-orm";
-import { makeSignature, signJWT } from "better-auth/crypto";
+import { and, desc, eq, like } from "drizzle-orm";
+import { hashPassword, makeSignature, signJWT } from "better-auth/crypto";
 import IORedis from "ioredis";
 import { initDB, type DB } from "../infrastructure/database/client";
 import {
-  billingCustomersTable,
-  filesTable,
+  accountTable,
   sessionTable,
-  subscriptionsTable,
   userTable,
   verificationTable,
 } from "../infrastructure/database/schemas";
@@ -59,10 +57,6 @@ export interface CreateVerifiedUserInput {
   email: string;
   password: string;
   name?: string;
-}
-
-export interface CreateOnboardedUserInput extends CreateVerifiedUserInput {
-  subscriptionStatus?: "active" | "canceled";
 }
 
 export interface SeededUser {
@@ -199,129 +193,41 @@ export const getEmailVerificationStatus = async (
     return user.emailVerified;
   });
 
-const signUp = async (
+const insertCredentialUser = async (
   config: SeedConfig,
-  input: CreateVerifiedUserInput,
-): Promise<void> => {
-  const response = await fetch(`${config.apiUrl}/api/auth/sign-up/email`, {
-    method: "POST",
-    headers: jsonHeaders(config),
-    body: JSON.stringify({
+  input: CreateVerifiedUserInput & { emailVerified: boolean; role: string },
+): Promise<SeededUser> =>
+  withDb(config, async (db) => {
+    const userId = crypto.randomUUID();
+    const passwordHash = await hashPassword(input.password);
+
+    await db.insert(userTable).values({
+      id: userId,
       email: input.email,
       name: input.name ?? input.email,
-      password: input.password,
-    }),
-  });
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`sign-up failed (${response.status}): ${body}`);
-  }
-};
-
-export const createUnverifiedUser = async (
-  config: SeedConfig,
-  input: CreateVerifiedUserInput,
-): Promise<SeededUser> => {
-  await signUp(config, input);
-
-  return withDb(config, async (db) => {
-    const userId = await requireUserId(db, input.email);
+      emailVerified: input.emailVerified,
+      role: input.role,
+    });
+    await db.insert(accountTable).values({
+      id: crypto.randomUUID(),
+      accountId: userId,
+      providerId: "credential",
+      userId,
+      password: passwordHash,
+    });
 
     return { userId, email: input.email, password: input.password };
   });
-};
-
-export const createVerifiedUser = async (
-  config: SeedConfig,
-  input: CreateVerifiedUserInput,
-): Promise<SeededUser> => {
-  await signUp(config, input);
-
-  return withDb(config, async (db) => {
-    const [row] = await db
-      .update(userTable)
-      .set({ emailVerified: true })
-      .where(eq(userTable.email, input.email))
-      .returning({ userId: userTable.id });
-
-    if (!row) {
-      throw new Error(`user not found after sign-up: ${input.email}`);
-    }
-
-    return { userId: row.userId, email: input.email, password: input.password };
-  });
-};
-
-// Inserts rows directly so bulk seeding (e.g. pagination) skips the sign-up
-// API and its rate limits. These users have no credentials.
-export const createUsers = async (
-  config: SeedConfig,
-  emails: string[],
-): Promise<void> => {
-  await withDb(config, async (db) => {
-    await db.insert(userTable).values(
-      emails.map((email) => ({
-        id: crypto.randomUUID(),
-        email,
-        name: email,
-        emailVerified: true,
-      })),
-    );
-  });
-};
 
 export const createVerifiedAdmin = async (
   config: SeedConfig,
   input: CreateVerifiedUserInput,
-): Promise<SeededUser> => {
-  const user = await createVerifiedUser(config, input);
-
-  return withDb(config, async (db) => {
-    await db
-      .update(userTable)
-      .set({ role: "admin" })
-      .where(eq(userTable.id, user.userId));
-
-    return user;
+): Promise<SeededUser> =>
+  insertCredentialUser(config, {
+    ...input,
+    emailVerified: true,
+    role: "admin",
   });
-};
-
-export const createOnboardedUser = async (
-  config: SeedConfig,
-  input: CreateOnboardedUserInput,
-): Promise<SeededUser> => {
-  const user = await createVerifiedUser(config, input);
-  const suffix = crypto.randomUUID();
-
-  return withDb(config, async (db) => {
-    const [customer] = await db
-      .insert(billingCustomersTable)
-      .values({
-        provider: "e2e",
-        providerCustomerId: `e2e-customer-${suffix}`,
-        userId: user.userId,
-      })
-      .returning({
-        billingCustomerId: billingCustomersTable.billingCustomerId,
-      });
-
-    if (!customer) {
-      throw new Error(`failed to create billing customer for ${input.email}`);
-    }
-
-    await db.insert(subscriptionsTable).values({
-      billingCustomerId: customer.billingCustomerId,
-      billingInterval: "monthly",
-      planKey: "starter",
-      provider: "e2e",
-      providerSubscriptionId: `e2e-subscription-${suffix}`,
-      status: input.subscriptionStatus ?? "active",
-    });
-
-    return user;
-  });
-};
 
 export const getActiveSessionCount = async (
   config: SeedConfig,
@@ -378,112 +284,6 @@ export const getUserEmail = async (
     }
 
     return user.email;
-  });
-
-export const userExists = async (
-  config: SeedConfig,
-  userId: string,
-): Promise<boolean> =>
-  withDb(config, async (db) => {
-    const [user] = await db
-      .select({ id: userTable.id })
-      .from(userTable)
-      .where(eq(userTable.id, userId))
-      .limit(1);
-
-    return Boolean(user);
-  });
-
-export interface SeededFile {
-  fileId: number;
-  userId: string;
-  name: string;
-  sizeBytes: number;
-  mimeType: string;
-  url: string;
-  key: string;
-}
-
-export const createFile = async (
-  config: SeedConfig,
-  input: {
-    userId: string;
-    name: string;
-    sizeBytes?: number;
-    mimeType?: string;
-  },
-): Promise<SeededFile> =>
-  withDb(config, async (db) => {
-    const key = `${crypto.randomUUID()}${input.name}`;
-
-    const [row] = await db
-      .insert(filesTable)
-      .values({
-        userId: input.userId,
-        name: input.name,
-        sizeBytes: input.sizeBytes ?? 1024,
-        mimeType: input.mimeType ?? "text/plain",
-        key,
-        url: `https://storage.test/${key}`,
-      })
-      .returning();
-
-    if (!row) {
-      throw new Error("failed to create file");
-    }
-
-    return row;
-  });
-
-export const getFile = async (
-  config: SeedConfig,
-  fileId: number,
-): Promise<SeededFile | null> =>
-  withDb(config, async (db) => {
-    const [row] = await db
-      .select()
-      .from(filesTable)
-      .where(eq(filesTable.fileId, fileId))
-      .limit(1);
-
-    return row ?? null;
-  });
-
-export const findFileByName = async (
-  config: SeedConfig,
-  where: { userId: string; name: string },
-): Promise<SeededFile | null> =>
-  withDb(config, async (db) => {
-    const [row] = await db
-      .select()
-      .from(filesTable)
-      .where(
-        and(
-          eq(filesTable.userId, where.userId),
-          eq(filesTable.name, where.name),
-        ),
-      )
-      .limit(1);
-
-    return row ?? null;
-  });
-
-export const fileExists = async (
-  config: SeedConfig,
-  fileId: number,
-): Promise<boolean> => (await getFile(config, fileId)) !== null;
-
-export const countFilesByUser = async (
-  config: SeedConfig,
-  userId: string,
-): Promise<number> =>
-  withDb(config, async (db) => {
-    const [row] = await db
-      .select({ count: sql`COUNT(*)`.mapWith(Number) })
-      .from(filesTable)
-      .where(eq(filesTable.userId, userId));
-
-    return row?.count ?? 0;
   });
 
 export const getPasswordResetToken = async (

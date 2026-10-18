@@ -2,7 +2,6 @@ import { initApp } from "./app";
 import { initContext } from "./context";
 import { Workers } from "./workers";
 
-const RECONCILE_BILLING_CRON = "0 * * * *";
 const CHECK_QUEUE_BACKLOG_CRON = "* * * * *";
 
 export const initServer = async () => {
@@ -14,7 +13,11 @@ export const initServer = async () => {
     context,
   });
 
-  app.get("/app/*", async (c) => {
+  app.get("/*", async (c) => {
+    if (c.req.path.startsWith("/api/")) {
+      return c.notFound();
+    }
+
     return c.html(await Bun.file("./client/index.html").text());
   });
 
@@ -22,12 +25,6 @@ export const initServer = async () => {
     schedulerId: "check-queue-backlog",
     pattern: CHECK_QUEUE_BACKLOG_CRON,
     data: { type: "check-queue-backlog" },
-  });
-
-  await context.queueHub.maintenance.schedule({
-    schedulerId: "reconcile-billing",
-    pattern: RECONCILE_BILLING_CRON,
-    data: { type: "reconcile-billing" },
   });
 
   return {

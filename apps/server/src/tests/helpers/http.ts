@@ -6,7 +6,7 @@ import { initDB, type DB } from "@server/infrastructure/database/client";
 import type { Context } from "@server/context";
 import type { Pool } from "pg";
 import { TEST_DB_TEMPLATE } from "../setup";
-import { createContext } from "./billing";
+import { createContext } from "./context";
 
 interface TestDatabase {
   context: Context;

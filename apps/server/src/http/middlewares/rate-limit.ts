@@ -1,5 +1,5 @@
 import { createMiddleware } from "hono/factory";
-import type { AppContext, AuthAppContext } from "@server/app";
+import type { AppContext } from "@server/app";
 
 export const anonymousRateLimit = createMiddleware<AppContext>(
   async (context, next) => {
@@ -19,22 +19,10 @@ export const authIpRateLimit = createMiddleware<AppContext>(
   },
 );
 
-export const billingRateLimit = createMiddleware<AuthAppContext>(
-  async (context, next) => {
-    return await context.get("context").rateLimiter.billing(context, next);
-  },
-);
-
 export const platformSetupRateLimit = createMiddleware<AppContext>(
   async (context, next) => {
     return await context
       .get("context")
       .rateLimiter.platformSetup(context, next);
-  },
-);
-
-export const storageRateLimit = createMiddleware<AuthAppContext>(
-  async (context, next) => {
-    return await context.get("context").rateLimiter.storage(context, next);
   },
 );

@@ -1,8 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { getCookie } from "hono/cookie";
 import { serveStatic } from "hono/bun";
-import { defaultLocale, isLocale } from "@repo/i18n/config";
 import { Services } from "./services";
 import { AppError } from "./lib/errors";
 import type { Context } from "./context";
@@ -43,6 +41,8 @@ export const initApp = async (params: initAppParams) => {
         credentials: true,
       }),
     )
+
+    .post("/api/auth/sign-up/*", (context) => context.notFound())
 
     .post(
       "/api/auth/sign-in/email",
@@ -87,13 +87,7 @@ export const initApp = async (params: initAppParams) => {
         );
       }
 
-      const tags: Record<string, string> = {};
-
-      if (context.req.path.endsWith("/webhooks/stripe")) {
-        tags["signal"] = "stripe_webhook";
-      }
-
-      params.context.errorMonitor.captureException(error, { tags });
+      params.context.errorMonitor.captureException(error);
 
       console.error(error);
 
@@ -130,33 +124,7 @@ export const initApp = async (params: initAppParams) => {
     return context.json(report, report.status === "unhealthy" ? 503 : 200);
   });
 
-  app.get("/", (context) => {
-    const cookieLocale = getCookie(context, "NEXT_LOCALE");
-
-    if (cookieLocale && isLocale(cookieLocale)) {
-      return context.redirect(`/${cookieLocale}/`);
-    }
-
-    const preferred = (context.req.header("accept-language") ?? "")
-      .split(",")
-      .map(
-        (part) => part.split(";")[0]?.trim().slice(0, 2).toLowerCase() ?? "",
-      );
-
-    const locale = preferred.find(isLocale) ?? defaultLocale;
-
-    return context.redirect(`/${locale}/`);
-  });
-
-  app.use("/*", serveStatic({ root: "./front" }));
-
-  app.use(
-    "/app/*",
-    serveStatic({
-      root: "./client",
-      rewriteRequestPath: (path) => path.replace(/^\/app/, ""),
-    }),
-  );
+  app.use("/*", serveStatic({ root: "./client" }));
 
   return app;
 };

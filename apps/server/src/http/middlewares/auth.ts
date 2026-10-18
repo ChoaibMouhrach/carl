@@ -39,23 +39,3 @@ export const createAuthMiddleware = (role?: Role) => {
 
 export const authMiddleware = createAuthMiddleware();
 export const adminMiddleware = createAuthMiddleware("admin");
-
-export const billingAccessMiddleware = createMiddleware<AuthAppContext>(
-  async (context, next) => {
-    const { user } = context.get("auth");
-
-    if (user.role === "admin") {
-      return next();
-    }
-
-    const { access } = await context
-      .get("services")
-      .billingAccess.check({ userId: user.userId });
-
-    if (!access) {
-      throw new ForbiddenError();
-    }
-
-    return next();
-  },
-);

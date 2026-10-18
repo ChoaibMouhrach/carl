@@ -2,13 +2,13 @@ import { expect, test } from "bun:test";
 import { initENV } from "@server/config/env";
 import { EmailWorker } from "@server/workers/email";
 import { RateLimitedMailer } from "@server/infrastructure/mailer/rate-limited";
-import { createContext, TestMailer, TestQueueHub } from "./helpers/billing";
+import { createContext, TestMailer, TestQueueHub } from "./helpers/context";
 import { withTestDatabase } from "./helpers/http";
 
 test("the email worker consumes queued messages through the mailer", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const mailer = new TestMailer();
-    const context = createContext(db, pool, initENV(), undefined, mailer);
+    const context = createContext(db, pool, initENV(), mailer);
     context.queueHub = new TestQueueHub({ mailer });
     const worker = new EmailWorker({ context });
 

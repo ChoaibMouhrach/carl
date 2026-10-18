@@ -35,26 +35,10 @@ const schema = z.object({
   QUEUE_CONCURRENCY: z.coerce.number().int().positive().default(5),
   QUEUE_BACKLOG_THRESHOLD: z.coerce.number().int().positive().default(100),
 
-  // S3
-  S3_ENDPOINT: z.url(),
-  S3_REGION: z.string().nonempty(),
-  S3_ACCESS_KEY: z.string().nonempty(),
-  S3_SECRET_KEY: z.string().nonempty(),
-  S3_BUCKET_NAME: z.string().nonempty(),
-  S3_PUBLIC_URL: z.url(),
-  S3_FORCE_PATH_STYLE: z.stringbool().default(false),
-
   // Mail
   RESEND_API_KEY: z.string().nonempty(),
   MAIL_DOMAIN: z.string().nonempty(),
   MAIL_RATE_LIMIT_PER_SECOND: z.coerce.number().positive().default(2),
-
-  // Billing
-  STRIPE_SECRET_KEY: z.string().nonempty(),
-  STRIPE_WEBHOOK_SECRET: z.string().nonempty(),
-
-  // Embeddings
-  OPENAI_API_KEY: z.string().nonempty(),
 
   // Error monitoring (Sentry-compatible, e.g. Bugsink) — optional
   SENTRY_DSN: z.url().optional(),

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { initApp } from "@server/app";
 import { withTestDatabase } from "./helpers/http";
-import { TestMailer } from "./helpers/billing";
+import { TestMailer } from "./helpers/context";
 
 test("GET /health reports ok when database, redis, and email are reachable", async () => {
   await withTestDatabase(async ({ context }) => {
