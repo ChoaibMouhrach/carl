@@ -116,19 +116,19 @@ after that, sign in at `/sign-in`. There is no sign-up page and
 
 All apps read a single root `.env`. Copy `.env.example` and fill it in.
 
-| Variable                                                        | Description                                                     |
-| --------------------------------------------------------------- | --------------------------------------------------------------- |
-| `NODE_ENV`                                                      | `development` or `production`                                   |
-| `API_PORT`                                                      | Port the server listens on                                      |
-| `VITE_API_URL`                                                  | Base URL the dashboard uses to reach the API                    |
-| `CLIENT_URL`                                                    | Public URL of the dashboard (server builds email links from it) |
-| `POSTGRES_HOST` / `PORT` / `USER` / `PASS` / `NAME`             | PostgreSQL connection                                           |
-| `REDIS_HOST` / `PORT` / `PASSWORD`                              | Redis connection (queue + rate limiting)                        |
-| `RATE_LIMIT_KEY_SECRET`                                         | Secret used to hash rate-limit keys                             |
-| `TRUST_PROXY`                                                   | `true` when running behind a reverse proxy (for client IPs)     |
-| `QUEUE_CONCURRENCY`                                             | Max concurrent background jobs                                  |
-| `QUEUE_BACKLOG_THRESHOLD`                                       | Waiting-jobs count that triggers a backlog alert (default 100)  |
-| `RESEND_API_KEY` / `MAIL_DOMAIN` / `MAIL_RATE_LIMIT_PER_SECOND` | Transactional email                                             |
+| Variable                                                                  | Description                                                                       |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `NODE_ENV`                                                                | `development` or `production`                                                     |
+| `API_PORT`                                                                | Port the server listens on                                                        |
+| `VITE_API_URL`                                                            | Base URL the dashboard uses to reach the API                                      |
+| `CLIENT_URL`                                                              | Public URL of the dashboard (server builds email links from it)                   |
+| `POSTGRES_URL` **or** `POSTGRES_HOST` / `PORT` / `USER` / `PASS` / `NAME` | PostgreSQL connection: a URL, or all five keys (the URL wins)                     |
+| `REDIS_URL` **or** `REDIS_HOST` / `PORT` / `PASSWORD`                     | Redis connection (queue + rate limiting): a URL, or all three keys (the URL wins) |
+| `RATE_LIMIT_KEY_SECRET`                                                   | Secret used to hash rate-limit keys                                               |
+| `TRUST_PROXY`                                                             | `true` when running behind a reverse proxy (for client IPs)                       |
+| `QUEUE_CONCURRENCY`                                                       | Max concurrent background jobs                                                    |
+| `QUEUE_BACKLOG_THRESHOLD`                                                 | Waiting-jobs count that triggers a backlog alert (default 100)                    |
+| `RESEND_API_KEY` / `MAIL_DOMAIN` / `MAIL_RATE_LIMIT_PER_SECOND`           | Transactional email                                                               |
 
 Run `bun run check:env` to validate that your `.env` satisfies every app's schema.
 
