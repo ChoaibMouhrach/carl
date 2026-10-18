@@ -1,28 +1,16 @@
 import { test as base, type BrowserContext } from "@playwright/test";
 import { faker } from "@faker-js/faker";
 import {
-  countFilesByUser,
   createEmailChangeUrl,
   createEmailVerificationUrl,
-  createFile,
-  createOnboardedUser,
   createSessionCookie,
-  createUnverifiedUser,
-  createUsers,
   createVerifiedAdmin,
-  createVerifiedUser,
-  fileExists,
-  findFileByName,
   getActiveSessionCount,
   getEmailVerificationStatus,
-  getFile,
   getPasswordResetToken,
   getUserEmail,
   resetE2EAuthRateLimits,
-  userExists,
-  type CreateOnboardedUserInput,
   type CreateVerifiedUserInput,
-  type SeededFile,
   type SeededUser,
 } from "@repo/server/testing/e2e-seed";
 import { CLIENT_URL, seedConfig } from "./config";
@@ -38,38 +26,14 @@ interface Seed {
     newEmail: string;
     requestType: "change-email-confirmation" | "change-email-verification";
   }) => Promise<string>;
-  createVerifiedUser: (
-    input?: Partial<CreateVerifiedUserInput>,
-  ) => Promise<SeededUser>;
-  createOnboardedUser: (
-    input?: Partial<CreateOnboardedUserInput>,
-  ) => Promise<SeededUser>;
   createVerifiedAdmin: (
     input?: Partial<CreateVerifiedUserInput>,
   ) => Promise<SeededUser>;
-  createUnverifiedUser: (
-    input?: Partial<CreateVerifiedUserInput>,
-  ) => Promise<SeededUser>;
-  createUsers: (emails: string[]) => Promise<void>;
   createEmailVerificationUrl: (email: string) => Promise<string>;
   getActiveSessionCount: (email: string) => Promise<number>;
   getEmailVerificationStatus: (email: string) => Promise<boolean>;
   getPasswordResetToken: (email: string) => Promise<string>;
   getUserEmail: (userId: string) => Promise<string>;
-  userExists: (userId: string) => Promise<boolean>;
-  createFile: (input: {
-    userId: string;
-    name: string;
-    sizeBytes?: number;
-    mimeType?: string;
-  }) => Promise<SeededFile>;
-  getFile: (fileId: number) => Promise<SeededFile | null>;
-  findFileByName: (where: {
-    userId: string;
-    name: string;
-  }) => Promise<SeededFile | null>;
-  fileExists: (fileId: number) => Promise<boolean>;
-  countFilesByUser: (userId: string) => Promise<number>;
 }
 
 const createUserInput = (
@@ -107,32 +71,19 @@ export const test = base.extend<{ seed: Seed; resetRateLimits: void }>({
       },
       createEmailChangeUrl: (input) => {
         return createEmailChangeUrl(config, {
-          callbackUrl: `${CLIENT_URL}/app/user/account`,
+          callbackUrl: `${CLIENT_URL}/admin/account`,
           ...input,
         });
       },
       createEmailVerificationUrl: (email) => {
         return createEmailVerificationUrl(config, {
-          callbackUrl: `${CLIENT_URL}/app/email-verified?email=${encodeURIComponent(email)}`,
+          callbackUrl: `${CLIENT_URL}/email-verified?email=${encodeURIComponent(email)}`,
           email,
-        });
-      },
-      createOnboardedUser: (input) => {
-        return createOnboardedUser(config, {
-          ...createUserInput(input),
-          subscriptionStatus: input?.subscriptionStatus,
         });
       },
       createVerifiedAdmin: (input) => {
         return createVerifiedAdmin(config, createUserInput(input));
       },
-      createVerifiedUser: (input) => {
-        return createVerifiedUser(config, createUserInput(input));
-      },
-      createUnverifiedUser: (input) => {
-        return createUnverifiedUser(config, createUserInput(input));
-      },
-      createUsers: (emails) => createUsers(config, emails),
       getActiveSessionCount: (email) => {
         return getActiveSessionCount(config, email);
       },
@@ -143,14 +94,6 @@ export const test = base.extend<{ seed: Seed; resetRateLimits: void }>({
       getUserEmail: (userId) => {
         return getUserEmail(config, userId);
       },
-      userExists: (userId) => {
-        return userExists(config, userId);
-      },
-      createFile: (input) => createFile(config, input),
-      getFile: (fileId) => getFile(config, fileId),
-      findFileByName: (where) => findFileByName(config, where),
-      fileExists: (fileId) => fileExists(config, fileId),
-      countFilesByUser: (userId) => countFilesByUser(config, userId),
     });
   },
 });

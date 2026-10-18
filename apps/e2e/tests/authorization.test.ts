@@ -1,21 +1,35 @@
 import { test, expect } from "../fixtures";
+import { seedConfig } from "../config";
 
-test("prevents a user from accessing admin pages", async ({ page, seed }) => {
-  const user = await seed.createVerifiedUser();
+test("rejects public sign-up requests and creates no account", async ({
+  request,
+}) => {
+  const config = seedConfig();
+  const email = `e2e-signup-${crypto.randomUUID()}@example.com`;
 
-  await seed.authenticate(page.context(), user.email);
+  const response = await request.post(
+    `${config.apiUrl}/api/auth/sign-up/email`,
+    {
+      data: { email, name: "Stranger", password: "Test1234@@" },
+      headers: { Origin: config.webOrigin },
+    },
+  );
 
-  await page.goto("/app/admin/dashboard");
+  expect(response.status()).toBe(404);
 
-  await expect(page).toHaveURL(/\/app\/error\?/);
+  const signIn = await request.post(`${config.apiUrl}/api/auth/sign-in/email`, {
+    data: { email, password: "Test1234@@" },
+    headers: { Origin: config.webOrigin },
+  });
+
+  expect(signIn.status()).toBe(401);
 });
 
-test("prevents an admin from accessing user pages", async ({ page, seed }) => {
-  const admin = await seed.createVerifiedAdmin();
+test("does not offer a sign-up link on the sign-in page", async ({ page }) => {
+  await page.goto("/sign-in");
 
-  await seed.authenticate(page.context(), admin.email);
-
-  await page.goto("/app/user/dashboard");
-
-  await expect(page).toHaveURL(/\/app\/error\?/);
+  await expect(
+    page.getByRole("link", { name: /create an account/i }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /sign up/i })).toHaveCount(0);
 });

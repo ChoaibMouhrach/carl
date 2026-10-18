@@ -4,26 +4,27 @@ import { CLIENT_URL } from "../config";
 test("redirects an unauthenticated user from a protected page", async ({
   page,
 }) => {
-  await page.goto("/app/user/dashboard");
+  await page.goto("/admin/dashboard");
 
-  await expect(page).toHaveURL(/\/app\/sign-in$/);
+  await expect(page).toHaveURL(/\/sign-in$/);
 });
 
 test("signs out and revokes access to protected pages", async ({
   page,
   seed,
 }) => {
-  const user = await seed.createVerifiedUser();
+  const user = await seed.createVerifiedAdmin();
 
   await seed.authenticate(page.context(), user.email);
-  await page.goto("/app/user/select-plan");
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.goto("/admin/dashboard");
+  await page.getByRole("button", { name: user.email }).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
 
-  await expect(page).toHaveURL(/\/app\/sign-in$/);
+  await expect(page).toHaveURL(/\/sign-in$/);
 
-  await page.goto("/app/user/dashboard");
+  await page.goto("/admin/dashboard");
 
-  await expect(page).toHaveURL(/\/app\/sign-in$/);
+  await expect(page).toHaveURL(/\/sign-in$/);
 });
 
 test("revokes another device while preserving the current session", async ({
@@ -31,7 +32,7 @@ test("revokes another device while preserving the current session", async ({
   page,
   seed,
 }) => {
-  const user = await seed.createOnboardedUser();
+  const user = await seed.createVerifiedAdmin();
   const otherContext = await browser.newContext({
     baseURL: CLIENT_URL,
     userAgent: "Other E2E device",
@@ -48,7 +49,7 @@ test("revokes another device while preserving the current session", async ({
     );
     expect(sessionsBeforeRevocation).toBe(2);
 
-    await page.goto("/app/user/account");
+    await page.goto("/admin/account");
     await page
       .getByRole("button", { name: "Sign out other devices" })
       .first()
@@ -60,11 +61,11 @@ test("revokes another device while preserving the current session", async ({
 
     await expect.poll(() => seed.getActiveSessionCount(user.email)).toBe(1);
 
-    await otherPage.goto("/app/user/dashboard");
-    await expect(otherPage).toHaveURL(/\/app\/sign-in$/);
+    await otherPage.goto("/admin/dashboard");
+    await expect(otherPage).toHaveURL(/\/sign-in$/);
 
-    await page.goto("/app/user/dashboard");
-    await expect(page).toHaveURL(/\/app\/user\/dashboard$/);
+    await page.goto("/admin/dashboard");
+    await expect(page).toHaveURL(/\/admin\/dashboard$/);
   } finally {
     await otherContext.close();
   }

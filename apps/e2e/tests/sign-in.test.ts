@@ -1,21 +1,21 @@
 import { test, expect } from "../fixtures";
 
 test("signs in a verified user", async ({ page, seed }) => {
-  const user = await seed.createVerifiedUser();
+  const user = await seed.createVerifiedAdmin();
 
-  await page.goto("/app/sign-in");
+  await page.goto("/sign-in");
   await page.getByLabel("Email address").fill(user.email);
   await page.locator("#password").fill(user.password);
 
   await page.getByRole("button", { name: "Sign In" }).click();
 
-  await expect(page).toHaveURL(/\/app\/user\/select-plan$/);
+  await expect(page).toHaveURL(/\/admin\/dashboard$/);
 });
 
 test("rejects sign-in with the wrong password", async ({ page, seed }) => {
-  const user = await seed.createVerifiedUser();
+  const user = await seed.createVerifiedAdmin();
 
-  await page.goto("/app/sign-in");
+  await page.goto("/sign-in");
   await page.getByLabel("Email address").fill(user.email);
   await page.locator("#password").fill("WrongPassword123!");
 
@@ -27,5 +27,5 @@ test("rejects sign-in with the wrong password", async ({ page, seed }) => {
   await page.getByRole("button", { name: "Sign In" }).click();
   expect((await signInResponse).status()).toBe(401);
 
-  await expect(page).toHaveURL(/\/app\/sign-in$/);
+  await expect(page).toHaveURL(/\/sign-in$/);
 });

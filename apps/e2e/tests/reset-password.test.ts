@@ -4,11 +4,11 @@ test("resets the password and signs in with the new one", async ({
   page,
   seed,
 }) => {
-  const user = await seed.createVerifiedUser();
+  const user = await seed.createVerifiedAdmin();
   const newPassword = "NewPassw0rd!23";
 
   // 1. Request a reset from the forgot-password page.
-  await page.goto("/app/forgot-password");
+  await page.goto("/forgot-password");
   await page.getByLabel("Email address").fill(user.email);
   await page.getByRole("button", { name: "Send Reset Link" }).click();
 
@@ -25,25 +25,25 @@ test("resets the password and signs in with the new one", async ({
     })
     .toBe(true);
 
-  await page.goto(`/app/reset-password?token=${token}`);
+  await page.goto(`/reset-password?token=${token}`);
 
   // 3. Set the new password.
   await page.getByLabel("Password", { exact: true }).fill(newPassword);
   await page.getByLabel("Confirm password").fill(newPassword);
   await page.getByRole("button", { name: "Reset password" }).click();
 
-  await expect(page).toHaveURL(/\/app\/sign-in$/);
+  await expect(page).toHaveURL(/\/sign-in$/);
 
   // 4. The real check: the new password works and lands on the dashboard.
   await page.getByLabel("Email address").fill(user.email);
   await page.locator("#password").fill(newPassword);
   await page.getByRole("button", { name: "Sign In" }).click();
 
-  await expect(page).toHaveURL(/\/app\/user\/select-plan$/);
+  await expect(page).toHaveURL(/\/admin\/dashboard$/);
 });
 
 test("rejects an invalid password reset token", async ({ page }) => {
-  await page.goto("/app/reset-password?token=invalid-token");
+  await page.goto("/reset-password?token=invalid-token");
 
   await page.getByLabel("Password", { exact: true }).fill("NewPassw0rd!23");
   await page.getByLabel("Confirm password").fill("NewPassw0rd!23");
@@ -56,5 +56,5 @@ test("rejects an invalid password reset token", async ({ page }) => {
   await page.getByRole("button", { name: "Reset password" }).click();
   expect((await resetResponse).status()).not.toBe(200);
 
-  await expect(page).toHaveURL(/\/app\/reset-password/);
+  await expect(page).toHaveURL(/\/reset-password/);
 });

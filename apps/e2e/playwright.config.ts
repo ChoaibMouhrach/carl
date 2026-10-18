@@ -10,8 +10,8 @@ const clientServer = {
   timeout: 120_000,
 };
 
-// In CI, the app already runs as the built saasTemplate container (server +
-// client + front, one origin) started by the workflow — no dev servers to
+// In CI, the app already runs as the built carl container (server +
+// client, one origin) started by the workflow — no dev servers to
 // spawn here. Locally, only the client needs a dev server; the API is
 // expected to already be running via `bun dev`.
 const webServer = process.env.CI ? undefined : clientServer;

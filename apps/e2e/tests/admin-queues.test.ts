@@ -12,7 +12,7 @@ test("shows a skeleton while the queue overview is loading", async ({
   });
 
   await seed.authenticate(page.context(), admin.email);
-  await page.goto("/app/admin/queues");
+  await page.goto("/admin/queues");
 
   await expect(page.locator('[data-slot="skeleton"]').first()).toBeVisible();
   await expect(page.getByText("Failed jobs", { exact: true })).toBeVisible();
