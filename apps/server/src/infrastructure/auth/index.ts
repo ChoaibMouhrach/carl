@@ -1,10 +1,12 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin } from "better-auth/plugins";
+import { passkey } from "@better-auth/passkey";
 import type { ENV } from "@server/config/env";
 import type { DB } from "@server/infrastructure/database/client";
 import {
   accountTable,
+  passkeyTable,
   sessionTable,
   userTable,
   verificationTable,
@@ -20,8 +22,10 @@ export const createAuth = (input: {
   db: DB;
   env: ENV;
   queueHub: BaseQueueHub;
-}) =>
-  betterAuth({
+}) => {
+  const clientUrl = new URL(input.env.CLIENT_URL);
+
+  return betterAuth({
     baseURL: input.env.VITE_API_URL,
     secret: input.env.BETTER_AUTH_SECRET,
     trustedOrigins: [input.env.CLIENT_URL],
@@ -29,6 +33,7 @@ export const createAuth = (input: {
       provider: "pg",
       schema: {
         account: accountTable,
+        passkey: passkeyTable,
         session: sessionTable,
         user: userTable,
         verification: verificationTable,
@@ -84,7 +89,15 @@ export const createAuth = (input: {
         },
       },
     },
-    plugins: [admin()],
+    plugins: [
+      admin(),
+      passkey({
+        rpID: clientUrl.hostname,
+        rpName: "Carl",
+        origin: clientUrl.origin,
+      }),
+    ],
   });
+};
 
 export type Auth = ReturnType<typeof createAuth>;

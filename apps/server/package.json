@@ -46,6 +46,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
     "@better-auth/drizzle-adapter": "^1.6.25",
+    "@better-auth/passkey": "1.6.25",
     "@hono/standard-validator": "^0.2.2",
     "@hono/zod-validator": "^0.7.6",
     "@react-email/components": "^1.0.12",

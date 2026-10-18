@@ -1,4 +1,11 @@
-import { pgTable, text, boolean, timestamp } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  boolean,
+  integer,
+  timestamp,
+  index,
+} from "drizzle-orm/pg-core";
 import { timestamps } from "../utils";
 
 export const userTable = pgTable("user", {
@@ -71,6 +78,33 @@ export const verificationTable = pgTable("verification", {
   // -- timestamps
   ...timestamps(),
 });
+
+export const passkeyTable = pgTable(
+  "passkey",
+  {
+    id: text().primaryKey(),
+
+    // -- fields
+    name: text(),
+    publicKey: text().notNull(),
+    userId: text()
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    credentialID: text().notNull(),
+    counter: integer().notNull(),
+    deviceType: text().notNull(),
+    backedUp: boolean().notNull(),
+    transports: text(),
+    aaguid: text(),
+
+    // -- timestamps
+    createdAt: timestamp().defaultNow(),
+  },
+  (table) => [
+    index("passkey_userId_idx").on(table.userId),
+    index("passkey_credentialID_idx").on(table.credentialID),
+  ],
+);
 
 export type User = typeof userTable.$inferSelect;
 export type Session = typeof sessionTable.$inferSelect;
