@@ -86,7 +86,7 @@ export const AdminPageTitle: React.FC<AdminPageTitleProps> = ({
   return (
     <h1
       className={cn(
-        "font-display text-2xl font-semibold tracking-tight wrap-break-word sm:text-3xl",
+        "font-display text-2xl font-semibold tracking-tight wrap-anywhere sm:text-3xl",
         className,
       )}
     >

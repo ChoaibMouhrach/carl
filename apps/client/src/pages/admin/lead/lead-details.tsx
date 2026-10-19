@@ -66,7 +66,7 @@ export const LeadDetails = ({ lead }: LeadDetailsProps) => {
             <dt className="text-sm text-muted-foreground">
               {t("adminLead.bio")}
             </dt>
-            <dd className="whitespace-pre-wrap">
+            <dd className="whitespace-pre-wrap wrap-anywhere">
               {lead.bio ?? t("adminLead.notSet")}
             </dd>
           </div>
