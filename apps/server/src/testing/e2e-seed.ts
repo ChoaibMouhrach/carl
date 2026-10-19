@@ -614,6 +614,20 @@ export const expireOAuthTokens = async (
       .where(eq(oauthAccessTokenTable.userId, userId));
   });
 
+/** Makes every session of the user older than Better Auth's freshness window */
+export const ageSessions = async (
+  config: SeedConfig,
+  email: string,
+): Promise<void> =>
+  withDb(config, async (db) => {
+    const userId = await requireUserId(db, email);
+
+    await db
+      .update(sessionTable)
+      .set({ createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) })
+      .where(eq(sessionTable.userId, userId));
+  });
+
 export const scriptSkool = async (
   config: SeedConfig,
   script: SkoolScript,

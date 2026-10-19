@@ -15,6 +15,7 @@ import {
   listLeadsByUsernamePrefix,
   listOAuthTokens,
   expireOAuthTokens,
+  ageSessions,
   listScrapeRuns,
   scriptSkool,
   unscriptSkool,
@@ -70,6 +71,7 @@ interface Seed {
   listScrapeRuns: (campaignId: number) => ReturnType<typeof listScrapeRuns>;
   listOAuthTokens: (email: string) => ReturnType<typeof listOAuthTokens>;
   expireOAuthTokens: (email: string) => Promise<void>;
+  ageSessions: (email: string) => Promise<void>;
   scriptSkool: (script: SkoolScript) => Promise<void>;
   unscriptSkool: (script: SkoolScript) => Promise<void>;
   authenticate: (
@@ -136,6 +138,7 @@ export const test = base.extend<{ seed: Seed; resetRateLimits: void }>({
       listScrapeRuns: (campaignId) => listScrapeRuns(config, campaignId),
       listOAuthTokens: (email) => listOAuthTokens(config, email),
       expireOAuthTokens: (email) => expireOAuthTokens(config, email),
+      ageSessions: (email) => ageSessions(config, email),
       scriptSkool: (script) => scriptSkool(config, script),
       unscriptSkool: (script) => unscriptSkool(config, script),
       authenticate: async (context, email, userAgent) => {

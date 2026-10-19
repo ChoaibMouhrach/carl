@@ -104,7 +104,7 @@ test("users can review login activity and sign out other devices", async () => {
   });
 });
 
-test("users can revoke one device and sensitive session actions reject stale sessions", async () => {
+test("users can revoke one device and an old session can still manage devices", async () => {
   await withTestDatabase(async ({ context, db }) => {
     const email = "single-session@example.com";
     const created = await context.auth.api.signUpEmail({
@@ -177,16 +177,21 @@ test("users can revoke one device and sensitive session actions reject stale ses
       .set({ createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1_000) })
       .where(eq(sessionTable.userId, created.user.id));
 
-    const staleList = await app.request("/api/auth/list-sessions", {
+    const oldList = await app.request("/api/auth/list-sessions", {
       headers: { cookie: currentCookie },
     });
-    expect(staleList.status).toBe(403);
+    expect(oldList.status).toBe(200);
+    expect(
+      z
+        .array(z.object({ userAgent: z.string().nullable() }))
+        .parse(await oldList.json()),
+    ).toEqual([{ userAgent: "Current single device" }]);
 
-    const sessionsAfterStaleRequest = await db
+    const sessionsAfterOldRequest = await db
       .select()
       .from(sessionTable)
       .where(eq(sessionTable.userId, created.user.id));
-    expect(sessionsAfterStaleRequest).toEqual([
+    expect(sessionsAfterOldRequest).toEqual([
       expect.objectContaining({ userAgent: "Current single device" }),
     ]);
   });
