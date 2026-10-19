@@ -285,6 +285,30 @@ export class CampaignService extends BaseService {
       });
     }
 
+    // A request may change only one end of a range, so the stored other end counts too
+    const pick = <
+      Key extends
+        | "minMembers"
+        | "maxMembers"
+        | "minMonthlyPriceUsd"
+        | "maxMonthlyPriceUsd",
+    >(
+      key: Key,
+    ) => (fields[key] !== undefined ? fields[key] : current[key]);
+    const crossed = (
+      min: number | null | undefined,
+      max: number | null | undefined,
+    ) => min != null && max != null && min > max;
+
+    if (
+      crossed(pick("minMembers"), pick("maxMembers")) ||
+      crossed(pick("minMonthlyPriceUsd"), pick("maxMonthlyPriceUsd"))
+    ) {
+      throw new BadRequestError({
+        message: "Minimum cannot be greater than maximum.",
+      });
+    }
+
     await this.context.repositories.campaign.update(input, fields);
     await this.context.eventBus.publish("campaigns.changed");
 
