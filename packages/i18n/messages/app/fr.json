@@ -264,6 +264,7 @@
     "cancel": "Annuler"
   },
   "adminLead": {
+    "emails": "E-mails",
     "back": "Prospects",
     "details": "Détails",
     "username": "Identifiant Skool",
@@ -422,6 +423,8 @@
     "rangeError": "Le minimum ne peut pas dépasser le maximum."
   },
   "adminCampaign": {
+    "linkedin": "LinkedIn",
+    "website": "Site web",
     "back": "Retour aux campagnes",
     "edit": "Modifier",
     "pause": "Mettre en pause",

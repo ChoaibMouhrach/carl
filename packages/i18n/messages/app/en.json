@@ -264,6 +264,7 @@
     "cancel": "Cancel"
   },
   "adminLead": {
+    "emails": "Emails",
     "back": "Leads",
     "details": "Details",
     "username": "Skool username",
@@ -422,6 +423,8 @@
     "rangeError": "Minimum cannot be greater than maximum."
   },
   "adminCampaign": {
+    "linkedin": "LinkedIn",
+    "website": "Website",
     "back": "Back to campaigns",
     "edit": "Edit",
     "pause": "Pause",

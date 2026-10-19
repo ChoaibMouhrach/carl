@@ -44,6 +44,26 @@ export const LeadDetails = ({ lead }: LeadDetailsProps) => {
           </div>
           <div>
             <dt className="text-sm text-muted-foreground">
+              {t("adminLead.emails")}
+            </dt>
+            <dd>
+              {lead.emails.length === 0 ? (
+                t("adminLead.notSet")
+              ) : (
+                <ul className="space-y-1">
+                  {lead.emails.map((email) => (
+                    <li className="break-all" key={email}>
+                      <a className="hover:underline" href={`mailto:${email}`}>
+                        {email}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sm text-muted-foreground">
               {t("adminLead.bio")}
             </dt>
             <dd className="whitespace-pre-wrap">

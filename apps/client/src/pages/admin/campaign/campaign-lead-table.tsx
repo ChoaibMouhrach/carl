@@ -1,4 +1,5 @@
 import type { CampaignLead } from "@/api/campaign";
+import { EmailLink, ExternalLink } from "@/components/external-link";
 import { formatDate, formatNumber } from "@/lib/format";
 import { Badge } from "@repo/ui/components/ui/badge";
 import {
@@ -9,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/ui/table";
+import { useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { LeadStatusBadge } from "./lead-status-badge";
 
@@ -18,6 +20,7 @@ interface CampaignLeadTableProps {
 
 export const CampaignLeadTable = ({ leads }: CampaignLeadTableProps) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   return (
     <Table>
@@ -26,6 +29,8 @@ export const CampaignLeadTable = ({ leads }: CampaignLeadTableProps) => {
           <TableHead>{t("adminCampaign.lead")}</TableHead>
           <TableHead>{t("adminCampaign.community")}</TableHead>
           <TableHead>{t("adminCampaign.email")}</TableHead>
+          <TableHead>{t("adminCampaign.linkedin")}</TableHead>
+          <TableHead>{t("adminCampaign.website")}</TableHead>
           <TableHead>{t("adminCampaign.members")}</TableHead>
           <TableHead>{t("adminCampaign.stageColumn")}</TableHead>
           <TableHead>{t("adminCampaign.statusColumn")}</TableHead>
@@ -35,11 +40,20 @@ export const CampaignLeadTable = ({ leads }: CampaignLeadTableProps) => {
       <TableBody>
         {leads.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={7}>{t("adminCampaign.emptyLeads")}</TableCell>
+            <TableCell colSpan={9}>{t("adminCampaign.emptyLeads")}</TableCell>
           </TableRow>
         ) : (
           leads.map((lead) => (
-            <TableRow key={lead.leadId}>
+            <TableRow
+              className="cursor-pointer"
+              key={lead.leadId}
+              onClick={() =>
+                navigate({
+                  to: "/admin/leads/$leadId",
+                  params: { leadId: lead.leadId },
+                })
+              }
+            >
               <TableCell>
                 <div className="font-medium">{lead.name}</div>
                 <div className="text-muted-foreground">
@@ -47,7 +61,15 @@ export const CampaignLeadTable = ({ leads }: CampaignLeadTableProps) => {
                 </div>
               </TableCell>
               <TableCell>{lead.communityName}</TableCell>
-              <TableCell>{lead.emails.at(0) ?? "—"}</TableCell>
+              <TableCell>
+                <EmailLink email={lead.emails.at(0)} />
+              </TableCell>
+              <TableCell>
+                <ExternalLink href={lead.linkedinUrl} />
+              </TableCell>
+              <TableCell>
+                <ExternalLink href={lead.website} />
+              </TableCell>
               <TableCell>{formatNumber(lead.memberCount)}</TableCell>
               <TableCell>
                 <Badge variant="outline">
