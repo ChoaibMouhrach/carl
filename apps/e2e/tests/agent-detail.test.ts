@@ -50,7 +50,9 @@ test("clicking an agent opens its page with its details and an empty request lis
 
   await expect(page).toHaveURL(new RegExp(`/admin/agents/${agent.clientId}`));
   await expect(page.getByText(`Agent ${id}`, { exact: true })).toBeVisible();
-  await expect(page.getByText(`Connected by ${admin.email}`)).toBeVisible();
+  await expect(
+    page.getByRole("main").getByText(admin.email, { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText(agent.clientId)).toBeVisible();
   await expect(page.getByText(AGENT_CALLBACK)).toBeVisible();
   await expect(
@@ -175,8 +177,8 @@ test("more than twelve requests are paged", async ({ page, seed }) => {
     `Agent ${id}`,
   );
   for (let index = 0; index < 13; index += 1) {
-    await callTool(page.context().request, accessToken, "get_owner", {
-      username: `u-${id}-${index}`,
+    await callTool(page.context().request, accessToken, "list_leads", {
+      page: 1,
     });
   }
 
@@ -223,8 +225,8 @@ test("removing the agent from its page returns to the account and deletes the ag
     page.context().request,
     `Agent ${id}`,
   );
-  await callTool(page.context().request, accessToken, "get_owner", {
-    username: `u-${id}`,
+  await callTool(page.context().request, accessToken, "list_leads", {
+    page: 1,
   });
 
   await page.goto(`/admin/agents/${agent.clientId}`);
@@ -271,8 +273,9 @@ test("long requests scroll inside their box and never widen the page on a phone"
     context.request,
     `Agent ${id}`,
   );
-  await callTool(context.request, accessToken, "search_communities", {
-    keyword: "k".repeat(190),
+  // A platform list, so no request leaves for Skool
+  await callTool(context.request, accessToken, "list_leads", {
+    search: "k".repeat(190),
   });
   const page = await context.newPage();
 

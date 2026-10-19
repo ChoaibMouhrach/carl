@@ -34,11 +34,12 @@ export interface Agent {
 export const registerAgent = async (
   request: APIRequestContext,
   name = `E2E agent ${randomBytes(4).toString("hex")}`,
+  extraRedirects: string[] = [],
 ): Promise<Agent> => {
   const response = await request.post(`${API_URL}/api/auth/mcp/register`, {
     headers: jsonHeaders,
     data: {
-      redirect_uris: [AGENT_CALLBACK],
+      redirect_uris: [AGENT_CALLBACK, ...extraRedirects],
       token_endpoint_auth_method: "none",
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
@@ -161,13 +162,13 @@ export const namesOf = (answer: unknown) => {
 
 export { field };
 
-/** Connects an agent for the signed-in context without opening the browser, as a script would */
-export const connectViaApi = async (
+/** Runs the authorization for an agent that is already registered, as a signed-in script would */
+export const authorizeAgent = async (
   signedIn: APIRequestContext,
-  name = "E2E agent",
+  agent: Agent,
+  state = "state-api",
 ) => {
-  const agent = await registerAgent(signedIn, name);
-  const authorized = await signedIn.get(agent.authorizeUrl("state-api"), {
+  const authorized = await signedIn.get(agent.authorizeUrl(state), {
     maxRedirects: 0,
   });
   expect(authorized.status()).toBe(302);
@@ -180,11 +181,36 @@ export const connectViaApi = async (
   const body = await exchanged.json();
 
   return {
-    agent,
     accessToken: text(field(body, "access_token"), "access_token"),
     refreshToken: text(field(body, "refresh_token"), "refresh_token"),
   };
 };
+
+/** Connects an agent for the signed-in context without opening the browser, as a script would */
+export const connectViaApi = async (
+  signedIn: APIRequestContext,
+  name = "E2E agent",
+  extraRedirects: string[] = [],
+) => {
+  const agent = await registerAgent(signedIn, name, extraRedirects);
+
+  return { agent, ...(await authorizeAgent(signedIn, agent)) };
+};
+
+/** A JSON-RPC message with no id, which the server acknowledges without an answer */
+export const notify = (
+  request: APIRequestContext,
+  token: string,
+  method: string,
+) =>
+  request.post(`${API_URL}/api/mcp`, {
+    headers: {
+      "content-type": "application/json",
+      accept: "application/json, text/event-stream",
+      authorization: `Bearer ${token}`,
+    },
+    data: { jsonrpc: "2.0", method },
+  });
 
 export const refreshWith = (
   request: APIRequestContext,
