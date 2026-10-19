@@ -85,6 +85,9 @@ export const initApp = async (params: initAppParams) => {
       }
 
       if (error instanceof HTTPException) {
+        // The MCP transport answers protocol errors with a body of its own
+        if (error.res) return error.res;
+
         return context.json(
           {
             error: error.message,

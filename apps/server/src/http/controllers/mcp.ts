@@ -1,8 +1,27 @@
-import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { Hono } from "hono";
+import { StreamableHTTPTransport } from "@hono/mcp";
+import { Hono, type Context } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { withMcpAuth } from "better-auth/plugins";
 import type { AppContext } from "@server/app";
 import { createMcpServer } from "@server/mcp/server";
+
+// The transport reports protocol errors by throwing, but they are answers like any other and are recorded
+const answerRequest = async (
+  transport: StreamableHTTPTransport,
+  context: Context,
+) => {
+  try {
+    const answered = await transport.handleRequest(context);
+
+    return answered ?? new Response(null, { status: 202 });
+  } catch (error) {
+    if (error instanceof HTTPException) {
+      return error.getResponse();
+    }
+
+    throw error;
+  }
+};
 
 export const mcpController = new Hono<AppContext>()
   .post("/", (context) => {
@@ -15,7 +34,7 @@ export const mcpController = new Hono<AppContext>()
 
         // Stateless: every request gets its own server, so nothing is held between calls
         const server = createMcpServer(services);
-        const transport = new WebStandardStreamableHTTPServerTransport({
+        const transport = new StreamableHTTPTransport({
           sessionIdGenerator: undefined,
           enableJsonResponse: true,
         });
@@ -23,7 +42,7 @@ export const mcpController = new Hono<AppContext>()
 
         const startedAt = Date.now();
         const requestBody = await request.clone().text();
-        const response = await transport.handleRequest(request);
+        const response = await answerRequest(transport, context);
         const responseBody = await response.clone().text();
 
         await services.mcp.recordRequest({
