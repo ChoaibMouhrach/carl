@@ -88,7 +88,11 @@ export const RowActions = ({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
-            <AlertDialogAction onClick={onDelete} variant="destructive">
+            <AlertDialogAction
+              disabled={isDeleting}
+              onClick={onDelete}
+              variant="destructive"
+            >
               {deleteLabel}
             </AlertDialogAction>
           </AlertDialogFooter>
