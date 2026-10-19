@@ -7,11 +7,13 @@ interface SelectionBarProps {
   selection: Selection;
   /** Cards have no header row, so the bar carries the select-all checkbox */
   showSelectAll?: boolean;
+  disabled?: boolean;
 }
 
 export const SelectionBar = ({
   selection,
   showSelectAll,
+  disabled,
 }: SelectionBarProps) => {
   const { t } = useTranslation();
 
@@ -22,6 +24,7 @@ export const SelectionBar = ({
       {showSelectAll && (
         <SelectCheckbox
           checked={selection.allSelected}
+          disabled={disabled}
           indeterminate={selection.someSelected}
           label={t("selection.selectAll")}
           onChange={selection.toggleAll}

@@ -109,7 +109,14 @@ const FiltersForm = ({
   });
 
   const reset = () => {
-    onApply({});
+    // Explicit undefined, because merging an empty object would keep the old params
+    onApply({
+      pricingType: undefined,
+      minMembers: undefined,
+      minRevenue: undefined,
+      sortBy: undefined,
+      sortOrder: undefined,
+    });
     onDone();
   };
 

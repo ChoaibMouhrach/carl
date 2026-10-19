@@ -81,6 +81,7 @@ export const Campaign = () => {
     onError,
     onSuccess: async () => {
       toast.success(t("adminCampaign.scrapeStarted"));
+      selection.clear();
       await invalidateCampaignData(queryClient);
     },
   });
@@ -202,6 +203,7 @@ export const Campaign = () => {
               status={searchParams.status}
             />
             <SelectionBar
+              disabled={isScraping}
               selection={selection}
               showSelectAll={view === "cards"}
             />
@@ -215,11 +217,13 @@ export const Campaign = () => {
               <CampaignLeadCards
                 leads={leads.data.leads}
                 selection={selection}
+                selectionLocked={isScraping}
               />
             ) : (
               <CampaignLeadTable
                 leads={leads.data.leads}
                 selection={selection}
+                selectionLocked={isScraping}
               />
             )}
             <DataPagination

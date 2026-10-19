@@ -19,11 +19,13 @@ import { LeadStatusBadge } from "./lead-status-badge";
 interface CampaignLeadTableProps {
   leads: CampaignLead[];
   selection: Selection;
+  selectionLocked?: boolean;
 }
 
 export const CampaignLeadTable = ({
   leads,
   selection,
+  selectionLocked,
 }: CampaignLeadTableProps) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -35,6 +37,7 @@ export const CampaignLeadTable = ({
           <TableHead className="w-10">
             <SelectCheckbox
               checked={selection.allSelected}
+              disabled={selectionLocked}
               indeterminate={selection.someSelected}
               label={t("selection.selectAll")}
               onChange={selection.toggleAll}
@@ -72,6 +75,7 @@ export const CampaignLeadTable = ({
               <TableCell>
                 <SelectCheckbox
                   checked={selection.isSelected(lead.leadId)}
+                  disabled={selectionLocked}
                   onChange={() => selection.toggle(lead.leadId)}
                 />
               </TableCell>
