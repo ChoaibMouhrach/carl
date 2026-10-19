@@ -26,7 +26,6 @@ import { PipelineOverview } from "./pipeline-overview";
 import { StagePanel } from "./stage-panel";
 
 const allStages = "all";
-const POLL_INTERVAL_MS = 2_000;
 
 const isScrapeActive = (run?: ScrapeRun) =>
   run?.status === "queued" || run?.status === "running";
@@ -45,10 +44,6 @@ export const Campaign = () => {
     queryKey: ["admin", "campaigns", campaignId],
     queryFn: () => api.campaign.show({ campaignId }),
     placeholderData: (previousData) => previousData,
-    refetchInterval: (query) =>
-      isScrapeActive(query.state.data?.scrapeRuns.at(0))
-        ? POLL_INTERVAL_MS
-        : false,
   });
 
   const isScraping = isScrapeActive(campaign.data?.scrapeRuns.at(0));
@@ -57,7 +52,6 @@ export const Campaign = () => {
     queryKey: ["admin", "campaigns", campaignId, "leads", searchParams],
     queryFn: () => api.campaign.leads({ campaignId }, searchParams),
     placeholderData: (previousData) => previousData,
-    refetchInterval: isScraping ? POLL_INTERVAL_MS : false,
   });
 
   const setStatus = useMutation({

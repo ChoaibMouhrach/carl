@@ -5,6 +5,7 @@ import {
 } from "@repo/ui/components/ui/sidebar";
 import { getRouteApi, Outlet } from "@tanstack/react-router";
 import { ModeToggle } from "@/components/mode-toggle";
+import { useLiveEvents } from "@/lib/live-events";
 import { readSidebarOpen } from "@/lib/sidebar-state";
 import { AdminSidebar } from "./sidebar";
 
@@ -12,6 +13,8 @@ const route = getRouteApi("/admin-layout");
 
 export const AdminLayout = () => {
   const { user } = route.useRouteContext();
+
+  useLiveEvents();
 
   return (
     <SidebarProvider defaultOpen={readSidebarOpen()}>

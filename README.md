@@ -15,6 +15,7 @@ pipeline, organised into campaigns.
 - [Prerequisites](#prerequisites)
 - [Getting started](#getting-started)
 - [Environment variables](#environment-variables)
+- [Live updates](#live-updates)
 - [Observability](#observability)
 - [Scripts](#scripts)
 - [Database & migrations](#database--migrations)
@@ -75,9 +76,9 @@ or `failed`.
 ## Running a scrape
 
 Open an **active** campaign and run the scrape from its stage 1 panel. The API
-returns `202` immediately and a BullMQ worker does the work. The page polls
-while the run is queued or running, then shows a summary: communities found,
-new communities, leads added, filtered out and failed.
+returns `202` immediately and a BullMQ worker does the work. The page updates
+live while the run is queued or running, then shows a summary: communities
+found, new communities, leads added, filtered out and failed.
 
 How the scraper works:
 
@@ -233,6 +234,21 @@ MAIL_RATE_LIMIT_PER_SECOND=2
 ```
 
 </details>
+
+## Live updates
+
+The dashboard stays current without polling. The server publishes an event
+whenever campaigns, leads or communities change — from any request, or from a
+scrape in progress — and an admin's browser receives it over a Server-Sent
+Events stream at `GET /api/events`. Each event tells the page which data to
+refetch (`campaigns.changed`, `leads.changed`, `communities.changed`); the
+dashboard invalidates the matching queries, and refetches everything after the
+stream reconnects.
+
+Events travel over Redis pub/sub (`infrastructure/event-bus/redis.ts`, behind
+`BaseEventBus`), so a change made on one server instance — or by the queue
+worker — reaches the browsers connected to any other. Publishing is best
+effort: if Redis fails, the request that caused the change still succeeds.
 
 ## Observability
 
