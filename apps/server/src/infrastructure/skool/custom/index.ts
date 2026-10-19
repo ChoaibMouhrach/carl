@@ -17,6 +17,7 @@ import {
   NEXT_DATA_MARKER,
   nextDataSchema,
   profileSchema,
+  SkoolNoEnglishResultsError,
   SkoolRequestError,
   USER_AGENT,
 } from "./constants";
@@ -45,7 +46,15 @@ export class CustomSkoolScraper extends BaseSkoolScraper {
       p: String(query.page),
     });
 
-    const pageProps = await this.fetchPageProps(`/discovery?${params}`);
+    const pageProps = await this.fetchPageProps(`/discovery?${params}`).catch(
+      (error) => {
+        if (error instanceof SkoolNoEnglishResultsError) return null;
+        throw error;
+      },
+    );
+
+    if (!pageProps) return { totalGroups: 0, groups: [] };
+
     const data = discoveryPageSchema.parse(pageProps);
 
     return {
@@ -270,6 +279,10 @@ export class CustomSkoolScraper extends BaseSkoolScraper {
     });
 
     if (response.status === 200) return await response.text();
+
+    if (response.headers.get("location")?.includes("lang=all")) {
+      throw new SkoolNoEnglishResultsError(path);
+    }
 
     const retryable =
       [202, 429].includes(response.status) || response.status >= 500;

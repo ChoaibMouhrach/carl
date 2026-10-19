@@ -228,3 +228,10 @@ export class SkoolRequestError extends Error {
     this.retryable = retryable;
   }
 }
+
+// Skool redirects an English search with no results to the same search in every language
+export class SkoolNoEnglishResultsError extends SkoolRequestError {
+  public constructor(path: string) {
+    super(`No English results for ${path}`, false);
+  }
+}
