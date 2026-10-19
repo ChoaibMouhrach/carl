@@ -301,6 +301,7 @@ export const createContext = (
     rateLimiter,
     repositories: new Repositories({ dbConnection: { db, pool } }),
     skoolScraper,
+    eventStreamHeartbeatMs: 50,
     discoveryCriteria: DEFAULT_SKOOL_SEARCHES,
   };
 };

@@ -245,6 +245,27 @@ export const createVerifiedAdmin = async (
     role: "admin",
   });
 
+export const createVerifiedMember = async (
+  config: SeedConfig,
+  input: CreateVerifiedUserInput,
+): Promise<SeededUser> =>
+  insertCredentialUser(config, {
+    ...input,
+    emailVerified: true,
+    role: "user",
+  });
+
+export const setUserRole = async (
+  config: SeedConfig,
+  input: { email: string; role: "admin" | "user" },
+): Promise<void> =>
+  withDb(config, async (db) => {
+    await db
+      .update(userTable)
+      .set({ role: input.role })
+      .where(eq(userTable.email, input.email));
+  });
+
 export const getActiveSessionCount = async (
   config: SeedConfig,
   email: string,

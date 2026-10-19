@@ -10,6 +10,7 @@ import { createContext, type TestEventBus } from "./context";
 import { withDatabaseName } from "./database-url";
 
 interface TestDatabase {
+  databaseUrl: string;
   context: Context & { eventBus: TestEventBus };
   db: DB;
   pool: Pool;
@@ -26,15 +27,15 @@ export const withTestDatabase = async (
   await root.db.execute(
     sql.raw(`CREATE DATABASE ${databaseName} TEMPLATE ${TEST_DB_TEMPLATE}`),
   );
-  const connection = await initDB({
-    connectionCredentials: withDatabaseName(
-      env.POSTGRES_CONNECTION_STRING,
-      databaseName,
-    ),
-  });
+  const databaseUrl = withDatabaseName(
+    env.POSTGRES_CONNECTION_STRING,
+    databaseName,
+  );
+  const connection = await initDB({ connectionCredentials: databaseUrl });
 
   try {
     await callback({
+      databaseUrl,
       context: createContext(connection.db, connection.pool, env),
       db: connection.db,
       pool: connection.pool,
