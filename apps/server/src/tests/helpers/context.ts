@@ -18,6 +18,7 @@ import {
   type RegisteredQueue,
   type ScheduleJobOptions,
 } from "@server/lib/base-queue";
+import { BaseCache } from "@server/lib/base-cache";
 import { BaseEventBus } from "@server/lib/base-event-bus";
 import type {
   LiveEventListener,
@@ -223,6 +224,22 @@ export class TestQueueHub extends BaseQueueHub {
   public override async close(): Promise<void> {}
 }
 
+export class TestCache extends BaseCache {
+  public entries = new Map<string, string>();
+  public ttls = new Map<string, number>();
+
+  public async get(key: string) {
+    return this.entries.get(key) ?? null;
+  }
+
+  public async set(key: string, value: string, ttlSeconds: number) {
+    this.entries.set(key, value);
+    this.ttls.set(key, ttlSeconds);
+  }
+
+  public async close() {}
+}
+
 export class TestEventBus extends BaseEventBus {
   public published: LiveEventType[] = [];
   private listeners = new Set<LiveEventListener>();
@@ -287,7 +304,7 @@ export const createContext = (
   mailer: BaseMailer = new TestMailer(),
   rateLimiter: BaseRateLimiter = new TestRateLimiter(),
   skoolScraper: BaseSkoolScraper = new CustomSkoolScraper(),
-): Context & { eventBus: TestEventBus } => {
+): Context & { eventBus: TestEventBus; cache: TestCache } => {
   const queueHub = new TestQueueHub({ mailer });
 
   return {
@@ -298,6 +315,7 @@ export const createContext = (
     mailer,
     queueHub,
     eventBus: new TestEventBus(),
+    cache: new TestCache(),
     rateLimiter,
     repositories: new Repositories({ dbConnection: { db, pool } }),
     skoolScraper,

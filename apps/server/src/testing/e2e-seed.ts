@@ -8,6 +8,7 @@ import {
   campaignsTable,
   communitiesTable,
   leadsTable,
+  oauthAccessTokenTable,
   scrapeRunsTable,
   sessionTable,
   userTable,
@@ -585,6 +586,33 @@ export const listScrapeRuns = async (
       .where(eq(scrapeRunsTable.campaignId, campaignId))
       .orderBy(desc(scrapeRunsTable.scrapeRunId)),
   );
+
+export const listOAuthTokens = async (config: SeedConfig, email: string) =>
+  withDb(config, async (db) => {
+    const userId = await requireUserId(db, email);
+
+    return await db
+      .select({
+        clientId: oauthAccessTokenTable.clientId,
+        userId: oauthAccessTokenTable.userId,
+        accessToken: oauthAccessTokenTable.accessToken,
+      })
+      .from(oauthAccessTokenTable)
+      .where(eq(oauthAccessTokenTable.userId, userId));
+  });
+
+export const expireOAuthTokens = async (
+  config: SeedConfig,
+  email: string,
+): Promise<void> =>
+  withDb(config, async (db) => {
+    const userId = await requireUserId(db, email);
+
+    await db
+      .update(oauthAccessTokenTable)
+      .set({ accessTokenExpiresAt: new Date(Date.now() - 1_000) })
+      .where(eq(oauthAccessTokenTable.userId, userId));
+  });
 
 export const scriptSkool = async (
   config: SeedConfig,
