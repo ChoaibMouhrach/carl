@@ -18,6 +18,7 @@ import { useView } from "@/lib/view";
 import { adminCampaignRoute } from "@/routes/admin/campaign";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
+import { ScrollArea, ScrollBar } from "@repo/ui/components/ui/scroll-area";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -145,35 +146,38 @@ export const Campaign = () => {
         onStatusChange={(status) => setStatus.mutate(status)}
       />
       <PipelineOverview stages={stages} />
-      <div className="overflow-x-auto overflow-y-hidden pb-2">
-        <Tabs
-          onValueChange={(value) =>
-            navigate({
-              search: (current) => ({
-                ...current,
-                page: 1,
-                stage: findStage(value),
-              }),
-            })
-          }
-          value={String(searchParams.stage ?? allStages)}
-        >
-          <TabsList variant="line">
-            <TabsTrigger value={allStages}>
-              All stages
-              <Badge variant="secondary">
-                {campaign.data.campaign.leadCount}
-              </Badge>
-            </TabsTrigger>
-            {stages.map((stage) => (
-              <TabsTrigger key={stage.stage} value={String(stage.stage)}>
-                {`Stage ${stage.stage}`}
-                <Badge variant="secondary">{stage.total}</Badge>
+      <ScrollArea>
+        <div className="pb-2">
+          <Tabs
+            onValueChange={(value) =>
+              navigate({
+                search: (current) => ({
+                  ...current,
+                  page: 1,
+                  stage: findStage(value),
+                }),
+              })
+            }
+            value={String(searchParams.stage ?? allStages)}
+          >
+            <TabsList variant="line">
+              <TabsTrigger value={allStages}>
+                All stages
+                <Badge variant="secondary">
+                  {campaign.data.campaign.leadCount}
+                </Badge>
               </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      </div>
+              {stages.map((stage) => (
+                <TabsTrigger key={stage.stage} value={String(stage.stage)}>
+                  {`Stage ${stage.stage}`}
+                  <Badge variant="secondary">{stage.total}</Badge>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        </div>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
       {selectedStage && (
         <StagePanel
           canRun={campaign.data.campaign.status === "active"}

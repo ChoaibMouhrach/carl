@@ -83,6 +83,7 @@ A key missing from `.env.ci` fails CI at env-parse time before any test runs; a 
 - When a needed primitive is missing, add the corresponding shadcn component to `@repo/ui` before using it.
 - Do not override the theme or visual styling of shadcn components with `className`. Use their default appearance and documented variants or size props only.
 - `className` is allowed only on non-shadcn layout wrappers; it must not be used to restyle a shadcn primitive.
+- Anything that scrolls uses the shadcn `ScrollArea` from `@repo/ui/components/ui/scroll-area` (add `<ScrollBar orientation="horizontal" />` for sideways scrolling). Never use `overflow-auto`, `overflow-scroll`, `overflow-x-auto` or `overflow-y-auto` for a scrolling region. `ScrollArea` is the one shadcn primitive that may take a `className`, and only to size it (`h-*`, `max-h-*`, `min-h-0`, `flex-1`). Plain `overflow-hidden` for clipping is fine.
 
 **API layer** (`src/api/`)
 

@@ -6,9 +6,15 @@ import { toast } from "sonner";
 interface CopyButtonProps {
   value: string;
   size?: "default" | "sm";
+  /** Icon only, for tight spots; the label stays available to screen readers */
+  label?: string;
 }
 
-export const CopyButton = ({ value, size = "default" }: CopyButtonProps) => {
+export const CopyButton = ({
+  value,
+  size = "default",
+  label,
+}: CopyButtonProps) => {
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
@@ -25,9 +31,15 @@ export const CopyButton = ({ value, size = "default" }: CopyButtonProps) => {
   };
 
   return (
-    <Button onClick={copy} size={size} type="button" variant="outline">
+    <Button
+      aria-label={label}
+      onClick={copy}
+      size={label ? "icon-sm" : size}
+      type="button"
+      variant="outline"
+    >
       {copied ? <CheckIcon /> : <CopyIcon />}
-      Copy
+      {!label && "Copy"}
     </Button>
   );
 };
