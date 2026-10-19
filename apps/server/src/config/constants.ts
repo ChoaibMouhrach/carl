@@ -7,6 +7,7 @@ export const roles: [Role, ...Role[]] = ["admin", "user"];
 export const SETUP_KEY = "setup";
 
 export const DEFAULT_RECORD_LIMIT = 12;
+export const EXPORT_RECORD_LIMIT = 50_000;
 
 export const EVENT_STREAM_HEARTBEAT_MS = 15_000;
 export const HTTP_IDLE_TIMEOUT_SECONDS = 60;

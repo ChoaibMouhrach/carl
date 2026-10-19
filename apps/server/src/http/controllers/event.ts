@@ -2,7 +2,6 @@ import { Hono } from "hono";
 import { describeRoute } from "hono-openapi";
 import { streamSSE } from "hono/streaming";
 import type { AppContext } from "@server/app";
-import { EVENT_STREAM_HEARTBEAT_MS } from "@server/config/constants";
 import { adminMiddleware } from "../middlewares/auth";
 
 export const eventController = new Hono<AppContext>()
@@ -10,6 +9,7 @@ export const eventController = new Hono<AppContext>()
 
   .get("/", describeRoute({ tags: ["event"] }), (context) => {
     const services = context.get("services");
+    const heartbeatMs = context.get("context").eventStreamHeartbeatMs;
 
     context.header("X-Accel-Buffering", "no");
 
@@ -30,7 +30,7 @@ export const eventController = new Hono<AppContext>()
 
       while (!stream.aborted) {
         await new Promise<void>((resolve) => {
-          const timer = setTimeout(resolve, EVENT_STREAM_HEARTBEAT_MS);
+          const timer = setTimeout(resolve, heartbeatMs);
           wake = () => {
             clearTimeout(timer);
             resolve();

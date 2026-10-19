@@ -8,6 +8,7 @@ import {
 import type { BaseLogger } from "@server/lib/base-logger";
 
 const CHANNEL = "carl:events";
+const PUBLISH_TIMEOUT_MS = 1_000;
 
 interface RedisEventBusInit {
   logger: BaseLogger;
@@ -61,14 +62,27 @@ export class RedisEventBus extends BaseEventBus {
   }
 
   public override async publish(...types: LiveEventType[]): Promise<void> {
-    try {
-      await Promise.all(
-        types.map((type) => this.publisher.publish(CHANNEL, type)),
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    // A request must not wait on Redis: past the timeout the event is dropped
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(
+        () => reject(new Error("Publishing the event timed out")),
+        PUBLISH_TIMEOUT_MS,
       );
+    });
+
+    try {
+      await Promise.race([
+        Promise.all(types.map((type) => this.publisher.publish(CHANNEL, type))),
+        timeout,
+      ]);
     } catch (error) {
       await this.logger.info({
         eventBusError: error instanceof Error ? error.message : String(error),
       });
+    } finally {
+      clearTimeout(timer);
     }
   }
 

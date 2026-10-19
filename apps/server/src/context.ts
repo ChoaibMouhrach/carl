@@ -1,7 +1,10 @@
 import { initDB } from "./infrastructure/database/client";
 import { PinoLogger } from "./infrastructure/logger/pino";
 import { initENV } from "./config/env";
-import { DEFAULT_SKOOL_SEARCHES } from "./config/constants";
+import {
+  DEFAULT_SKOOL_SEARCHES,
+  EVENT_STREAM_HEARTBEAT_MS,
+} from "./config/constants";
 import { Repositories } from "./repositories";
 import type { BaseLogger } from "./lib/base-logger";
 import type { BaseMailer } from "./lib/base-mailer";
@@ -105,6 +108,7 @@ export const initContext = async () => {
     auth,
     errorMonitor,
     skoolScraper,
+    eventStreamHeartbeatMs: EVENT_STREAM_HEARTBEAT_MS,
     discoveryCriteria: DEFAULT_SKOOL_SEARCHES,
   };
 };
