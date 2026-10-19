@@ -7,7 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
 import { toast } from "sonner";
 import { AgentList } from "./agent-list";
-import { CopyButton } from "./copy-button";
+import { CopyButton } from "@/components/copy-button";
 
 const mcpUrl = `${env.VITE_API_URL.replace(/\/$/, "")}/api/mcp`;
 

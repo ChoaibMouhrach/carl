@@ -5,9 +5,10 @@ import { toast } from "sonner";
 
 interface CopyButtonProps {
   value: string;
+  size?: "default" | "sm";
 }
 
-export const CopyButton = ({ value }: CopyButtonProps) => {
+export const CopyButton = ({ value, size = "default" }: CopyButtonProps) => {
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
@@ -24,7 +25,7 @@ export const CopyButton = ({ value }: CopyButtonProps) => {
   };
 
   return (
-    <Button onClick={copy} type="button" variant="outline">
+    <Button onClick={copy} size={size} type="button" variant="outline">
       {copied ? <CheckIcon /> : <CopyIcon />}
       Copy
     </Button>

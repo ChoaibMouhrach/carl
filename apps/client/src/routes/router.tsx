@@ -7,6 +7,7 @@ import { adminAccountRoute } from "./admin/account";
 import { adminDashboardRoute } from "./admin/dashboard";
 import { adminLayoutRoute } from "./admin/layout";
 import { adminQueuesRoute } from "./admin/queues";
+import { adminAgentRoute } from "./admin/agent";
 import { adminLeadsRoute } from "./admin/leads";
 import { adminLeadRoute } from "./admin/lead";
 import { adminLeadCreateRoute } from "./admin/lead-create";
@@ -25,6 +26,7 @@ export const routeTree = rootRoute.addChildren([
     adminDashboardRoute,
     adminAccountRoute,
     adminQueuesRoute,
+    adminAgentRoute,
     adminCampaignsRoute,
     adminCampaignCreateRoute,
     adminCampaignRoute,
