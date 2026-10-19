@@ -270,7 +270,9 @@ test("a campaign update that is empty, out of range or aimed at nothing writes n
     expect((await admin.patch(path, {})).status).toBe(400);
     expect((await admin.patch(path, { status: "archived" })).status).toBe(400);
     expect((await admin.patch(path, { keywords: [] })).status).toBe(400);
-    expect((await admin.patch(path, { minMembers: 500 })).status).toBe(200);
+    // 500 would sit above the stored maximum of 100, so only the valid 50 lands
+    expect((await admin.patch(path, { minMembers: 500 })).status).toBe(400);
+    expect((await admin.patch(path, { minMembers: 50 })).status).toBe(200);
     expect(
       (await admin.patch(path, { minMembers: 900, maxMembers: 10 })).status,
     ).toBe(400);
@@ -287,7 +289,7 @@ test("a campaign update that is empty, out of range or aimed at nothing writes n
     expect(rows[0]).toMatchObject({
       name: "Original",
       keywords: ["alpha"],
-      minMembers: 500,
+      minMembers: 50,
       maxMembers: 100,
     });
   });
@@ -759,5 +761,40 @@ test("saving a campaign with its current status is allowed in every state", asyn
       "Edited",
       "Edited",
     ]);
+  });
+});
+
+test("changing one end of a limit so that it crosses the stored other end is refused and nothing changes", async () => {
+  await withTestDatabase(async ({ context, db }) => {
+    const admin = await createAdminClient(context, "range-admin@example.com");
+    const campaign = await context.repositories.campaign.create({
+      name: "Ranged",
+      keywords: ["k"],
+      types: ["public"],
+      pricingModels: ["paid"],
+      minMembers: 10,
+      maxMembers: 100,
+      minMonthlyPriceUsd: 5,
+      maxMonthlyPriceUsd: 50,
+    });
+
+    const members = await admin.patch(`/api/campaigns/${campaign.campaignId}`, {
+      minMembers: 900,
+    });
+    const price = await admin.patch(`/api/campaigns/${campaign.campaignId}`, {
+      maxMonthlyPriceUsd: 1,
+    });
+
+    expect([members.status, price.status]).toEqual([400, 400]);
+    const [row] = await db
+      .select()
+      .from(campaignsTable)
+      .where(eq(campaignsTable.campaignId, campaign.campaignId));
+    expect(row).toMatchObject({
+      minMembers: 10,
+      maxMembers: 100,
+      minMonthlyPriceUsd: 5,
+      maxMonthlyPriceUsd: 50,
+    });
   });
 });

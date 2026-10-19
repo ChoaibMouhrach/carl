@@ -134,3 +134,22 @@ export const setup = async (
 
   return { context, admin, token, scraper };
 };
+
+type App = Awaited<ReturnType<typeof createAuthenticatedApp>>["app"];
+
+/** A tool's answer with its JSON already read; a failed tool answers with plain text */
+export const callData = async (
+  app: App,
+  token: string,
+  name: string,
+  args: object,
+) => {
+  const result = await callTool(app, token, name, args);
+  const data: unknown = result.isError ? undefined : JSON.parse(result.text);
+
+  return { isError: result.isError, text: result.text, data };
+};
+
+export const platformRows = async (db: DB) => ({
+  ...(await countRows(db)),
+});

@@ -54,7 +54,24 @@ test("an expired token is refused", async () => {
   });
 });
 
-test("an admin's agent lists exactly the three read-only Skool tools", async () => {
+const readTools = [
+  "get_community",
+  "get_owner",
+  "list_campaigns",
+  "list_leads",
+  "list_saved_communities",
+  "search_communities",
+];
+const writeTools = [
+  "create_campaign",
+  "create_community",
+  "create_lead",
+  "update_campaign",
+  "update_community",
+  "update_lead",
+];
+
+test("an admin's agent lists the Skool lookups and the data tools, each marked read-only or not and never destructive", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { admin, token } = await setup(db, pool);
 
@@ -65,21 +82,31 @@ test("an admin's agent lists exactly the three read-only Skool tools", async () 
           tools: z.array(
             z.object({
               name: z.string(),
-              annotations: z.object({ readOnlyHint: z.boolean() }),
+              inputSchema: z.object({ type: z.literal("object") }),
+              annotations: z.object({
+                readOnlyHint: z.boolean(),
+                destructiveHint: z.boolean(),
+              }),
             }),
           ),
         }),
       })
       .parse(await response.json());
+    const tools = body.result.tools;
+    const named = (names: string[]) =>
+      tools.filter((tool) => names.includes(tool.name));
 
-    expect(body.result.tools.map((tool) => tool.name).toSorted()).toEqual([
-      "get_community",
-      "get_owner",
-      "search_communities",
-    ]);
+    expect(tools.map((tool) => tool.name).toSorted()).toEqual(
+      [...readTools, ...writeTools].toSorted(),
+    );
     expect(
-      body.result.tools.every((tool) => tool.annotations.readOnlyHint),
+      named(readTools).every((tool) => tool.annotations.readOnlyHint),
     ).toBe(true);
+    expect(
+      named(writeTools).every((tool) => !tool.annotations.readOnlyHint),
+    ).toBe(true);
+    // No tool deletes anything, so none may claim to
+    expect(tools.every((tool) => !tool.annotations.destructiveHint)).toBe(true);
   });
 });
 
@@ -199,7 +226,7 @@ test("a community lookup returns its owner and the emails in their bio, stores n
 test("an owner lookup returns their profile and stores nothing", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { admin, token, scraper } = await setup(db, pool);
-    scraper.profileBios.jane = "Reach me at jane@example.com";
+    scraper.profileBios["jane"] = "Reach me at jane@example.com";
     const before = await countRows(db);
 
     const result = await callTool(admin.app, token, "get_owner", {
