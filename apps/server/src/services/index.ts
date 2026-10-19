@@ -7,6 +7,8 @@ import { CommunityService } from "./community";
 import { ScrapeService } from "./scrape";
 import { CampaignService } from "./campaign";
 import { EventService } from "./event";
+import { McpService } from "./mcp";
+import { SkoolLookupService } from "./skool-lookup";
 
 interface ServicesConstructorParams {
   context: Context;
@@ -21,6 +23,8 @@ export class Services {
   public scrape;
   public campaign;
   public event;
+  public skoolLookup;
+  public mcp;
 
   public constructor({ context }: ServicesConstructorParams) {
     this.platformSetup = new PlatformSetupService({
@@ -40,5 +44,9 @@ export class Services {
     this.campaign = new CampaignService({ context });
 
     this.event = new EventService({ context });
+
+    this.skoolLookup = new SkoolLookupService({ context });
+
+    this.mcp = new McpService({ context });
   }
 }

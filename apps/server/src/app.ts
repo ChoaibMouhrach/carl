@@ -4,9 +4,13 @@ import { serveStatic } from "hono/bun";
 import { Services } from "./services";
 import { AppError } from "./lib/errors";
 import type { Context } from "./context";
-import { AppRedirect } from "./http/utils";
+import { AppRedirect, redirectAsJson } from "./http/utils";
 import { readClientHtml } from "./http/client-html";
 import type { Role } from "./config/constants";
+import {
+  oAuthDiscoveryMetadata,
+  oAuthProtectedResourceMetadata,
+} from "better-auth/plugins";
 import { controllers } from "./http/controllers";
 import { openAPIRouteHandler } from "hono-openapi";
 import { HTTPException } from "hono/http-exception";
@@ -49,7 +53,11 @@ export const initApp = async (params: initAppParams) => {
       "/api/auth/sign-in/email",
       authEmailRateLimit,
       authIpRateLimit,
-      (context) => params.context.auth.handler(context.req.raw),
+      async (context) => {
+        const response = await params.context.auth.handler(context.req.raw);
+
+        return redirectAsJson(context.req.raw, response);
+      },
     )
 
     .post(
@@ -57,6 +65,14 @@ export const initApp = async (params: initAppParams) => {
       authEmailRateLimit,
       authIpRateLimit,
       (context) => params.context.auth.handler(context.req.raw),
+    )
+
+    .get("/.well-known/oauth-authorization-server", (context) =>
+      oAuthDiscoveryMetadata(params.context.auth)(context.req.raw),
+    )
+
+    .get("/.well-known/oauth-protected-resource", (context) =>
+      oAuthProtectedResourceMetadata(params.context.auth)(context.req.raw),
     )
 
     .on(["POST", "GET"], "/api/auth/*", (context) =>

@@ -57,7 +57,10 @@ export const SignIn = () => {
         }),
       );
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // An agent's authorization request resumes through the redirect the server returns
+      if ("redirect" in data && data.redirect) return;
+
       navigate({ to: "/admin/dashboard" });
     },
     onError: (error) => {

@@ -87,6 +87,7 @@ const run = async () => {
 
   await context.queueHub.close();
   await context.eventBus.close();
+  await context.cache.close();
   await context.rateLimiter.close();
   await context.repositories.close();
 };

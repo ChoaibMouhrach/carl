@@ -6,6 +6,7 @@ import { leadController } from "./lead";
 import { communityController } from "./community";
 import { campaignController } from "./campaign";
 import { eventController } from "./event";
+import { mcpController } from "./mcp";
 
 export const controllers = new Hono<AppContext>()
   .route("/platform-setup", platformSetupController)
@@ -13,4 +14,5 @@ export const controllers = new Hono<AppContext>()
   .route("/leads", leadController)
   .route("/communities", communityController)
   .route("/campaigns", campaignController)
-  .route("/events", eventController);
+  .route("/events", eventController)
+  .route("/mcp", mcpController);

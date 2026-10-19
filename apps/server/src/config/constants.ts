@@ -9,6 +9,9 @@ export const SETUP_KEY = "setup";
 export const DEFAULT_RECORD_LIMIT = 12;
 export const EXPORT_RECORD_LIMIT = 50_000;
 
+export const SKOOL_LOOKUP_CACHE_TTL_SECONDS = 3_600;
+export const SKOOL_LOOKUP_MAX_RESULTS = 30;
+
 export const EVENT_STREAM_HEARTBEAT_MS = 15_000;
 export const HTTP_IDLE_TIMEOUT_SECONDS = 60;
 

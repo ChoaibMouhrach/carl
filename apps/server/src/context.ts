@@ -15,6 +15,8 @@ import type { BaseEventBus } from "./lib/base-event-bus";
 import { RedisEventBus } from "./infrastructure/event-bus/redis";
 import type { BaseQueueHub } from "./lib/base-queue";
 import { QueueHub } from "./infrastructure/queue/bullmq";
+import type { BaseCache } from "./lib/base-cache";
+import { RedisCache } from "./infrastructure/cache/redis";
 import type { BaseRateLimiter } from "./lib/base-rate-limiter";
 import { RedisRateLimiter } from "./infrastructure/rate-limiter/redis";
 import { DisabledRateLimiter } from "./infrastructure/rate-limiter/disabled";
@@ -80,6 +82,11 @@ export const initContext = async () => {
     redisUrl: env.REDIS_CONNECTION_STRING,
   });
 
+  const cache: BaseCache = new RedisCache({
+    logger,
+    redisUrl: env.REDIS_CONNECTION_STRING,
+  });
+
   const rateLimiter: BaseRateLimiter = env.IS_DEVELOPMENT
     ? new DisabledRateLimiter()
     : new RedisRateLimiter({
@@ -101,6 +108,7 @@ export const initContext = async () => {
     repositories,
     queueHub,
     eventBus,
+    cache,
     rateLimiter,
     logger,
     mailer,

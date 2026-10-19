@@ -7,6 +7,7 @@ import { CommunityRepository } from "./community";
 import { CampaignRepository } from "./campaign";
 import { CampaignLeadRepository } from "./campaign-lead";
 import { ScrapeRunRepository } from "./scrape-run";
+import { OAuthClientRepository } from "./oauth-client";
 
 interface RepositoriesConstructorProps {
   dbConnection: DBConnection;
@@ -24,6 +25,7 @@ export class Repositories {
   public campaign;
   public campaignLead;
   public scrapeRun;
+  public oauthClient;
 
   public constructor({ dbConnection }: RepositoriesConstructorProps) {
     this.pool = dbConnection.pool;
@@ -58,6 +60,10 @@ export class Repositories {
     });
 
     this.scrapeRun = new ScrapeRunRepository({
+      db: dbConnection.db,
+    });
+
+    this.oauthClient = new OAuthClientRepository({
       db: dbConnection.db,
     });
   }
