@@ -1,19 +1,21 @@
 # Carl
 
-A clean, typed, batteries-included foundation for building focused SaaS products.
-It gives you the essential infrastructure — a single admin account, first-admin setup,
-and a polished app shell — without inheriting
-another product's domain assumptions. Add your own domain model on top.
+A go-to-market (GTM) app for Skool. Carl finds Skool communities, treats each
+community's owner as a lead, and runs those leads through a multi-stage
+pipeline, organised into campaigns.
 
 ## Contents
 
 - [Overview](#overview)
+- [How a campaign works](#how-a-campaign-works)
+- [Running a scrape](#running-a-scrape)
 - [Tech stack](#tech-stack)
 - [Monorepo layout](#monorepo-layout)
 - [How requests are routed](#how-requests-are-routed)
 - [Prerequisites](#prerequisites)
 - [Getting started](#getting-started)
 - [Environment variables](#environment-variables)
+- [Observability](#observability)
 - [Scripts](#scripts)
 - [Database & migrations](#database--migrations)
 - [Internationalization](#internationalization)
@@ -23,23 +25,91 @@ another product's domain assumptions. Add your own domain model on top.
 
 ## Overview
 
-This is a Turborepo monorepo containing two deployable apps and a set of shared
+Carl is a Turborepo monorepo with two deployable apps and a set of shared
 packages. In production, a **single compiled server binary** serves everything:
 the API and the dashboard SPA.
 
-**What's included out of the box:**
+**What it does:**
 
-- Secure, session-based authentication (sign in, email verification,
-  password reset, change email, change password with optional other-session
-  revocation). There is no public sign-up
-- A first-admin **setup flow** — the setup page creates the one verified admin
-  account; no demo data
+- **Scrapes Skool** discovery and community pages for a keyword, then stores
+  each community and its owner. The owner is the lead; the community is how we
+  found them
+- **Campaigns** — several can run side by side, each with its own keyword,
+  search settings and filters, and its own view of where every lead sits in the
+  pipeline
+- **A dashboard** to manage campaigns, leads and communities, start scrapes and
+  watch their progress
+- **A single admin account**, created by a first-run setup flow. There is no
+  public sign-up
 - **Internationalization** across the whole stack (English, French, Spanish)
-- Rate limiting (Redis-backed), a background email queue, and a
-  provider-agnostic infrastructure layer
+- Rate limiting (Redis-backed), background job queues, and a provider-agnostic
+  infrastructure layer
 
 Every external integration is required. Environment validation fails immediately
 when any required configuration is missing.
+
+## How a campaign works
+
+A campaign moves leads through **8 pipeline stages**. Stage 1 is the Skool
+scrape. Stages 2–8 are generic slots in the UI: they show lead counts, but their
+work is not implemented yet.
+
+A campaign has these scrape settings:
+
+| Setting       | Meaning                                                               |
+| ------------- | --------------------------------------------------------------------- |
+| Keyword       | What to search for on Skool                                           |
+| Type          | `public` or `private` communities                                     |
+| Pricing model | `free`, `paid` or `free-trial`                                        |
+| Monthly price | Optional minimum and maximum, in USD. Yearly prices are divided by 12 |
+| Members       | Optional minimum and maximum member count                             |
+
+Searches always use English. Free communities count as a $0 price, and
+communities with a one-time or unknown price have no monthly price to compare,
+so they are dropped whenever a price limit is set.
+
+Leads found by a scrape are attached to the campaign at stage 1 as `done`, ready
+for stage 2. Each lead then has a status per stage: `pending`, `running`, `done`
+or `failed`.
+
+## Running a scrape
+
+Open an **active** campaign and run the scrape from its stage 1 panel. The API
+returns `202` immediately and a BullMQ worker does the work. The page polls
+while the run is queued or running, then shows a summary: communities found,
+new communities, leads added, filtered out and failed.
+
+How the scraper works:
+
+1. **Discover** — queries Skool's discovery pages for the keyword, one search per
+   chosen type and pricing model, and fetches the remaining pages in parallel.
+   Discovery results are not deduplicated
+2. **Skip known communities** — one database lookup skips every community
+   already stored, so nothing is fetched twice. Owners are cached the same way
+3. **Fetch each new community's `/about` page** — the owner, pricing, tiers,
+   links, counts and reviews come from the page's `__NEXT_DATA__` JSON
+4. **Apply the campaign's filters** — price and member limits are applied here,
+   before anything is stored, so a filtered-out community and its owner never
+   reach the database
+5. **Store** — the owner's profile (followers, posts, created communities, links)
+   is fetched, emails are extracted from their bio, and the lead and community
+   are saved. A filtered-out community is not remembered, so a later scrape
+   fetches it again
+
+Skool is reached through a `BaseSkoolScraper` contract. The current
+implementation is `infrastructure/skool/custom`; an Apify-based one can be added
+at `infrastructure/skool/apify` without touching the services.
+
+You can also run a scrape from the command line, without a campaign:
+
+```bash
+bun --cwd apps/server run scrape --keyword "business coaching" \
+  --type public --pricing paid \
+  --min-price 10 --max-price 100 --min-members 50 --max-members 5000
+```
+
+`--type` and `--pricing` can be repeated, and leaving one out searches all of
+its options.
 
 ## Tech stack
 
@@ -62,8 +132,9 @@ when any required configuration is missing.
 apps/
   server/   Hono API + background workers; in prod serves the client too
   client/   Vite + React SPA — the authenticated dashboard, served at /
+  e2e/      Playwright end-to-end tests
 packages/
-  constants/  Shared types & constants (@repo/constants): error codes…
+  constants/  Shared types & constants (@repo/constants): error codes, campaign enums…
   ui/         Shared shadcn/ui component library (@repo/ui)
   i18n/       Shared locale config + message catalogs (@repo/i18n)
 ```
