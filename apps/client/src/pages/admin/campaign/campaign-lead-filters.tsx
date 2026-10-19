@@ -12,6 +12,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 interface CampaignLeadFiltersProps {
+  viewSwitch: React.ReactNode;
   onSearch: (search: string | undefined) => void;
   onStatusChange: (status: LeadStatus | undefined) => void;
   search?: string;
@@ -19,6 +20,7 @@ interface CampaignLeadFiltersProps {
 }
 
 export const CampaignLeadFilters = ({
+  viewSwitch,
   onSearch,
   onStatusChange,
   search,
@@ -62,6 +64,7 @@ export const CampaignLeadFilters = ({
           </SelectGroup>
         </SelectContent>
       </Select>
+      <div className="ml-auto">{viewSwitch}</div>
     </div>
   );
 };

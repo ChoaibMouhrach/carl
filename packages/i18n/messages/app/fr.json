@@ -4,6 +4,11 @@
     "signIn": "Se connecter",
     "goHome": "Retour à l'accueil"
   },
+  "view": {
+    "label": "Affichage",
+    "table": "Vue tableau",
+    "cards": "Vue cartes"
+  },
   "nav": {
     "dashboard": "Tableau de bord",
     "campaigns": "Campagnes",

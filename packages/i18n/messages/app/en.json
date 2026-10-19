@@ -4,6 +4,11 @@
     "signIn": "Sign in",
     "goHome": "Go Home"
   },
+  "view": {
+    "label": "View",
+    "table": "Table view",
+    "cards": "Card view"
+  },
   "nav": {
     "dashboard": "Dashboard",
     "campaigns": "Campaigns",

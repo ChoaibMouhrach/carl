@@ -7,6 +7,7 @@ import {
 
 interface CommunityFiltersProps {
   createAction: React.ReactNode;
+  viewSwitch: React.ReactNode;
   filters: CommunityFilterValues;
   onApplyFilters: (filters: CommunityFilterValues) => void;
   onSearch: (search: string | undefined) => void;
@@ -15,6 +16,7 @@ interface CommunityFiltersProps {
 
 export const CommunityFilters = ({
   createAction,
+  viewSwitch,
   filters,
   onApplyFilters,
   onSearch,
@@ -31,7 +33,10 @@ export const CommunityFilters = ({
         value={search}
       />
       <CommunityFiltersSheet filters={filters} onApply={onApplyFilters} />
-      <div className="ml-auto">{createAction}</div>
+      <div className="ml-auto flex items-center gap-2">
+        {viewSwitch}
+        {createAction}
+      </div>
     </div>
   );
 };

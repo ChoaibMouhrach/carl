@@ -15,6 +15,7 @@ type SortOrder = "asc" | "desc";
 
 interface LeadFiltersProps {
   createAction: React.ReactNode;
+  viewSwitch: React.ReactNode;
   hasWebsite?: boolean;
   onHasWebsiteChange: (hasWebsite: boolean | undefined) => void;
   onSearch: (search: string | undefined) => void;
@@ -27,6 +28,7 @@ interface LeadFiltersProps {
 
 export const LeadFilters = ({
   createAction,
+  viewSwitch,
   hasWebsite,
   onHasWebsiteChange,
   onSearch,
@@ -129,7 +131,10 @@ export const LeadFilters = ({
           </SelectGroup>
         </SelectContent>
       </Select>
-      <div className="ml-auto">{createAction}</div>
+      <div className="ml-auto flex items-center gap-2">
+        {viewSwitch}
+        {createAction}
+      </div>
     </div>
   );
 };

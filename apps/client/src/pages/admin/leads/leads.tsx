@@ -1,8 +1,11 @@
 import { api } from "@/api";
 import { DataPagination } from "@/components/data-pagination";
+import { CardGridSkeleton } from "@/components/card-grid";
 import { TableSkeleton } from "@/components/table-skeleton";
+import { ViewSwitch } from "@/components/view-switch";
 import { onError } from "@/lib/base-api";
 import { invalidateLeadData } from "@/lib/invalidate";
+import { useView } from "@/lib/view";
 import { adminLeadsRoute } from "@/routes/admin/leads";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
@@ -12,12 +15,14 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@repo/ui/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { LeadCards } from "./lead-cards";
 import { LeadFilters } from "./lead-filters";
 import { LeadTable } from "./lead-table";
 
 export const Leads = () => {
   const { t } = useTranslation();
   const searchParams = adminLeadsRoute.useSearch();
+  const { view, setView } = useView();
   const navigate = adminLeadsRoute.useNavigate();
   const queryClient = useQueryClient();
 
@@ -48,7 +53,11 @@ export const Leads = () => {
               <Skeleton className="h-9 w-32" />
               <Skeleton className="ml-auto h-9 w-32" />
             </div>
-            <TableSkeleton columns={5} />
+            {view === "cards" ? (
+              <CardGridSkeleton />
+            ) : (
+              <TableSkeleton columns={5} />
+            )}
           </div>
         </CardContent>
       </Card>
@@ -70,6 +79,7 @@ export const Leads = () => {
                 {t("adminLeads.create")}
               </Button>
             }
+            viewSwitch={<ViewSwitch onChange={setView} view={view} />}
             hasWebsite={searchParams.hasWebsite}
             onHasWebsiteChange={(hasWebsite) =>
               navigate({
@@ -95,12 +105,21 @@ export const Leads = () => {
             sortBy={searchParams.sortBy ?? "createdAt"}
             sortOrder={searchParams.sortOrder ?? "desc"}
           />
-          <LeadTable
-            isMutating={remove.isPending}
-            leads={leads.data.leads}
-            onRemove={(leadId) => remove.mutate(leadId)}
-            removingLeadId={remove.variables}
-          />
+          {view === "cards" ? (
+            <LeadCards
+              isMutating={remove.isPending}
+              leads={leads.data.leads}
+              onRemove={(leadId) => remove.mutate(leadId)}
+              removingLeadId={remove.variables}
+            />
+          ) : (
+            <LeadTable
+              isMutating={remove.isPending}
+              leads={leads.data.leads}
+              onRemove={(leadId) => remove.mutate(leadId)}
+              removingLeadId={remove.variables}
+            />
+          )}
           <DataPagination
             currentPage={leads.data.meta.page}
             lastPage={leads.data.meta.lastPage}

@@ -1,6 +1,5 @@
 import { RowActions } from "@/components/row-actions";
 import { formatCurrency, formatNumber } from "@/lib/format";
-import { Badge } from "@repo/ui/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -12,6 +11,7 @@ import {
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { type CommunityFormSource } from "./community-form";
+import { CommunityPrice } from "./community-price";
 
 interface CommunityRow extends CommunityFormSource {
   communityId: number;
@@ -20,19 +20,13 @@ interface CommunityRow extends CommunityFormSource {
   estMonthlyRevenue: number | null;
 }
 
-interface CommunityTableProps {
+export interface CommunityTableProps {
   communities: CommunityRow[];
   isMutating: boolean;
   onRemove: (communityId: number) => void;
   removingCommunityId?: number;
   showLead: boolean;
 }
-
-const intervalKeys = {
-  month: "adminCommunities.perMonth",
-  year: "adminCommunities.perYear",
-  one_time: "adminCommunities.oneTime",
-} as const;
 
 export const CommunityTable = ({
   communities,
@@ -87,20 +81,7 @@ export const CommunityTable = ({
               </TableCell>
               <TableCell>{formatNumber(community.memberCount)}</TableCell>
               <TableCell>
-                {community.pricingType === "free" ? (
-                  <Badge variant="secondary">
-                    {t("adminCommunities.free")}
-                  </Badge>
-                ) : (
-                  <>
-                    {formatCurrency(
-                      community.priceAmount / 100,
-                      community.priceCurrency ?? "USD",
-                    )}{" "}
-                    {community.pricingInterval &&
-                      t(intervalKeys[community.pricingInterval])}
-                  </>
-                )}
+                <CommunityPrice community={community} />
               </TableCell>
               <TableCell>
                 {community.estMonthlyRevenue === null

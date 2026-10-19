@@ -4,6 +4,11 @@
     "signIn": "Iniciar sesión",
     "goHome": "Volver al inicio"
   },
+  "view": {
+    "label": "Vista",
+    "table": "Vista de tabla",
+    "cards": "Vista de tarjetas"
+  },
   "nav": {
     "dashboard": "Panel",
     "campaigns": "Campañas",

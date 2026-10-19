@@ -10,6 +10,8 @@ import { Button } from "@repo/ui/components/ui/button";
 import { Link } from "@tanstack/react-router";
 import { PlusIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useView } from "@/lib/view";
+import { CommunityCards } from "../communities/community-cards";
 import { CommunityTable } from "../communities/community-table";
 
 type Community = Awaited<
@@ -32,6 +34,7 @@ export const LeadCommunities = ({
   removingCommunityId,
 }: LeadCommunitiesProps) => {
   const { t } = useTranslation();
+  const { view } = useView();
 
   return (
     <Card>
@@ -47,13 +50,23 @@ export const LeadCommunities = ({
         </CardAction>
       </CardHeader>
       <CardContent>
-        <CommunityTable
-          communities={communities}
-          isMutating={isMutating}
-          onRemove={onRemove}
-          removingCommunityId={removingCommunityId}
-          showLead={false}
-        />
+        {view === "cards" ? (
+          <CommunityCards
+            communities={communities}
+            isMutating={isMutating}
+            onRemove={onRemove}
+            removingCommunityId={removingCommunityId}
+            showLead={false}
+          />
+        ) : (
+          <CommunityTable
+            communities={communities}
+            isMutating={isMutating}
+            onRemove={onRemove}
+            removingCommunityId={removingCommunityId}
+            showLead={false}
+          />
+        )}
       </CardContent>
     </Card>
   );

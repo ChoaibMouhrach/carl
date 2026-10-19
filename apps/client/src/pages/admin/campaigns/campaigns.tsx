@@ -1,8 +1,11 @@
 import { api } from "@/api";
 import { DataPagination } from "@/components/data-pagination";
+import { CardGridSkeleton } from "@/components/card-grid";
 import { TableSkeleton } from "@/components/table-skeleton";
+import { ViewSwitch } from "@/components/view-switch";
 import { onError } from "@/lib/base-api";
 import { invalidateCampaignData } from "@/lib/invalidate";
+import { useView } from "@/lib/view";
 import { adminCampaignsRoute } from "@/routes/admin/campaigns";
 import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
@@ -12,12 +15,14 @@ import { Link } from "@tanstack/react-router";
 import { PlusIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { CampaignCards } from "./campaign-cards";
 import { CampaignFilters } from "./campaign-filters";
 import { CampaignTable } from "./campaign-table";
 
 export const Campaigns = () => {
   const { t } = useTranslation();
   const searchParams = adminCampaignsRoute.useSearch();
+  const { view, setView } = useView();
   const navigate = adminCampaignsRoute.useNavigate();
   const queryClient = useQueryClient();
 
@@ -46,7 +51,11 @@ export const Campaigns = () => {
               <Skeleton className="h-9 w-40" />
               <Skeleton className="ml-auto h-9 w-36" />
             </div>
-            <TableSkeleton columns={6} />
+            {view === "cards" ? (
+              <CardGridSkeleton />
+            ) : (
+              <TableSkeleton columns={6} />
+            )}
           </div>
         </CardContent>
       </Card>
@@ -68,6 +77,7 @@ export const Campaigns = () => {
                 {t("adminCampaigns.create")}
               </Button>
             }
+            viewSwitch={<ViewSwitch onChange={setView} view={view} />}
             onSearch={(search) =>
               navigate({
                 search: (current) => ({ ...current, page: 1, search }),
@@ -81,12 +91,21 @@ export const Campaigns = () => {
             search={searchParams.search}
             status={searchParams.status}
           />
-          <CampaignTable
-            campaigns={campaigns.data.campaigns}
-            isMutating={remove.isPending}
-            onRemove={(campaignId) => remove.mutate(campaignId)}
-            removingCampaignId={remove.variables}
-          />
+          {view === "cards" ? (
+            <CampaignCards
+              campaigns={campaigns.data.campaigns}
+              isMutating={remove.isPending}
+              onRemove={(campaignId) => remove.mutate(campaignId)}
+              removingCampaignId={remove.variables}
+            />
+          ) : (
+            <CampaignTable
+              campaigns={campaigns.data.campaigns}
+              isMutating={remove.isPending}
+              onRemove={(campaignId) => remove.mutate(campaignId)}
+              removingCampaignId={remove.variables}
+            />
+          )}
           <DataPagination
             currentPage={campaigns.data.meta.page}
             lastPage={campaigns.data.meta.lastPage}

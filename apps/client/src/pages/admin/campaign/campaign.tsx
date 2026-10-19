@@ -1,7 +1,9 @@
 import { api } from "@/api";
 import type { ScrapeRun } from "@/api/campaign";
 import { DataPagination } from "@/components/data-pagination";
+import { CardGridSkeleton } from "@/components/card-grid";
 import { TableSkeleton } from "@/components/table-skeleton";
+import { ViewSwitch } from "@/components/view-switch";
 import { onError } from "@/lib/base-api";
 import {
   stageNumbers,
@@ -9,6 +11,7 @@ import {
   type StageNumber,
 } from "@/lib/campaign";
 import { invalidateCampaignData } from "@/lib/invalidate";
+import { useView } from "@/lib/view";
 import { adminCampaignRoute } from "@/routes/admin/campaign";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
@@ -20,6 +23,7 @@ import { ArrowLeftIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { CampaignHeader } from "./campaign-header";
+import { CampaignLeadCards } from "./campaign-lead-cards";
 import { CampaignLeadFilters } from "./campaign-lead-filters";
 import { CampaignLeadTable } from "./campaign-lead-table";
 import { PipelineOverview } from "./pipeline-overview";
@@ -37,6 +41,7 @@ export const Campaign = () => {
   const { t } = useTranslation();
   const { campaignId } = adminCampaignRoute.useParams();
   const searchParams = adminCampaignRoute.useSearch();
+  const { view, setView } = useView();
   const navigate = adminCampaignRoute.useNavigate();
   const queryClient = useQueryClient();
 
@@ -97,7 +102,7 @@ export const Campaign = () => {
         <Skeleton className="h-9 w-full max-w-2xl" />
         <Card>
           <CardContent>
-            <TableSkeleton columns={7} />
+            <TableSkeleton columns={9} />
           </CardContent>
         </Card>
       </div>
@@ -175,6 +180,7 @@ export const Campaign = () => {
         <CardContent>
           <div className="space-y-4">
             <CampaignLeadFilters
+              viewSwitch={<ViewSwitch onChange={setView} view={view} />}
               onSearch={(search) =>
                 navigate({
                   search: (current) => ({ ...current, page: 1, search }),
@@ -189,7 +195,13 @@ export const Campaign = () => {
               status={searchParams.status}
             />
             {leads.isPending ? (
-              <TableSkeleton columns={7} />
+              view === "cards" ? (
+                <CardGridSkeleton />
+              ) : (
+                <TableSkeleton columns={9} />
+              )
+            ) : view === "cards" ? (
+              <CampaignLeadCards leads={leads.data.leads} />
             ) : (
               <CampaignLeadTable leads={leads.data.leads} />
             )}

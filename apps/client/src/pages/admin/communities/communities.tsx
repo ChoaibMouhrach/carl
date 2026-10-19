@@ -1,8 +1,11 @@
 import { api } from "@/api";
 import { DataPagination } from "@/components/data-pagination";
+import { CardGridSkeleton } from "@/components/card-grid";
 import { TableSkeleton } from "@/components/table-skeleton";
+import { ViewSwitch } from "@/components/view-switch";
 import { onError } from "@/lib/base-api";
 import { invalidateLeadData } from "@/lib/invalidate";
+import { useView } from "@/lib/view";
 import { adminCommunitiesRoute } from "@/routes/admin/communities";
 import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
@@ -12,12 +15,14 @@ import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { CommunityCards } from "./community-cards";
 import { CommunityFilters } from "./community-filters";
 import { CommunityTable } from "./community-table";
 
 export const Communities = () => {
   const { t } = useTranslation();
   const searchParams = adminCommunitiesRoute.useSearch();
+  const { view, setView } = useView();
   const navigate = adminCommunitiesRoute.useNavigate();
   const queryClient = useQueryClient();
 
@@ -46,7 +51,11 @@ export const Communities = () => {
               <Skeleton className="h-9 w-24" />
               <Skeleton className="ml-auto h-9 w-40" />
             </div>
-            <TableSkeleton columns={5} />
+            {view === "cards" ? (
+              <CardGridSkeleton />
+            ) : (
+              <TableSkeleton columns={5} />
+            )}
           </div>
         </CardContent>
       </Card>
@@ -68,6 +77,7 @@ export const Communities = () => {
                 {t("adminCommunities.create")}
               </Button>
             }
+            viewSwitch={<ViewSwitch onChange={setView} view={view} />}
             onApplyFilters={(filters) =>
               navigate({
                 search: (current) => ({ ...current, page: 1, ...filters }),
@@ -87,13 +97,23 @@ export const Communities = () => {
             }}
             search={searchParams.search}
           />
-          <CommunityTable
-            communities={communities.data.communities}
-            isMutating={remove.isPending}
-            onRemove={(communityId) => remove.mutate(communityId)}
-            removingCommunityId={remove.variables}
-            showLead
-          />
+          {view === "cards" ? (
+            <CommunityCards
+              communities={communities.data.communities}
+              isMutating={remove.isPending}
+              onRemove={(communityId) => remove.mutate(communityId)}
+              removingCommunityId={remove.variables}
+              showLead
+            />
+          ) : (
+            <CommunityTable
+              communities={communities.data.communities}
+              isMutating={remove.isPending}
+              onRemove={(communityId) => remove.mutate(communityId)}
+              removingCommunityId={remove.variables}
+              showLead
+            />
+          )}
           <DataPagination
             currentPage={communities.data.meta.page}
             lastPage={communities.data.meta.lastPage}

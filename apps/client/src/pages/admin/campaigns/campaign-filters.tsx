@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 
 interface CampaignFiltersProps {
   createAction: React.ReactNode;
+  viewSwitch: React.ReactNode;
   onSearch: (search: string | undefined) => void;
   onStatusChange: (status: CampaignStatus | undefined) => void;
   search?: string;
@@ -21,6 +22,7 @@ interface CampaignFiltersProps {
 
 export const CampaignFilters = ({
   createAction,
+  viewSwitch,
   onSearch,
   onStatusChange,
   search,
@@ -64,7 +66,10 @@ export const CampaignFilters = ({
           </SelectGroup>
         </SelectContent>
       </Select>
-      <div className="ml-auto">{createAction}</div>
+      <div className="ml-auto flex items-center gap-2">
+        {viewSwitch}
+        {createAction}
+      </div>
     </div>
   );
 };
