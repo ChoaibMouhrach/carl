@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   Pagination,
   PaginationContent,
@@ -16,6 +17,8 @@ interface DataPaginationProps {
 }
 
 const DOTS = "dots";
+
+const scrollToTop = () => window.scrollTo({ top: 0 });
 
 const range = (start: number, end: number): number[] =>
   Array.from({ length: end - start + 1 }, (_, i) => start + i);
@@ -58,13 +61,25 @@ export const DataPagination: React.FC<DataPaginationProps> = ({
 }) => {
   const pages = getPaginationRange(currentPage, lastPage, siblingCount);
 
+  const goToPage = (page: number) => {
+    if (page < 1 || page > lastPage || page === currentPage) return;
+
+    onPageChange(page);
+    scrollToTop();
+  };
+
+  // A stale link or a deleted last row can leave the page past the end
+  useEffect(() => {
+    if (currentPage > lastPage) onPageChange(lastPage);
+  }, [currentPage, lastPage, onPageChange]);
+
   return (
     <Pagination>
       <PaginationContent>
         <PaginationItem>
           <PaginationPrevious
             disabled={currentPage <= 1}
-            onClick={() => onPageChange(currentPage - 1)}
+            onClick={() => goToPage(currentPage - 1)}
           />
         </PaginationItem>
 
@@ -77,7 +92,7 @@ export const DataPagination: React.FC<DataPaginationProps> = ({
             <PaginationItem key={page}>
               <PaginationLink
                 isActive={page === currentPage}
-                onClick={() => onPageChange(page)}
+                onClick={() => goToPage(page)}
               >
                 {page}
               </PaginationLink>
@@ -88,7 +103,7 @@ export const DataPagination: React.FC<DataPaginationProps> = ({
         <PaginationItem>
           <PaginationNext
             disabled={currentPage >= lastPage}
-            onClick={() => onPageChange(currentPage + 1)}
+            onClick={() => goToPage(currentPage + 1)}
           />
         </PaginationItem>
       </PaginationContent>

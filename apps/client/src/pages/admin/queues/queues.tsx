@@ -87,7 +87,7 @@ export const Queues = () => {
     <div className="space-y-6">
       <QueueCounts queues={overview.data.queues} />
       <FailedJobsTable
-        currentPage={failed.data?.meta.page ?? search.page}
+        currentPage={failed.data?.meta.page ?? 1}
         isMutating={
           retryJob.isPending || removeJob.isPending || retryAll.isPending
         }
