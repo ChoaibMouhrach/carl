@@ -1,4 +1,6 @@
 import type { CampaignLead } from "@/api/campaign";
+import { SelectCheckbox } from "@/components/select-checkbox";
+import type { Selection } from "@/lib/use-selection";
 import { EmailLink, ExternalLink } from "@/components/external-link";
 import { formatDate, formatNumber } from "@/lib/format";
 import { Badge } from "@repo/ui/components/ui/badge";
@@ -16,9 +18,13 @@ import { LeadStatusBadge } from "./lead-status-badge";
 
 interface CampaignLeadTableProps {
   leads: CampaignLead[];
+  selection: Selection;
 }
 
-export const CampaignLeadTable = ({ leads }: CampaignLeadTableProps) => {
+export const CampaignLeadTable = ({
+  leads,
+  selection,
+}: CampaignLeadTableProps) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
@@ -26,6 +32,14 @@ export const CampaignLeadTable = ({ leads }: CampaignLeadTableProps) => {
     <Table>
       <TableHeader>
         <TableRow>
+          <TableHead className="w-10">
+            <SelectCheckbox
+              checked={selection.allSelected}
+              indeterminate={selection.someSelected}
+              label={t("selection.selectAll")}
+              onChange={selection.toggleAll}
+            />
+          </TableHead>
           <TableHead>{t("adminCampaign.lead")}</TableHead>
           <TableHead>{t("adminCampaign.community")}</TableHead>
           <TableHead>{t("adminCampaign.keyword")}</TableHead>
@@ -41,7 +55,7 @@ export const CampaignLeadTable = ({ leads }: CampaignLeadTableProps) => {
       <TableBody>
         {leads.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={10}>{t("adminCampaign.emptyLeads")}</TableCell>
+            <TableCell colSpan={11}>{t("adminCampaign.emptyLeads")}</TableCell>
           </TableRow>
         ) : (
           leads.map((lead) => (
@@ -55,6 +69,12 @@ export const CampaignLeadTable = ({ leads }: CampaignLeadTableProps) => {
                 })
               }
             >
+              <TableCell>
+                <SelectCheckbox
+                  checked={selection.isSelected(lead.leadId)}
+                  onChange={() => selection.toggle(lead.leadId)}
+                />
+              </TableCell>
               <TableCell>
                 <div className="font-medium">{lead.name}</div>
                 <div className="text-muted-foreground">

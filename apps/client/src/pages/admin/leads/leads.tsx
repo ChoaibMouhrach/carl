@@ -2,9 +2,11 @@ import { api } from "@/api";
 import { DataPagination } from "@/components/data-pagination";
 import { CardGridSkeleton } from "@/components/card-grid";
 import { TableSkeleton } from "@/components/table-skeleton";
+import { SelectionBar } from "@/components/selection-bar";
 import { ViewSwitch } from "@/components/view-switch";
 import { onError } from "@/lib/base-api";
 import { invalidateLeadData } from "@/lib/invalidate";
+import { useSelection } from "@/lib/use-selection";
 import { useView } from "@/lib/view";
 import { adminLeadsRoute } from "@/routes/admin/leads";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
@@ -31,6 +33,10 @@ export const Leads = () => {
     queryFn: () => api.lead.list(searchParams),
     placeholderData: (previousData) => previousData,
   });
+
+  const selection = useSelection(
+    leads.data?.leads.map((lead) => lead.leadId) ?? [],
+  );
 
   const remove = useMutation({
     mutationFn: (leadId: number) => api.lead.remove({ leadId }),
@@ -105,12 +111,17 @@ export const Leads = () => {
             sortBy={searchParams.sortBy ?? "createdAt"}
             sortOrder={searchParams.sortOrder ?? "desc"}
           />
+          <SelectionBar
+            selection={selection}
+            showSelectAll={view === "cards"}
+          />
           {view === "cards" ? (
             <LeadCards
               isMutating={remove.isPending}
               leads={leads.data.leads}
               onRemove={(leadId) => remove.mutate(leadId)}
               removingLeadId={remove.variables}
+              selection={selection}
             />
           ) : (
             <LeadTable
@@ -118,6 +129,7 @@ export const Leads = () => {
               leads={leads.data.leads}
               onRemove={(leadId) => remove.mutate(leadId)}
               removingLeadId={remove.variables}
+              selection={selection}
             />
           )}
           <DataPagination

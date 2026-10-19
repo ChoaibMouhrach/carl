@@ -10,6 +10,8 @@ import { Button } from "@repo/ui/components/ui/button";
 import { Link } from "@tanstack/react-router";
 import { PlusIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { SelectionBar } from "@/components/selection-bar";
+import { useSelection } from "@/lib/use-selection";
 import { useView } from "@/lib/view";
 import { CommunityCards } from "../communities/community-cards";
 import { CommunityTable } from "../communities/community-table";
@@ -35,6 +37,9 @@ export const LeadCommunities = ({
 }: LeadCommunitiesProps) => {
   const { t } = useTranslation();
   const { view } = useView();
+  const selection = useSelection(
+    communities.map((community) => community.communityId),
+  );
 
   return (
     <Card>
@@ -50,12 +55,14 @@ export const LeadCommunities = ({
         </CardAction>
       </CardHeader>
       <CardContent>
+        <SelectionBar selection={selection} showSelectAll={view === "cards"} />
         {view === "cards" ? (
           <CommunityCards
             communities={communities}
             isMutating={isMutating}
             onRemove={onRemove}
             removingCommunityId={removingCommunityId}
+            selection={selection}
             showLead={false}
           />
         ) : (
@@ -64,6 +71,7 @@ export const LeadCommunities = ({
             isMutating={isMutating}
             onRemove={onRemove}
             removingCommunityId={removingCommunityId}
+            selection={selection}
             showLead={false}
           />
         )}

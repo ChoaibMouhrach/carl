@@ -3,6 +3,7 @@ import type { ScrapeRun } from "@/api/campaign";
 import { DataPagination } from "@/components/data-pagination";
 import { CardGridSkeleton } from "@/components/card-grid";
 import { TableSkeleton } from "@/components/table-skeleton";
+import { SelectionBar } from "@/components/selection-bar";
 import { ViewSwitch } from "@/components/view-switch";
 import { onError } from "@/lib/base-api";
 import {
@@ -11,6 +12,7 @@ import {
   type StageNumber,
 } from "@/lib/campaign";
 import { invalidateCampaignData } from "@/lib/invalidate";
+import { useSelection } from "@/lib/use-selection";
 import { useView } from "@/lib/view";
 import { adminCampaignRoute } from "@/routes/admin/campaign";
 import { Badge } from "@repo/ui/components/ui/badge";
@@ -58,6 +60,10 @@ export const Campaign = () => {
     queryFn: () => api.campaign.leads({ campaignId }, searchParams),
     placeholderData: (previousData) => previousData,
   });
+
+  const selection = useSelection(
+    leads.data?.leads.map((lead) => lead.leadId) ?? [],
+  );
 
   const setStatus = useMutation({
     mutationFn: (status: CampaignStatus) =>
@@ -195,6 +201,10 @@ export const Campaign = () => {
               search={searchParams.search}
               status={searchParams.status}
             />
+            <SelectionBar
+              selection={selection}
+              showSelectAll={view === "cards"}
+            />
             {leads.isPending ? (
               view === "cards" ? (
                 <CardGridSkeleton />
@@ -202,9 +212,15 @@ export const Campaign = () => {
                 <TableSkeleton columns={10} />
               )
             ) : view === "cards" ? (
-              <CampaignLeadCards leads={leads.data.leads} />
+              <CampaignLeadCards
+                leads={leads.data.leads}
+                selection={selection}
+              />
             ) : (
-              <CampaignLeadTable leads={leads.data.leads} />
+              <CampaignLeadTable
+                leads={leads.data.leads}
+                selection={selection}
+              />
             )}
             <DataPagination
               currentPage={leads.data?.meta.page ?? 1}

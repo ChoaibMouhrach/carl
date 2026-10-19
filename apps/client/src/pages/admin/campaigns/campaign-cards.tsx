@@ -3,6 +3,8 @@ import { CardFacts } from "@/components/card-facts";
 import { CardFrame } from "@/components/card-frame";
 import { CardGrid } from "@/components/card-grid";
 import { CardIdentity } from "@/components/card-identity";
+import { SelectCheckbox } from "@/components/select-checkbox";
+import type { Selection } from "@/lib/use-selection";
 import { RowActions } from "@/components/row-actions";
 import { formatDate, formatNumber } from "@/lib/format";
 import {
@@ -23,6 +25,7 @@ interface CampaignCardsProps {
   isMutating: boolean;
   onRemove: (campaignId: number) => void;
   removingCampaignId?: number;
+  selection: Selection;
 }
 
 export const CampaignCards = ({
@@ -30,6 +33,7 @@ export const CampaignCards = ({
   isMutating,
   onRemove,
   removingCampaignId,
+  selection,
 }: CampaignCardsProps) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -43,6 +47,7 @@ export const CampaignCards = ({
       {campaigns.map((campaign) => (
         <CardFrame
           key={campaign.campaignId}
+          selected={selection.isSelected(campaign.campaignId)}
           onClick={() =>
             navigate({
               to: "/admin/campaigns/$campaignId",
@@ -54,6 +59,12 @@ export const CampaignCards = ({
           <Card>
             <CardHeader>
               <CardIdentity
+                leading={
+                  <SelectCheckbox
+                    checked={selection.isSelected(campaign.campaignId)}
+                    onChange={() => selection.toggle(campaign.campaignId)}
+                  />
+                }
                 avatar={<MegaphoneIcon className="size-4" />}
                 description={campaign.description}
                 title={campaign.name}

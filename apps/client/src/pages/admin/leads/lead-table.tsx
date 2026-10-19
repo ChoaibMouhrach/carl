@@ -1,5 +1,7 @@
 import { api } from "@/api";
 import { RowActions } from "@/components/row-actions";
+import { SelectCheckbox } from "@/components/select-checkbox";
+import type { Selection } from "@/lib/use-selection";
 import { formatDate } from "@/lib/format";
 import {
   Table,
@@ -19,6 +21,7 @@ interface LeadTableProps {
   leads: Lead[];
   onRemove: (leadId: number) => void;
   removingLeadId?: number;
+  selection: Selection;
 }
 
 export const LeadTable = ({
@@ -26,6 +29,7 @@ export const LeadTable = ({
   leads,
   onRemove,
   removingLeadId,
+  selection,
 }: LeadTableProps) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -34,6 +38,14 @@ export const LeadTable = ({
     <Table>
       <TableHeader>
         <TableRow>
+          <TableHead className="w-10">
+            <SelectCheckbox
+              checked={selection.allSelected}
+              indeterminate={selection.someSelected}
+              label={t("selection.selectAll")}
+              onChange={selection.toggleAll}
+            />
+          </TableHead>
           <TableHead>{t("adminLeads.lead")}</TableHead>
           <TableHead>{t("adminLeads.website")}</TableHead>
           <TableHead>{t("adminLeads.communities")}</TableHead>
@@ -46,7 +58,7 @@ export const LeadTable = ({
       <TableBody>
         {leads.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={5}>{t("adminLeads.empty")}</TableCell>
+            <TableCell colSpan={6}>{t("adminLeads.empty")}</TableCell>
           </TableRow>
         ) : (
           leads.map((lead) => (
@@ -60,6 +72,12 @@ export const LeadTable = ({
                 })
               }
             >
+              <TableCell>
+                <SelectCheckbox
+                  checked={selection.isSelected(lead.leadId)}
+                  onChange={() => selection.toggle(lead.leadId)}
+                />
+              </TableCell>
               <TableCell>
                 <div className="font-medium">{lead.name}</div>
                 <div className="text-muted-foreground">

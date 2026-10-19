@@ -4,6 +4,12 @@
     "signIn": "Iniciar sesión",
     "goHome": "Volver al inicio"
   },
+  "selection": {
+    "selected": "{{count}} seleccionado(s)",
+    "selectAll": "Seleccionar todo",
+    "clear": "Borrar selección",
+    "selectItem": "Seleccionar elemento"
+  },
   "view": {
     "label": "Vista",
     "table": "Vista de tabla",

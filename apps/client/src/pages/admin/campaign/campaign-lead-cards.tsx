@@ -3,6 +3,8 @@ import { CardFacts } from "@/components/card-facts";
 import { CardFrame } from "@/components/card-frame";
 import { CardGrid } from "@/components/card-grid";
 import { CardIdentity } from "@/components/card-identity";
+import { SelectCheckbox } from "@/components/select-checkbox";
+import type { Selection } from "@/lib/use-selection";
 import { initialsOf } from "@/lib/initials";
 import { EmailLink, ExternalLink } from "@/components/external-link";
 import { formatDate, formatNumber } from "@/lib/format";
@@ -29,9 +31,13 @@ import { LeadStatusBadge } from "./lead-status-badge";
 
 interface CampaignLeadCardsProps {
   leads: CampaignLead[];
+  selection: Selection;
 }
 
-export const CampaignLeadCards = ({ leads }: CampaignLeadCardsProps) => {
+export const CampaignLeadCards = ({
+  leads,
+  selection,
+}: CampaignLeadCardsProps) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
@@ -46,6 +52,7 @@ export const CampaignLeadCards = ({ leads }: CampaignLeadCardsProps) => {
       {leads.map((lead) => (
         <CardFrame
           key={lead.leadId}
+          selected={selection.isSelected(lead.leadId)}
           onClick={() =>
             navigate({
               to: "/admin/leads/$leadId",
@@ -56,6 +63,12 @@ export const CampaignLeadCards = ({ leads }: CampaignLeadCardsProps) => {
           <Card>
             <CardHeader>
               <CardIdentity
+                leading={
+                  <SelectCheckbox
+                    checked={selection.isSelected(lead.leadId)}
+                    onChange={() => selection.toggle(lead.leadId)}
+                  />
+                }
                 avatar={initialsOf(lead.name)}
                 description={`@${lead.skoolUsername}`}
                 title={lead.name}

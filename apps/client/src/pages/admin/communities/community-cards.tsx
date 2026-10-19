@@ -2,6 +2,7 @@ import { CardFacts } from "@/components/card-facts";
 import { CardFrame } from "@/components/card-frame";
 import { CardGrid } from "@/components/card-grid";
 import { CardIdentity } from "@/components/card-identity";
+import { SelectCheckbox } from "@/components/select-checkbox";
 import { initialsOf } from "@/lib/initials";
 import { RowActions } from "@/components/row-actions";
 import { formatCurrency, formatNumber } from "@/lib/format";
@@ -23,6 +24,7 @@ export const CommunityCards = ({
   isMutating,
   onRemove,
   removingCommunityId,
+  selection,
   showLead,
 }: CommunityTableProps) => {
   const { t } = useTranslation();
@@ -36,10 +38,19 @@ export const CommunityCards = ({
   return (
     <CardGrid>
       {communities.map((community) => (
-        <CardFrame key={community.communityId}>
+        <CardFrame
+          key={community.communityId}
+          selected={selection.isSelected(community.communityId)}
+        >
           <Card>
             <CardHeader>
               <CardIdentity
+                leading={
+                  <SelectCheckbox
+                    checked={selection.isSelected(community.communityId)}
+                    onChange={() => selection.toggle(community.communityId)}
+                  />
+                }
                 avatar={initialsOf(community.displayName)}
                 description={
                   showLead && community.leadName ? (

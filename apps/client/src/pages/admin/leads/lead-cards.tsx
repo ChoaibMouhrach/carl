@@ -3,6 +3,8 @@ import { CardFacts } from "@/components/card-facts";
 import { CardFrame } from "@/components/card-frame";
 import { CardGrid } from "@/components/card-grid";
 import { CardIdentity } from "@/components/card-identity";
+import { SelectCheckbox } from "@/components/select-checkbox";
+import type { Selection } from "@/lib/use-selection";
 import { initialsOf } from "@/lib/initials";
 import { RowActions } from "@/components/row-actions";
 import { formatDate } from "@/lib/format";
@@ -24,6 +26,7 @@ interface LeadCardsProps {
   leads: Lead[];
   onRemove: (leadId: number) => void;
   removingLeadId?: number;
+  selection: Selection;
 }
 
 export const LeadCards = ({
@@ -31,6 +34,7 @@ export const LeadCards = ({
   leads,
   onRemove,
   removingLeadId,
+  selection,
 }: LeadCardsProps) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -44,6 +48,7 @@ export const LeadCards = ({
       {leads.map((lead) => (
         <CardFrame
           key={lead.leadId}
+          selected={selection.isSelected(lead.leadId)}
           onClick={() =>
             navigate({
               to: "/admin/leads/$leadId",
@@ -54,6 +59,12 @@ export const LeadCards = ({
           <Card>
             <CardHeader>
               <CardIdentity
+                leading={
+                  <SelectCheckbox
+                    checked={selection.isSelected(lead.leadId)}
+                    onChange={() => selection.toggle(lead.leadId)}
+                  />
+                }
                 avatar={initialsOf(lead.name)}
                 description={`@${lead.skoolUsername}`}
                 title={lead.name}

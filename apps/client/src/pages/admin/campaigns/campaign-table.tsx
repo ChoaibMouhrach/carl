@@ -1,5 +1,7 @@
 import type { CampaignSummary } from "@/api/campaign";
 import { RowActions } from "@/components/row-actions";
+import { SelectCheckbox } from "@/components/select-checkbox";
+import type { Selection } from "@/lib/use-selection";
 import { formatDate, formatNumber } from "@/lib/format";
 import {
   Table,
@@ -19,6 +21,7 @@ interface CampaignTableProps {
   isMutating: boolean;
   onRemove: (campaignId: number) => void;
   removingCampaignId?: number;
+  selection: Selection;
 }
 
 export const CampaignTable = ({
@@ -26,6 +29,7 @@ export const CampaignTable = ({
   isMutating,
   onRemove,
   removingCampaignId,
+  selection,
 }: CampaignTableProps) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -34,6 +38,14 @@ export const CampaignTable = ({
     <Table>
       <TableHeader>
         <TableRow>
+          <TableHead className="w-10">
+            <SelectCheckbox
+              checked={selection.allSelected}
+              indeterminate={selection.someSelected}
+              label={t("selection.selectAll")}
+              onChange={selection.toggleAll}
+            />
+          </TableHead>
           <TableHead>{t("adminCampaigns.campaign")}</TableHead>
           <TableHead>{t("adminCampaigns.statusFilter")}</TableHead>
           <TableHead>{t("adminCampaigns.pipeline")}</TableHead>
@@ -47,7 +59,7 @@ export const CampaignTable = ({
       <TableBody>
         {campaigns.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={6}>{t("adminCampaigns.empty")}</TableCell>
+            <TableCell colSpan={7}>{t("adminCampaigns.empty")}</TableCell>
           </TableRow>
         ) : (
           campaigns.map((campaign) => (
@@ -62,6 +74,12 @@ export const CampaignTable = ({
                 })
               }
             >
+              <TableCell>
+                <SelectCheckbox
+                  checked={selection.isSelected(campaign.campaignId)}
+                  onChange={() => selection.toggle(campaign.campaignId)}
+                />
+              </TableCell>
               <TableCell>
                 <div className="font-medium">{campaign.name}</div>
                 {campaign.description && (

@@ -4,6 +4,12 @@
     "signIn": "Sign in",
     "goHome": "Go Home"
   },
+  "selection": {
+    "selected": "{{count}} selected",
+    "selectAll": "Select all",
+    "clear": "Clear selection",
+    "selectItem": "Select item"
+  },
   "view": {
     "label": "View",
     "table": "Table view",

@@ -2,9 +2,11 @@ import { api } from "@/api";
 import { DataPagination } from "@/components/data-pagination";
 import { CardGridSkeleton } from "@/components/card-grid";
 import { TableSkeleton } from "@/components/table-skeleton";
+import { SelectionBar } from "@/components/selection-bar";
 import { ViewSwitch } from "@/components/view-switch";
 import { onError } from "@/lib/base-api";
 import { invalidateLeadData } from "@/lib/invalidate";
+import { useSelection } from "@/lib/use-selection";
 import { useView } from "@/lib/view";
 import { adminCommunitiesRoute } from "@/routes/admin/communities";
 import { Button } from "@repo/ui/components/ui/button";
@@ -31,6 +33,11 @@ export const Communities = () => {
     queryFn: () => api.community.list(searchParams),
     placeholderData: (previousData) => previousData,
   });
+
+  const selection = useSelection(
+    communities.data?.communities.map((community) => community.communityId) ??
+      [],
+  );
 
   const remove = useMutation({
     mutationFn: (communityId: number) => api.community.remove({ communityId }),
@@ -97,12 +104,17 @@ export const Communities = () => {
             }}
             search={searchParams.search}
           />
+          <SelectionBar
+            selection={selection}
+            showSelectAll={view === "cards"}
+          />
           {view === "cards" ? (
             <CommunityCards
               communities={communities.data.communities}
               isMutating={remove.isPending}
               onRemove={(communityId) => remove.mutate(communityId)}
               removingCommunityId={remove.variables}
+              selection={selection}
               showLead
             />
           ) : (
@@ -111,6 +123,7 @@ export const Communities = () => {
               isMutating={remove.isPending}
               onRemove={(communityId) => remove.mutate(communityId)}
               removingCommunityId={remove.variables}
+              selection={selection}
               showLead
             />
           )}

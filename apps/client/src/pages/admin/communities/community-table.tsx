@@ -1,4 +1,6 @@
 import { RowActions } from "@/components/row-actions";
+import { SelectCheckbox } from "@/components/select-checkbox";
+import type { Selection } from "@/lib/use-selection";
 import { formatCurrency, formatNumber } from "@/lib/format";
 import {
   Table,
@@ -25,6 +27,7 @@ export interface CommunityTableProps {
   isMutating: boolean;
   onRemove: (communityId: number) => void;
   removingCommunityId?: number;
+  selection: Selection;
   showLead: boolean;
 }
 
@@ -33,6 +36,7 @@ export const CommunityTable = ({
   isMutating,
   onRemove,
   removingCommunityId,
+  selection,
   showLead,
 }: CommunityTableProps) => {
   const { t } = useTranslation();
@@ -41,6 +45,14 @@ export const CommunityTable = ({
     <Table>
       <TableHeader>
         <TableRow>
+          <TableHead className="w-10">
+            <SelectCheckbox
+              checked={selection.allSelected}
+              indeterminate={selection.someSelected}
+              label={t("selection.selectAll")}
+              onChange={selection.toggleAll}
+            />
+          </TableHead>
           <TableHead>{t("adminCommunities.community")}</TableHead>
           <TableHead>{t("adminCommunities.members")}</TableHead>
           <TableHead>{t("adminCommunities.price")}</TableHead>
@@ -53,11 +65,17 @@ export const CommunityTable = ({
       <TableBody>
         {communities.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={5}>{t("adminCommunities.empty")}</TableCell>
+            <TableCell colSpan={6}>{t("adminCommunities.empty")}</TableCell>
           </TableRow>
         ) : (
           communities.map((community) => (
             <TableRow key={community.communityId}>
+              <TableCell>
+                <SelectCheckbox
+                  checked={selection.isSelected(community.communityId)}
+                  onChange={() => selection.toggle(community.communityId)}
+                />
+              </TableCell>
               <TableCell>
                 <a
                   className="font-medium hover:underline"
