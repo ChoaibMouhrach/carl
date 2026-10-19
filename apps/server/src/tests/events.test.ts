@@ -10,7 +10,9 @@ import { createAuthenticatedApp, withTestDatabase } from "./helpers/http";
 import { FakeSkoolScraper, group, owner } from "./helpers/skool";
 
 const readUntil = async (
-  reader: ReadableStreamDefaultReader<Uint8Array>,
+  reader: {
+    read(): Promise<{ done: boolean; value?: Uint8Array }>;
+  },
   text: string,
 ) => {
   const decoder = new TextDecoder();
@@ -234,5 +236,69 @@ test("events published on one server instance reach subscribers on another", asy
   } finally {
     await Promise.all([sender.close(), receiver.close()]);
     stranger.disconnect();
+  }
+});
+
+test("every subscriber receives each event, even when an earlier one throws", async () => {
+  const redisUrl = initENV().REDIS_CONNECTION_STRING;
+  const logger = new TestLogger();
+  const sender = new RedisEventBus({ logger, redisUrl });
+  const receiver = new RedisEventBus({ logger, redisUrl });
+  const first: LiveEventType[] = [];
+  const second: LiveEventType[] = [];
+
+  try {
+    receiver.subscribe(() => {
+      throw new Error("a broken listener");
+    });
+    receiver.subscribe((type) => first.push(type));
+    receiver.subscribe((type) => second.push(type));
+
+    // Subscribing is asynchronous: keep announcing until the receiver is on the channel
+    while (second.length === 0) {
+      await sender.publish("campaigns.changed");
+      await Bun.sleep(20);
+    }
+    await sender.publish("leads.changed");
+    await waitFor(() => second.includes("leads.changed"));
+
+    expect(first.at(-1)).toBe("leads.changed");
+    expect(second.at(-1)).toBe("leads.changed");
+  } finally {
+    await Promise.all([sender.close(), receiver.close()]);
+  }
+});
+
+test("a subscriber that unsubscribes, or a closed bus, receives nothing more", async () => {
+  const redisUrl = initENV().REDIS_CONNECTION_STRING;
+  const logger = new TestLogger();
+  const sender = new RedisEventBus({ logger, redisUrl });
+  const receiver = new RedisEventBus({ logger, redisUrl });
+  const staying: LiveEventType[] = [];
+  const leaving: LiveEventType[] = [];
+
+  try {
+    receiver.subscribe((type) => staying.push(type));
+    const unsubscribe = receiver.subscribe((type) => leaving.push(type));
+
+    while (leaving.length === 0) {
+      await sender.publish("campaigns.changed");
+      await Bun.sleep(20);
+    }
+    unsubscribe();
+    staying.length = 0;
+    leaving.length = 0;
+
+    await sender.publish("communities.changed");
+    await waitFor(() => staying.includes("communities.changed"));
+    expect(leaving).toEqual([]);
+
+    await receiver.close();
+    staying.length = 0;
+    await sender.publish("leads.changed");
+    await Bun.sleep(150);
+    expect(staying).toEqual([]);
+  } finally {
+    await sender.close();
   }
 });

@@ -58,7 +58,7 @@ export const owner = (
 
 const about = (
   name: string,
-  communityOwner: SkoolOwner,
+  communityOwner: SkoolOwner | null,
   memberCount: number,
 ): SkoolAbout => ({
   skoolId: `id-${name}`,
@@ -96,6 +96,13 @@ export class FakeSkoolScraper extends BaseSkoolScraper {
   public discoverError: Error | null = null;
   public memberCounts: Record<string, number> = {};
   public byKeyword: Record<string, Record<string, SkoolDiscoveryGroup[]>> = {};
+  public ownerless = new Set<string>();
+  public failingAbout = new Set<string>();
+  public profileBios: Record<string, string> = {};
+  public totals: Record<string, number> = {};
+  public laterPages: Record<string, SkoolDiscoveryGroup[]> = {};
+  public failingPages = new Set<number>();
+  public discoverCalls: string[] = [];
 
   public constructor(
     public pages: Record<string, SkoolDiscoveryGroup[]>,
@@ -108,15 +115,35 @@ export class FakeSkoolScraper extends BaseSkoolScraper {
     query: SkoolDiscoveryQuery,
   ): Promise<SkoolDiscoveryPage> {
     if (this.discoverError) throw this.discoverError;
+    const key = `${query.visibility}-${query.price}`;
+    this.discoverCalls.push(`${query.keyword}/${key}/${query.page}`);
+
+    if (query.page > 1) {
+      if (this.failingPages.has(query.page)) {
+        throw new Error(`page ${query.page} failed`);
+      }
+
+      return {
+        totalGroups: this.totals[key] ?? 0,
+        groups: query.page === 2 ? (this.laterPages[key] ?? []) : [],
+      };
+    }
+
     const source = this.byKeyword[query.keyword] ?? this.pages;
-    const groups = source[`${query.visibility}-${query.price}`] ?? [];
-    return { totalGroups: groups.length, groups };
+    const groups = source[key] ?? [];
+    return { totalGroups: this.totals[key] ?? groups.length, groups };
   }
 
   public override async about(communityName: string): Promise<SkoolAbout> {
     this.aboutCalls.push(communityName);
-    const communityOwner = this.owners[communityName];
-    if (!communityOwner) throw new Error(`no owner for ${communityName}`);
+    if (this.failingAbout.has(communityName)) throw new Error("about failed");
+
+    const communityOwner = this.ownerless.has(communityName)
+      ? null
+      : this.owners[communityName];
+    if (communityOwner === undefined) {
+      throw new Error(`no owner for ${communityName}`);
+    }
     return about(
       communityName,
       communityOwner,
@@ -128,7 +155,11 @@ export class FakeSkoolScraper extends BaseSkoolScraper {
     this.profileCalls.push(username);
     if (this.failingProfiles.has(username)) throw new Error("profile failed");
     return {
-      owner: owner(username, "Reach me at Jane.Doe@Example.com or @jane"),
+      owner: owner(
+        username,
+        this.profileBios[username] ??
+          "Reach me at Jane.Doe@Example.com or @jane",
+      ),
       followerCount: 12,
       followingCount: 3,
       postCount: 40,

@@ -6,7 +6,7 @@ import { createContext, TestMailer } from "./helpers/context";
 import { createAuthenticatedApp, withTestDatabase } from "./helpers/http";
 
 const notificationEmail = {
-  from: "notifications" as const,
+  from: "auth" as const,
   html: "<p>Hi</p>",
   subject: "Hi",
   to: ["recipient@example.com"],

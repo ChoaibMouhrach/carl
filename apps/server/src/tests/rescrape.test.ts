@@ -42,7 +42,8 @@ test("a re-scrape applies the campaign limits to communities we already hold", a
       communitiesCreated: 0,
       filteredOut: 1,
     });
-    expect(second.leads.map((lead) => lead.leadId)).toEqual([big?.leadId]);
+    if (!big) throw new Error("The big club's owner was not stored");
+    expect(second.leads.map((lead) => lead.leadId)).toEqual([big.leadId]);
   });
 });
 
@@ -125,7 +126,8 @@ test("campaign leads remember the keyword that found them and a replace run drop
     expect((await scrape("?replace=true")).status).toBe(202);
 
     const remaining = (await rowsFor()).map((row) => row.leadId).toSorted();
-    expect(remaining).toEqual([beta?.leadId, advanced.leadId].toSorted());
+    if (!beta) throw new Error("The beta owner was not stored");
+    expect(remaining).toEqual([beta.leadId, advanced.leadId].toSorted());
 
     const [latest] = await context.repositories.scrapeRun.listByCampaignId({
       campaignId: campaign.campaignId,
