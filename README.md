@@ -249,7 +249,8 @@ effort: if Redis fails, the request that caused the change still succeeds.
 
 ## MCP for AI agents
 
-An AI agent can look Skool up through Carl without touching its data. Account
+An AI agent can look Skool up through Carl and work with its leads, communities and
+campaigns. Account
 settings shows the address (`<API URL>/api/mcp`) to give an MCP client
 (Streamable HTTP) and lists the connected agents, each with a remove option.
 Clicking an agent opens its page: its details and a table of every request it
@@ -261,13 +262,16 @@ Better Auth's MCP plugin
 runs the OAuth sign-in, so the agent opens the normal sign-in page once and then
 holds a token. Only admins are accepted.
 
-Three read-only tools are offered: `search_communities` (keyword, visibility,
-pricing model, page, member and price limits), `get_community` (a community with
-its owner and the emails found in their bio) and `get_owner` (a profile and the
-communities they created). Nothing a tool finds becomes platform data: no leads,
-communities, campaigns or runs are created. Skool answers are cached in Redis for
-an hour (`infrastructure/cache/redis.ts`, behind `BaseCache`), so repeating a
-question does not hit Skool again.
+Two kinds of tools are offered. The Skool lookups are read-only:
+`search_communities` (keyword, visibility, pricing model, page, member and price
+limits), `get_community` (a community with its owner and the emails found in
+their bio) and `get_owner` (a profile and the communities they created). What
+they find is not saved. The data tools work on what is already in Carl:
+`list_campaigns`, `list_leads` and `list_saved_communities`, and `create_*` and
+`update_*` for campaigns, leads and communities. Agents can never delete, change
+a campaign's status or start a scrape: campaigns are always created as drafts.
+Skool answers are cached in Redis for an hour (`infrastructure/cache/redis.ts`,
+behind `BaseCache`), so repeating a question does not hit Skool again.
 
 The OAuth tokens themselves live in the `oauth_*` tables. Discovery documents are
 served at `/.well-known/oauth-authorization-server` and

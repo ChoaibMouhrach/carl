@@ -75,6 +75,14 @@ export const updateCampaignSchema = z
   })
   .refine(hasValidRanges, rangeError);
 
+export const agentCampaignFieldsSchema = z
+  .object(campaignFields)
+  .partial()
+  .refine((body) => Object.keys(body).length > 0, {
+    message: "At least one field is required.",
+  })
+  .refine(hasValidRanges, rangeError);
+
 export const campaignLeadQuerySchema = z
   .object({
     search: z.string().max(255).optional(),
