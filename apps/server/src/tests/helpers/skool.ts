@@ -56,13 +56,17 @@ export const owner = (
   tiktokUrl: null,
 });
 
-const about = (name: string, communityOwner: SkoolOwner): SkoolAbout => ({
+const about = (
+  name: string,
+  communityOwner: SkoolOwner,
+  memberCount: number,
+): SkoolAbout => ({
   skoolId: `id-${name}`,
   name,
   displayName: name,
   description: "desc",
   longDescription: "long desc",
-  memberCount: 120,
+  memberCount,
   createdAt: null,
   updatedAt: null,
   isPublic: true,
@@ -90,6 +94,7 @@ export class FakeSkoolScraper extends BaseSkoolScraper {
   public profileCalls: string[] = [];
   public failingProfiles = new Set<string>();
   public discoverError: Error | null = null;
+  public memberCounts: Record<string, number> = {};
 
   public constructor(
     private pages: Record<string, SkoolDiscoveryGroup[]>,
@@ -110,7 +115,11 @@ export class FakeSkoolScraper extends BaseSkoolScraper {
     this.aboutCalls.push(communityName);
     const communityOwner = this.owners[communityName];
     if (!communityOwner) throw new Error(`no owner for ${communityName}`);
-    return about(communityName, communityOwner);
+    return about(
+      communityName,
+      communityOwner,
+      this.memberCounts[communityName] ?? 120,
+    );
   }
 
   public override async profile(username: string): Promise<SkoolProfile> {

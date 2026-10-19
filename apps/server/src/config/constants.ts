@@ -1,4 +1,5 @@
-import type { DiscoveryCriteria } from "@server/lib/skool-discovery";
+import { skoolPriceFilters, skoolVisibilities } from "@repo/constants/campaign";
+import { buildSearches } from "@server/lib/skool-discovery";
 
 export type Role = "admin" | "user";
 export const roles: [Role, ...Role[]] = ["admin", "user"];
@@ -13,8 +14,7 @@ export const SKOOL_DISCOVERY_MAX_RESULTS = 1000;
 export const SKOOL_DISCOVERY_CONCURRENCY = 8;
 export const SKOOL_COMMUNITY_CONCURRENCY = 12;
 
-export const DEFAULT_SKOOL_SEARCHES: DiscoveryCriteria[] = [
-  { visibility: "private", price: "free" },
-  { visibility: "public", price: "paid" },
-  { visibility: "public", price: "free-trial" },
-];
+export const DEFAULT_SKOOL_SEARCHES = buildSearches(
+  skoolVisibilities,
+  skoolPriceFilters,
+);

@@ -1,11 +1,13 @@
 import {
+  skoolPriceFilters,
+  skoolVisibilities,
   stageNumbers,
   type CampaignStatus,
   type LeadStatus,
+  type SkoolPriceFilter,
+  type SkoolVisibility,
   type StageNumber,
 } from "@repo/constants/campaign";
-import { DEFAULT_SKOOL_SEARCHES } from "@server/config/constants";
-import type { DiscoveryCriteria } from "@server/lib/skool-discovery";
 import { BaseService } from "@server/lib/base-service";
 import { NotFoundError } from "@server/lib/errors";
 
@@ -136,13 +138,23 @@ export class CampaignService extends BaseService {
     name: string;
     description?: string | null;
     keyword: string;
-    searches?: DiscoveryCriteria[];
+    types?: SkoolVisibility[];
+    pricingModels?: SkoolPriceFilter[];
+    minMonthlyPriceUsd?: number | null;
+    maxMonthlyPriceUsd?: number | null;
+    minMembers?: number | null;
+    maxMembers?: number | null;
   }) {
     return await this.context.repositories.campaign.create({
       name: input.name,
       description: input.description,
       keyword: input.keyword,
-      searches: input.searches ?? DEFAULT_SKOOL_SEARCHES,
+      types: input.types ?? [...skoolVisibilities],
+      pricingModels: input.pricingModels ?? [...skoolPriceFilters],
+      minMonthlyPriceUsd: input.minMonthlyPriceUsd,
+      maxMonthlyPriceUsd: input.maxMonthlyPriceUsd,
+      minMembers: input.minMembers,
+      maxMembers: input.maxMembers,
     });
   }
 
@@ -152,7 +164,12 @@ export class CampaignService extends BaseService {
       name?: string;
       description?: string | null;
       keyword?: string;
-      searches?: DiscoveryCriteria[];
+      types?: SkoolVisibility[];
+      pricingModels?: SkoolPriceFilter[];
+      minMonthlyPriceUsd?: number | null;
+      maxMonthlyPriceUsd?: number | null;
+      minMembers?: number | null;
+      maxMembers?: number | null;
       status?: CampaignStatus;
     },
   ) {

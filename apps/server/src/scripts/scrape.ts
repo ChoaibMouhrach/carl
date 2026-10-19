@@ -4,38 +4,49 @@ import {
   skoolPriceFilters,
   skoolVisibilities,
 } from "../lib/base-skool-scraper";
+import { buildSearches } from "../lib/skool-discovery";
 import { Services } from "../services";
 
 const { values } = parseArgs({
   options: {
     keyword: { type: "string" },
-    search: { type: "string", multiple: true },
+    type: { type: "string", multiple: true },
+    pricing: { type: "string", multiple: true },
+    "min-price": { type: "string" },
+    "max-price": { type: "string" },
+    "min-members": { type: "string" },
+    "max-members": { type: "string" },
     "discovery-concurrency": { type: "string" },
     "community-concurrency": { type: "string" },
   },
 });
 
-const parseSearch = (search: string) => {
-  const [visibility, price] = search.split(":");
-  const parsedVisibility = skoolVisibilities.find(
-    (item) => item === visibility,
-  );
-  const parsedPrice = skoolPriceFilters.find((item) => item === price);
+const parseAll = <Value extends string>(
+  flag: string,
+  allowed: readonly Value[],
+  inputs: string[] | undefined,
+): Value[] | undefined => {
+  if (!inputs) return undefined;
 
-  if (!parsedVisibility || !parsedPrice) {
-    console.error(
-      `Invalid --search "${search}". Use <${skoolVisibilities.join("|")}>:<${skoolPriceFilters.join("|")}>`,
-    );
-    process.exit(1);
-  }
+  return inputs.map((input) => {
+    const value = allowed.find((item) => item === input);
 
-  return { visibility: parsedVisibility, price: parsedPrice };
+    if (!value) {
+      console.error(`Invalid --${flag} "${input}". Use ${allowed.join("|")}`);
+      process.exit(1);
+    }
+
+    return value;
+  });
 };
+
+const parseNumber = (value: string | undefined) =>
+  value === undefined ? undefined : Number(value);
 
 const run = async () => {
   if (!values.keyword) {
     console.error(
-      'Usage: bun run scrape --keyword "business coaching" [--search public:paid ...]',
+      'Usage: bun run scrape --keyword "business coaching" [--type public --pricing paid --min-price 10 --max-price 100 --min-members 50 --max-members 5000 ...]',
     );
     process.exit(1);
   }
@@ -46,7 +57,17 @@ const run = async () => {
   const startedAt = performance.now();
   const { summary } = await services.scrape.run({
     keyword: values.keyword,
-    searches: values.search?.map(parseSearch),
+    searches: buildSearches(
+      parseAll("type", skoolVisibilities, values.type) ?? skoolVisibilities,
+      parseAll("pricing", skoolPriceFilters, values.pricing) ??
+        skoolPriceFilters,
+    ),
+    filters: {
+      minMonthlyPriceUsd: parseNumber(values["min-price"]),
+      maxMonthlyPriceUsd: parseNumber(values["max-price"]),
+      minMembers: parseNumber(values["min-members"]),
+      maxMembers: parseNumber(values["max-members"]),
+    },
     discoveryConcurrency: values["discovery-concurrency"]
       ? Number(values["discovery-concurrency"])
       : undefined,

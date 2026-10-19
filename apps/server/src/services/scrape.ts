@@ -6,6 +6,7 @@ import {
 } from "@server/config/constants";
 import type { Lead, LeadInsert } from "@server/infrastructure/database/schemas";
 import {
+  buildSearches,
   classifyGroup,
   searchName,
   type DiscoveredCommunity,
@@ -19,6 +20,10 @@ import {
   NotFoundError,
 } from "@server/lib/errors";
 import { derivePricing } from "@server/lib/pricing";
+import {
+  matchesFilters,
+  type CommunityFilters,
+} from "@server/lib/skool-filters";
 import { extractEmails, mapPool } from "@server/lib/utils";
 
 const SKOOL_URL = "https://www.skool.com";
@@ -36,11 +41,13 @@ export interface ScrapeSummary {
   communitiesCreated: number;
   leadsCreated: number;
   leadsReused: number;
+  filteredOut: number;
   failures: ScrapeFailure[];
 }
 
 interface RunState {
   keyword: string;
+  filters: CommunityFilters;
   communities: Map<string, Promise<unknown>>;
   leads: Map<string, Promise<Lead>>;
   leadIds: Set<number>;
@@ -54,6 +61,7 @@ export class ScrapeService extends BaseService {
   public async run(input: {
     keyword: string;
     searches?: DiscoveryCriteria[];
+    filters?: CommunityFilters;
     discoveryConcurrency?: number;
     communityConcurrency?: number;
   }): Promise<{ summary: ScrapeSummary; leadIds: number[] }> {
@@ -65,6 +73,7 @@ export class ScrapeService extends BaseService {
       communitiesCreated: 0,
       leadsCreated: 0,
       leadsReused: 0,
+      filteredOut: 0,
       failures: [],
     };
 
@@ -89,6 +98,7 @@ export class ScrapeService extends BaseService {
 
     const state: RunState = {
       keyword: input.keyword,
+      filters: input.filters ?? {},
       communities: new Map(),
       leads: new Map(),
       leadIds: new Set(knownCommunities.map((row) => row.leadId)),
@@ -170,7 +180,8 @@ export class ScrapeService extends BaseService {
     try {
       const { summary, leadIds } = await this.run({
         keyword: campaign.keyword,
-        searches: campaign.searches,
+        searches: buildSearches(campaign.types, campaign.pricingModels),
+        filters: campaign,
       });
 
       // A lead that finished the scrape has completed stage 1 and waits for stage 2
@@ -302,8 +313,15 @@ export class ScrapeService extends BaseService {
       throw new Error("Community has no owner");
     }
 
-    const lead = await this.resolveLead(about.owner, state);
     const memberCount = about.memberCount || discovered.group.memberCount;
+    const pricing = derivePricing(discovered.prices, memberCount);
+
+    if (!matchesFilters(state.filters, { ...pricing, memberCount })) {
+      state.summary.filteredOut += 1;
+      return;
+    }
+
+    const lead = await this.resolveLead(about.owner, state);
 
     const community = await repositories.community.createIfMissing({
       leadId: lead.leadId,
@@ -336,7 +354,7 @@ export class ScrapeService extends BaseService {
       affiliatePercent: about.affiliatePercent,
       discoveryKeyword: discovered.keyword,
       discoverySearch: discovered.search,
-      ...derivePricing(discovered.prices, memberCount),
+      ...pricing,
     });
 
     if (community) state.summary.communitiesCreated += 1;

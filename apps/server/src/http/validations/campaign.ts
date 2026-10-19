@@ -9,17 +9,31 @@ import {
   skoolVisibilities,
 } from "@server/lib/base-skool-scraper";
 
-const searchSchema = z.object({
-  visibility: z.enum(skoolVisibilities),
-  price: z.enum(skoolPriceFilters),
-});
-
 const campaignFields = {
   name: z.string().trim().min(1).max(255),
   description: z.string().trim().min(1).max(2000).nullable().optional(),
   keyword: z.string().trim().min(1).max(255),
-  searches: z.array(searchSchema).min(1).max(6).optional(),
+  types: z.array(z.enum(skoolVisibilities)).min(1).optional(),
+  pricingModels: z.array(z.enum(skoolPriceFilters)).min(1).optional(),
+  minMonthlyPriceUsd: z.number().min(0).nullable().optional(),
+  maxMonthlyPriceUsd: z.number().min(0).nullable().optional(),
+  minMembers: z.number().int().min(0).nullable().optional(),
+  maxMembers: z.number().int().min(0).nullable().optional(),
 };
+
+const isOrdered = (min?: number | null, max?: number | null) =>
+  min == null || max == null || min <= max;
+
+const hasValidRanges = (body: {
+  minMonthlyPriceUsd?: number | null;
+  maxMonthlyPriceUsd?: number | null;
+  minMembers?: number | null;
+  maxMembers?: number | null;
+}) =>
+  isOrdered(body.minMonthlyPriceUsd, body.maxMonthlyPriceUsd) &&
+  isOrdered(body.minMembers, body.maxMembers);
+
+const rangeError = { message: "Minimum cannot be greater than maximum." };
 
 export const campaignQuerySchema = z
   .object({
@@ -33,14 +47,17 @@ export const campaignIdParamSchema = z.object({
   campaignId: z.coerce.number().int().positive(),
 });
 
-export const createCampaignSchema = z.object(campaignFields);
+export const createCampaignSchema = z
+  .object(campaignFields)
+  .refine(hasValidRanges, rangeError);
 
 export const updateCampaignSchema = z
   .object({ ...campaignFields, status: z.enum(campaignStatuses) })
   .partial()
   .refine((body) => Object.keys(body).length > 0, {
     message: "At least one field is required.",
-  });
+  })
+  .refine(hasValidRanges, rangeError);
 
 export const campaignLeadQuerySchema = z
   .object({

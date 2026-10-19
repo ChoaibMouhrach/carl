@@ -54,11 +54,8 @@ test("admins manage campaigns and non-admins are refused", async () => {
       keyword: "business coaching",
       status: "draft",
     });
-    expect(stored?.searches).toEqual([
-      { visibility: "private", price: "free" },
-      { visibility: "public", price: "paid" },
-      { visibility: "public", price: "free-trial" },
-    ]);
+    expect(stored?.types).toEqual(["public", "private"]);
+    expect(stored?.pricingModels).toEqual(["free", "paid", "free-trial"]);
 
     const updated = await admin.app.request(
       `/api/campaigns/${campaign.campaignId}`,
@@ -67,7 +64,12 @@ test("admins manage campaigns and non-admins are refused", async () => {
         headers,
         body: JSON.stringify({
           status: "active",
-          searches: [{ visibility: "public", price: "paid" }],
+          types: ["public"],
+          pricingModels: ["paid"],
+          minMonthlyPriceUsd: 9.5,
+          maxMonthlyPriceUsd: 99,
+          minMembers: 50,
+          maxMembers: 5000,
         }),
       },
     );
@@ -76,9 +78,28 @@ test("admins manage campaigns and non-admins are refused", async () => {
       campaignId: campaign.campaignId,
     });
     expect(afterUpdate?.status).toBe("active");
-    expect(afterUpdate?.searches).toEqual([
-      { visibility: "public", price: "paid" },
-    ]);
+    expect(afterUpdate?.types).toEqual(["public"]);
+    expect(afterUpdate?.pricingModels).toEqual(["paid"]);
+    expect(afterUpdate).toMatchObject({
+      minMonthlyPriceUsd: 9.5,
+      maxMonthlyPriceUsd: 99,
+      minMembers: 50,
+      maxMembers: 5000,
+    });
+
+    const inverted = await admin.app.request(
+      `/api/campaigns/${campaign.campaignId}`,
+      {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ minMembers: 900, maxMembers: 10 }),
+      },
+    );
+    expect(inverted.status).toBe(400);
+    const afterInverted = await context.repositories.campaign.findByCampaignId({
+      campaignId: campaign.campaignId,
+    });
+    expect(afterInverted).toMatchObject({ minMembers: 50, maxMembers: 5000 });
 
     const filtered = await admin.app.request(
       "/api/campaigns?status=draft&search=coach",
@@ -123,15 +144,15 @@ test("scraping a campaign attaches the found leads at stage 1 and records the ru
       cookie: admin.cookie,
       "content-type": "application/json",
     };
-    const searches = [
-      { visibility: "private", price: "free" },
-      { visibility: "public", price: "paid" },
-    ];
+    const searches = {
+      types: ["private" as const, "public" as const],
+      pricingModels: ["free" as const, "paid" as const],
+    };
 
     const draft = await context.repositories.campaign.create({
       name: "Draft",
       keyword: "coaching",
-      searches,
+      ...searches,
     });
     const refusedDraft = await admin.app.request(
       `/api/campaigns/${draft.campaignId}/scrape`,
@@ -142,13 +163,13 @@ test("scraping a campaign attaches the found leads at stage 1 and records the ru
     const first = await context.repositories.campaign.create({
       name: "First",
       keyword: "coaching",
-      searches,
+      ...searches,
       status: "active",
     });
     const second = await context.repositories.campaign.create({
       name: "Second",
       keyword: "coaching",
-      searches,
+      ...searches,
       status: "active",
     });
 
@@ -277,7 +298,8 @@ test("a scrape that cannot reach Skool marks the run failed with the reason", as
     const campaign = await context.repositories.campaign.create({
       name: "Broken",
       keyword: "x",
-      searches: [{ visibility: "private", price: "free" }],
+      types: ["private"],
+      pricingModels: ["free"],
       status: "active",
     });
     const scrapeRun = await context.repositories.scrapeRun.create({

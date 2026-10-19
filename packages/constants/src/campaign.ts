@@ -14,3 +14,11 @@ export type CampaignStatus = (typeof campaignStatuses)[number];
 export const leadStatuses = ["pending", "running", "done", "failed"] as const;
 
 export type LeadStatus = (typeof leadStatuses)[number];
+
+export const skoolVisibilities = ["public", "private"] as const;
+
+export type SkoolVisibility = (typeof skoolVisibilities)[number];
+
+export const skoolPriceFilters = ["free", "paid", "free-trial"] as const;
+
+export type SkoolPriceFilter = (typeof skoolPriceFilters)[number];

@@ -1,14 +1,24 @@
 import type {
   SkoolDiscoveryGroup,
+  SkoolPriceFilter,
   SkoolVisibility,
 } from "./base-skool-scraper";
-import type {
-  CampaignSearch,
-  CommunityPrice,
-} from "@server/infrastructure/database/schemas";
+import type { CommunityPrice } from "@server/infrastructure/database/schemas";
 import { freePrices, paidPrices, unknownPaidPrices } from "./skool-prices";
 
-export type DiscoveryCriteria = CampaignSearch;
+export interface DiscoveryCriteria {
+  visibility: SkoolVisibility;
+  price: SkoolPriceFilter;
+}
+
+/** Every type paired with every pricing model */
+export const buildSearches = (
+  types: readonly SkoolVisibility[],
+  pricingModels: readonly SkoolPriceFilter[],
+): DiscoveryCriteria[] =>
+  types.flatMap((visibility) =>
+    pricingModels.map((price) => ({ visibility, price })),
+  );
 
 export interface DiscoveredCommunity {
   skoolId: string;

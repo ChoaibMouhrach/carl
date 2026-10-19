@@ -1,4 +1,5 @@
 import {
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -10,15 +11,12 @@ import {
 import type {
   CampaignStatus,
   LeadStatus,
+  SkoolPriceFilter,
+  SkoolVisibility,
   StageNumber,
 } from "@repo/constants/campaign";
 import { id, timestamps } from "../utils";
 import { leadsTable } from "./leads";
-
-export type CampaignSearch = {
-  visibility: "public" | "private";
-  price: "free" | "paid" | "free-trial";
-};
 
 export type ScrapeRunStatus = "queued" | "running" | "completed" | "failed";
 
@@ -29,6 +27,7 @@ export type ScrapeRunSummary = {
   communitiesCreated: number;
   leadsCreated: number;
   leadsReused: number;
+  filteredOut?: number;
   leadsAttached: number;
   failures: { target: string; reason: string }[];
 };
@@ -41,7 +40,12 @@ export const campaignsTable = pgTable("campaigns", {
 
   // -- stage 1 (scrape) settings
   keyword: text().notNull(),
-  searches: jsonb().$type<CampaignSearch[]>().notNull(),
+  types: jsonb().$type<SkoolVisibility[]>().notNull(),
+  pricingModels: jsonb().$type<SkoolPriceFilter[]>().notNull(),
+  minMonthlyPriceUsd: doublePrecision(),
+  maxMonthlyPriceUsd: doublePrecision(),
+  minMembers: integer(),
+  maxMembers: integer(),
 
   ...timestamps(),
 });

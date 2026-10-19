@@ -5,13 +5,17 @@ import type {
   OwnedCommunity,
 } from "@server/infrastructure/database/schemas";
 
-export const skoolVisibilities = ["public", "private"] as const;
+import type {
+  SkoolPriceFilter,
+  SkoolVisibility,
+} from "@repo/constants/campaign";
 
-export type SkoolVisibility = (typeof skoolVisibilities)[number];
-
-export const skoolPriceFilters = ["free", "paid", "free-trial"] as const;
-
-export type SkoolPriceFilter = (typeof skoolPriceFilters)[number];
+export {
+  skoolPriceFilters,
+  skoolVisibilities,
+  type SkoolPriceFilter,
+  type SkoolVisibility,
+} from "@repo/constants/campaign";
 
 export interface SkoolDiscoveryQuery {
   keyword: string;

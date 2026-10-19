@@ -164,3 +164,131 @@ test("an owner whose profile cannot be fetched is still saved and the failure is
     expect(lead?.emails).toEqual(["sam@example.com"]);
   });
 });
+
+test("communities outside the price and member limits are dropped before anything is stored", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const client = new FakeSkoolScraper(
+      {
+        "private-free": [group("free-club")],
+        "public-paid": [
+          group("monthly-club", { displayPrice: paidMonthly }),
+          group("yearly-club", {
+            displayPrice: { currency: "usd", amount: 12000, interval: "year" },
+          }),
+          group("pricey-club", {
+            displayPrice: { currency: "usd", amount: 20000, interval: "month" },
+          }),
+          group("tiny-club", { displayPrice: paidMonthly }),
+        ],
+      },
+      {
+        "free-club": owner("fred"),
+        "monthly-club": owner("mona"),
+        "yearly-club": owner("yara"),
+        "pricey-club": owner("paul"),
+        "tiny-club": owner("tina"),
+      },
+    );
+    client.memberCounts["tiny-club"] = 5;
+    const context = createContext(
+      db,
+      pool,
+      initENV(),
+      new TestMailer(),
+      undefined,
+      client,
+    );
+    const services = new Services({ context });
+
+    const { summary } = await services.scrape.run({
+      keyword: "coaching",
+      filters: {
+        minMonthlyPriceUsd: 5,
+        maxMonthlyPriceUsd: 50,
+        minMembers: 50,
+        maxMembers: 1000,
+      },
+    });
+
+    expect(summary).toMatchObject({
+      discovered: 5,
+      communitiesCreated: 2,
+      leadsCreated: 2,
+      filteredOut: 3,
+      failures: [],
+    });
+
+    const yearly = await context.repositories.community.findBySkoolId({
+      skoolId: "id-yearly-club",
+    });
+    expect(yearly?.monthlyPriceUsd).toBe(10);
+
+    const kept = await Promise.all(
+      ["free", "monthly", "yearly", "pricey", "tiny"].map((prefix) =>
+        context.repositories.community.findBySkoolId({
+          skoolId: `id-${prefix}-club`,
+        }),
+      ),
+    );
+    expect(kept.map((community) => community?.name)).toEqual([
+      undefined,
+      "monthly-club",
+      "yearly-club",
+      undefined,
+      undefined,
+    ]);
+
+    const dropped = await Promise.all(
+      ["fred", "paul", "tina"].map((skoolUsername) =>
+        context.repositories.lead.findBySkoolUsername({ skoolUsername }),
+      ),
+    );
+    expect(dropped).toEqual([null, null, null]);
+  });
+});
+
+test("a free community passes a price ceiling but not a price floor", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const client = new FakeSkoolScraper(
+      { "private-free": [group("free-club")] },
+      { "free-club": owner("fred") },
+    );
+    const context = createContext(
+      db,
+      pool,
+      initENV(),
+      new TestMailer(),
+      undefined,
+      client,
+    );
+    const services = new Services({ context });
+
+    const { summary: ceiling } = await services.scrape.run({
+      keyword: "coaching",
+      filters: { maxMonthlyPriceUsd: 20 },
+    });
+    expect(ceiling).toMatchObject({ communitiesCreated: 1, filteredOut: 0 });
+  });
+
+  await withTestDatabase(async ({ db, pool }) => {
+    const client = new FakeSkoolScraper(
+      { "private-free": [group("free-club")] },
+      { "free-club": owner("fred") },
+    );
+    const context = createContext(
+      db,
+      pool,
+      initENV(),
+      new TestMailer(),
+      undefined,
+      client,
+    );
+    const services = new Services({ context });
+
+    const { summary: floor } = await services.scrape.run({
+      keyword: "coaching",
+      filters: { minMonthlyPriceUsd: 1 },
+    });
+    expect(floor).toMatchObject({ communitiesCreated: 0, filteredOut: 1 });
+  });
+});

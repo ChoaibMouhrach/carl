@@ -36,6 +36,20 @@
       "when": 1792357350575,
       "tag": "0004_campaigns",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792359766653,
+      "tag": "0005_campaign_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792364092224,
+      "tag": "0006_campaign_filters",
+      "breakpoints": true
     }
   ]
 }
