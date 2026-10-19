@@ -1,8 +1,9 @@
 import { test, expect } from "../fixtures";
 import { API_URL } from "../config";
+import { token } from "./support";
 import {
   accessTokenOf,
-  catchAgentCallback,
+  startAgentCallback,
   exchangeCode,
   mcp,
   readCallback,
@@ -12,9 +13,10 @@ import {
 const connectAgent = async (
   page: import("@playwright/test").Page,
   request: import("@playwright/test").APIRequestContext,
+  name: string,
 ) => {
-  await catchAgentCallback(page);
-  const agent = await registerAgent(request);
+  await startAgentCallback();
+  const agent = await registerAgent(request, name);
   await page.goto(agent.authorizeUrl("state-page"));
   const accessToken = await accessTokenOf(
     await exchangeCode(request, agent, readCallback(page).code),
@@ -48,9 +50,10 @@ test("the connected agents list shows a skeleton first and then says nothing is 
 }) => {
   const admin = await seed.createVerifiedAdmin();
   await seed.authenticate(page.context(), admin.email);
+  // The agent list is shared by every admin, so an empty one can only be staged
   await page.route("**/api/agents", async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 700));
-    await route.continue();
+    await route.fulfill({ json: { agents: [] } });
   });
 
   await page.goto("/admin/account");
@@ -67,13 +70,14 @@ test("a connected agent is listed with who connected it and removing it signs it
 }) => {
   const admin = await seed.createVerifiedAdmin();
   await seed.authenticate(page.context(), admin.email);
-  const { accessToken } = await connectAgent(page, request);
+  const id = token();
+  const { accessToken } = await connectAgent(page, request, `Agent ${id}`);
   expect((await mcp(request, accessToken, "tools/list")).status()).toBe(200);
 
   await page.goto("/admin/account");
   const row = page
     .locator('[data-slot="card"] [data-slot="card"]')
-    .filter({ hasText: "E2E agent" });
+    .filter({ hasText: `Agent ${id}` });
   await expect(row).toHaveCount(1);
   await expect(row).toContainText(admin.email);
 
@@ -94,7 +98,7 @@ test("a connected agent is listed with who connected it and removing it signs it
     .click();
 
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
-  await expect(page.getByText("No agents connected yet.")).toBeVisible();
+  await expect(row).toHaveCount(0);
   await expect.poll(() => seed.listOAuthTokens(admin.email)).toEqual([]);
   expect((await mcp(request, accessToken, "tools/list")).status()).toBe(401);
 });

@@ -1,8 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
+import { createServer, type Server } from "node:http";
 import { expect, type APIRequestContext, type Page } from "@playwright/test";
 import { API_URL, CLIENT_URL } from "../config";
 
-export const AGENT_ORIGIN = "http://localhost:8123";
+// One port per worker, so parallel tests never share an agent
+const AGENT_PORT = 8200 + Number(process.env.TEST_PARALLEL_INDEX ?? 0);
+export const AGENT_ORIGIN = `http://localhost:${AGENT_PORT}`;
 export const AGENT_CALLBACK = `${AGENT_ORIGIN}/callback`;
 
 const jsonHeaders = { Origin: CLIENT_URL, "content-type": "application/json" };
@@ -30,6 +33,7 @@ export interface Agent {
 /** An MCP client that has registered itself, the way a real agent does */
 export const registerAgent = async (
   request: APIRequestContext,
+  name = `E2E agent ${randomBytes(4).toString("hex")}`,
 ): Promise<Agent> => {
   const response = await request.post(`${API_URL}/api/auth/mcp/register`, {
     headers: jsonHeaders,
@@ -38,7 +42,7 @@ export const registerAgent = async (
       token_endpoint_auth_method: "none",
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
-      client_name: "E2E agent",
+      client_name: name,
     },
   });
   expect(response.status()).toBeLessThan(300);
@@ -63,11 +67,21 @@ export const registerAgent = async (
   };
 };
 
-/** Answers the agent's callback address so the browser has somewhere to land */
-export const catchAgentCallback = async (page: Page) => {
-  await page.route(`${AGENT_ORIGIN}/**`, (route) =>
-    route.fulfill({ status: 200, contentType: "text/plain", body: "agent" }),
-  );
+let agentServer: Server | undefined;
+
+/** A real listener on the agent's callback address, because a redirected navigation cannot be intercepted */
+export const startAgentCallback = async () => {
+  if (agentServer) return;
+
+  const server = createServer((_request, response) => {
+    response.writeHead(200, { "content-type": "text/plain" });
+    response.end("agent");
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(AGENT_PORT, resolve);
+  });
+  agentServer = server;
 };
 
 export const readCallback = (page: Page) => {
@@ -85,6 +99,8 @@ export const exchangeCode = async (
   code: string,
 ) => {
   const response = await request.post(`${API_URL}/api/auth/mcp/token`, {
+    // A signed-in context sends cookies, so the origin check wants a trusted origin
+    headers: { Origin: CLIENT_URL },
     form: {
       grant_type: "authorization_code",
       code,
@@ -127,9 +143,12 @@ export const toolAnswer = async (response: Awaited<ReturnType<typeof mcp>>) => {
   const content = field(result, "content");
   const first = Array.isArray(content) ? content[0] : undefined;
 
-  const value: unknown = JSON.parse(text(field(first, "text"), "tool text"));
+  const answer = text(field(first, "text"), "tool text");
+  const isError = field(result, "isError") === true;
+  // A failed tool answers with a plain message, a successful one with JSON
+  const value: unknown = isError ? answer : JSON.parse(answer);
 
-  return { isError: field(result, "isError") === true, value };
+  return { isError, value };
 };
 
 export const namesOf = (answer: unknown) => {
@@ -141,3 +160,52 @@ export const namesOf = (answer: unknown) => {
 };
 
 export { field };
+
+/** Connects an agent for the signed-in context without opening the browser, as a script would */
+export const connectViaApi = async (
+  signedIn: APIRequestContext,
+  name = "E2E agent",
+) => {
+  const agent = await registerAgent(signedIn, name);
+  const authorized = await signedIn.get(agent.authorizeUrl("state-api"), {
+    maxRedirects: 0,
+  });
+  expect(authorized.status()).toBe(302);
+  const code = text(
+    new URL(authorized.headers()["location"] ?? "").searchParams.get("code"),
+    "code",
+  );
+  const exchanged = await exchangeCode(signedIn, agent, code);
+  expect(exchanged.status()).toBe(200);
+  const body = await exchanged.json();
+
+  return {
+    agent,
+    accessToken: text(field(body, "access_token"), "access_token"),
+    refreshToken: text(field(body, "refresh_token"), "refresh_token"),
+  };
+};
+
+export const refreshWith = (
+  request: APIRequestContext,
+  agent: Agent,
+  refreshToken: string,
+) =>
+  request.post(`${API_URL}/api/auth/mcp/token`, {
+    headers: { Origin: CLIENT_URL },
+    form: {
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+      client_id: agent.clientId,
+    },
+  });
+
+export const callTool = async (
+  request: APIRequestContext,
+  token: string,
+  name: string,
+  args: object,
+) =>
+  toolAnswer(
+    await mcp(request, token, "tools/call", { name, arguments: args }),
+  );

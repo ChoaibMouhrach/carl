@@ -3,7 +3,7 @@ import { API_URL } from "../config";
 import {
   accessTokenOf,
   AGENT_CALLBACK,
-  catchAgentCallback,
+  startAgentCallback,
   exchangeCode,
   field,
   mcp,
@@ -42,7 +42,7 @@ test("an agent is sent to sign in, comes back with a code and searches Skool wit
     },
   };
   await seed.scriptSkool(script);
-  await catchAgentCallback(page);
+  await startAgentCallback();
   const agent = await registerAgent(request);
 
   try {
@@ -100,7 +100,7 @@ test("an admin who is already signed in is never shown the sign-in page", async 
 }) => {
   const admin = await seed.createVerifiedAdmin();
   await seed.authenticate(page.context(), admin.email);
-  await catchAgentCallback(page);
+  await startAgentCallback();
   const agent = await registerAgent(request);
 
   await page.goto(agent.authorizeUrl("state-signed-in"));
@@ -122,7 +122,7 @@ test("a wrong password keeps the agent's request on the page and a second try co
   seed,
 }) => {
   const admin = await seed.createVerifiedAdmin();
-  await catchAgentCallback(page);
+  await startAgentCallback();
   const agent = await registerAgent(request);
 
   await page.goto(agent.authorizeUrl("state-retry"));
@@ -163,7 +163,7 @@ test("a member can connect an agent but the agent's token is refused and nothing
     searches: { "public-paid": [club(id, { suffix: "a", price: 2900 })] },
   };
   await seed.scriptSkool(script);
-  await catchAgentCallback(page);
+  await startAgentCallback();
   const agent = await registerAgent(request);
 
   try {
@@ -194,7 +194,7 @@ test("a token that expired, or never existed, is told to authenticate again", as
 }) => {
   const admin = await seed.createVerifiedAdmin();
   await seed.authenticate(page.context(), admin.email);
-  await catchAgentCallback(page);
+  await startAgentCallback();
   const agent = await registerAgent(request);
   await page.goto(agent.authorizeUrl("state-expiry"));
   const accessToken = await accessTokenOf(
@@ -215,16 +215,32 @@ test("a token that expired, or never existed, is told to authenticate again", as
   }
 });
 
-test("an authorization code works once and a wrong verifier is refused", async ({
+test("an authorization code works once", async ({ page, request, seed }) => {
+  const admin = await seed.createVerifiedAdmin();
+  await seed.authenticate(page.context(), admin.email);
+  await startAgentCallback();
+  const agent = await registerAgent(request);
+  await page.goto(agent.authorizeUrl("state-once"));
+  const { code } = readCallback(page);
+
+  const first = await exchangeCode(request, agent, code);
+  const second = await exchangeCode(request, agent, code);
+
+  expect(first.status()).toBe(200);
+  expect(second.status()).toBeGreaterThanOrEqual(400);
+  expect(await seed.listOAuthTokens(admin.email)).toHaveLength(1);
+});
+
+test("a wrong verifier is refused and burns the code, so even the right verifier fails afterwards", async ({
   page,
   request,
   seed,
 }) => {
   const admin = await seed.createVerifiedAdmin();
   await seed.authenticate(page.context(), admin.email);
-  await catchAgentCallback(page);
+  await startAgentCallback();
   const agent = await registerAgent(request);
-  await page.goto(agent.authorizeUrl("state-once"));
+  await page.goto(agent.authorizeUrl("state-burn"));
   const { code } = readCallback(page);
 
   const stolen = await request.post(`${API_URL}/api/auth/mcp/token`, {
@@ -239,12 +255,10 @@ test("an authorization code works once and a wrong verifier is refused", async (
   expect(stolen.status()).toBeGreaterThanOrEqual(400);
   expect(await seed.listOAuthTokens(admin.email)).toEqual([]);
 
-  const first = await exchangeCode(request, agent, code);
-  const second = await exchangeCode(request, agent, code);
+  const genuine = await exchangeCode(request, agent, code);
 
-  expect(first.status()).toBe(200);
-  expect(second.status()).toBeGreaterThanOrEqual(400);
-  expect(await seed.listOAuthTokens(admin.email)).toHaveLength(1);
+  expect(genuine.status()).toBeGreaterThanOrEqual(400);
+  expect(await seed.listOAuthTokens(admin.email)).toEqual([]);
 });
 
 test("the discovery documents are public and the MCP endpoint takes only POST", async ({
@@ -280,7 +294,7 @@ test("two agents searching at once each get their own results", async ({
 }) => {
   const admin = await seed.createVerifiedAdmin();
   await seed.authenticate(page.context(), admin.email);
-  await catchAgentCallback(page);
+  await startAgentCallback();
   const id = token();
   const scripts = ["one", "two"].map((suffix) => ({
     keyword: `${suffix} ${id}`,

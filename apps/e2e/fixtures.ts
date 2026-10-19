@@ -16,6 +16,8 @@ import {
   listOAuthTokens,
   expireOAuthTokens,
   ageSessions,
+  banUser,
+  deleteUser,
   listScrapeRuns,
   scriptSkool,
   unscriptSkool,
@@ -72,6 +74,8 @@ interface Seed {
   listOAuthTokens: (email: string) => ReturnType<typeof listOAuthTokens>;
   expireOAuthTokens: (email: string) => Promise<void>;
   ageSessions: (email: string) => Promise<void>;
+  banUser: (email: string) => Promise<void>;
+  deleteUser: (email: string) => Promise<void>;
   scriptSkool: (script: SkoolScript) => Promise<void>;
   unscriptSkool: (script: SkoolScript) => Promise<void>;
   authenticate: (
@@ -139,6 +143,8 @@ export const test = base.extend<{ seed: Seed; resetRateLimits: void }>({
       listOAuthTokens: (email) => listOAuthTokens(config, email),
       expireOAuthTokens: (email) => expireOAuthTokens(config, email),
       ageSessions: (email) => ageSessions(config, email),
+      banUser: (email) => banUser(config, email),
+      deleteUser: (email) => deleteUser(config, email),
       scriptSkool: (script) => scriptSkool(config, script),
       unscriptSkool: (script) => unscriptSkool(config, script),
       authenticate: async (context, email, userAgent) => {

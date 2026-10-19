@@ -614,6 +614,25 @@ export const expireOAuthTokens = async (
       .where(eq(oauthAccessTokenTable.userId, userId));
   });
 
+export const banUser = async (
+  config: SeedConfig,
+  email: string,
+): Promise<void> =>
+  withDb(config, async (db) => {
+    await db
+      .update(userTable)
+      .set({ banned: true })
+      .where(eq(userTable.email, email));
+  });
+
+export const deleteUser = async (
+  config: SeedConfig,
+  email: string,
+): Promise<void> =>
+  withDb(config, async (db) => {
+    await db.delete(userTable).where(eq(userTable.email, email));
+  });
+
 /** Makes every session of the user older than Better Auth's freshness window */
 export const ageSessions = async (
   config: SeedConfig,
