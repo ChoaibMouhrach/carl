@@ -232,9 +232,9 @@ export class ScrapeService extends BaseService {
         status: "done",
       });
 
-      // An incomplete run cannot tell a lead that is gone from one it failed to reach
+      // An incomplete or empty run cannot tell a lead that is gone from one it failed to reach
       const leadsRemoved =
-        scrapeRun.replace && summary.failures.length === 0
+        scrapeRun.replace && summary.failures.length === 0 && leads.length > 0
           ? await this.removeUnfoundLeads(
               campaign.campaignId,
               leads.map((lead) => lead.leadId),

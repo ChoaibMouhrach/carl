@@ -9,9 +9,17 @@ import {
   type StageNumber,
 } from "@repo/constants/campaign";
 import { BaseService } from "@server/lib/base-service";
-import { NotFoundError } from "@server/lib/errors";
+import { BadRequestError, NotFoundError } from "@server/lib/errors";
 
 const SCRAPE_RUN_HISTORY_LIMIT = 10;
+
+// A campaign is activated once, can be paused and resumed, and ends as completed
+const allowedStatusChanges: Record<CampaignStatus, CampaignStatus[]> = {
+  draft: ["active"],
+  active: ["paused", "completed"],
+  paused: ["active", "completed"],
+  completed: [],
+};
 
 interface StageCount {
   stage: StageNumber;
@@ -177,7 +185,17 @@ export class CampaignService extends BaseService {
       status?: CampaignStatus;
     },
   ) {
-    await this.findOrFail(input.campaignId);
+    const current = await this.findOrFail(input.campaignId);
+
+    if (
+      fields.status &&
+      fields.status !== current.status &&
+      !allowedStatusChanges[current.status].includes(fields.status)
+    ) {
+      throw new BadRequestError({
+        message: `A ${current.status} campaign cannot become ${fields.status}.`,
+      });
+    }
 
     await this.context.repositories.campaign.update(input, fields);
     await this.context.eventBus.publish("campaigns.changed");

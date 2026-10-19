@@ -12,6 +12,7 @@ import {
 } from "drizzle-orm";
 import { DEFAULT_RECORD_LIMIT } from "@server/config/constants";
 import { BaseRepository } from "@server/lib/base-repository";
+import { containsPattern } from "@server/lib/utils";
 import {
   communitiesTable,
   leadsTable,
@@ -45,8 +46,8 @@ export class CommunityRepository extends BaseRepository {
     if (query.search) {
       conditions.push(
         or(
-          ilike(table.name, `%${query.search}%`),
-          ilike(table.displayName, `%${query.search}%`),
+          ilike(table.name, containsPattern(query.search)),
+          ilike(table.displayName, containsPattern(query.search)),
         ),
       );
     }

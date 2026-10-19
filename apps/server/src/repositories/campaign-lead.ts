@@ -2,6 +2,7 @@ import { and, desc, eq, exists, ilike, inArray, or, sql } from "drizzle-orm";
 import type { LeadStatus, StageNumber } from "@repo/constants/campaign";
 import { DEFAULT_RECORD_LIMIT } from "@server/config/constants";
 import { BaseRepository } from "@server/lib/base-repository";
+import { containsPattern } from "@server/lib/utils";
 import {
   campaignLeadsTable,
   communitiesTable,
@@ -135,7 +136,7 @@ export class CampaignLeadRepository extends BaseRepository {
     }
 
     if (query.search) {
-      const pattern = `%${query.search}%`;
+      const pattern = containsPattern(query.search);
       const searchCondition = or(
         ilike(leadsTable.name, pattern),
         ilike(leadsTable.skoolUsername, pattern),

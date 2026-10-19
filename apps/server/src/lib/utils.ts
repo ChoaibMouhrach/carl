@@ -39,3 +39,7 @@ export const extractEmails = (...texts: (string | null | undefined)[]) => {
 
   return [...new Set(emails.map((email) => email.toLowerCase()))];
 };
+
+/** A LIKE pattern matching `text` literally, so a typed % or _ is not a wildcard */
+export const containsPattern = (text: string) =>
+  `%${text.replace(/[\\%_]/g, "\\$&")}%`;

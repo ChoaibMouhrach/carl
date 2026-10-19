@@ -244,11 +244,6 @@ export class CustomSkoolScraper extends BaseSkoolScraper {
   private async fetchPageProps(path: string) {
     const html = await this.fetchHtml(path);
     const marker = html.indexOf(NEXT_DATA_MARKER);
-
-    if (marker === -1) {
-      throw new SkoolRequestError(`__NEXT_DATA__ missing for ${path}`, true);
-    }
-
     const start = html.indexOf(">", marker) + 1;
     const end = html.indexOf("</script>", start);
 
@@ -278,7 +273,16 @@ export class CustomSkoolScraper extends BaseSkoolScraper {
       redirect: "manual",
     });
 
-    if (response.status === 200) return await response.text();
+    if (response.status === 200) {
+      const html = await response.text();
+
+      // A 200 without page data is a challenge page, which a retry usually clears
+      if (!html.includes(NEXT_DATA_MARKER)) {
+        throw new SkoolRequestError(`__NEXT_DATA__ missing for ${path}`, true);
+      }
+
+      return html;
+    }
 
     if (response.headers.get("location")?.includes("lang=all")) {
       throw new SkoolNoEnglishResultsError(path);

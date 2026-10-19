@@ -2,6 +2,7 @@ import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import type { CampaignStatus } from "@repo/constants/campaign";
 import { DEFAULT_RECORD_LIMIT } from "@server/config/constants";
 import { BaseRepository } from "@server/lib/base-repository";
+import { containsPattern } from "@server/lib/utils";
 import {
   campaignLeadsTable,
   campaignsTable,
@@ -23,8 +24,8 @@ export class CampaignRepository extends BaseRepository {
     if (query.search) {
       conditions.push(
         or(
-          ilike(table.name, `%${query.search}%`),
-          ilike(table.description, `%${query.search}%`),
+          ilike(table.name, containsPattern(query.search)),
+          ilike(table.description, containsPattern(query.search)),
         ),
       );
     }
@@ -37,7 +38,8 @@ export class CampaignRepository extends BaseRepository {
     const limit = DEFAULT_RECORD_LIMIT;
     const offset = (query.page - 1) * limit;
 
-    const leadCount = sql<number>`(select count(*) from ${campaignLeadsTable} where ${campaignLeadsTable.campaignId} = ${table.campaignId})`;
+    // Qualified by hand: a single-table select renders bare column names, which would compare the inner column with itself
+    const leadCount = sql<number>`(select count(*) from ${campaignLeadsTable} where ${campaignLeadsTable}."campaignId" = ${table}."campaignId")`;
 
     const [campaigns, [countRow]] = await Promise.all([
       this.db

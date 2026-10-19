@@ -43,7 +43,15 @@ export class RedisEventBus extends BaseEventBus {
       if (!type) return;
 
       for (const listener of this.listeners) {
-        listener(type);
+        // One broken listener must not starve the others or reach the Redis client
+        try {
+          listener(type);
+        } catch (error) {
+          void this.logger.info({
+            eventBusError:
+              error instanceof Error ? error.message : String(error),
+          });
+        }
       }
     });
 
