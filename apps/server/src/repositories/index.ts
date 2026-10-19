@@ -8,6 +8,7 @@ import { CampaignRepository } from "./campaign";
 import { CampaignLeadRepository } from "./campaign-lead";
 import { ScrapeRunRepository } from "./scrape-run";
 import { OAuthClientRepository } from "./oauth-client";
+import { McpRequestRepository } from "./mcp-request";
 
 interface RepositoriesConstructorProps {
   dbConnection: DBConnection;
@@ -26,6 +27,7 @@ export class Repositories {
   public campaignLead;
   public scrapeRun;
   public oauthClient;
+  public mcpRequest;
 
   public constructor({ dbConnection }: RepositoriesConstructorProps) {
     this.pool = dbConnection.pool;
@@ -64,6 +66,10 @@ export class Repositories {
     });
 
     this.oauthClient = new OAuthClientRepository({
+      db: dbConnection.db,
+    });
+
+    this.mcpRequest = new McpRequestRepository({
       db: dbConnection.db,
     });
   }

@@ -21,7 +21,21 @@ export const mcpController = new Hono<AppContext>()
         });
         await server.connect(transport);
 
-        return await transport.handleRequest(request);
+        const startedAt = Date.now();
+        const requestBody = await request.clone().text();
+        const response = await transport.handleRequest(request);
+        const responseBody = await response.clone().text();
+
+        await services.mcp.recordRequest({
+          clientId: session.clientId,
+          userId: session.userId,
+          requestBody,
+          responseBody,
+          statusCode: response.status,
+          durationMs: Date.now() - startedAt,
+        });
+
+        return response;
       },
     );
 

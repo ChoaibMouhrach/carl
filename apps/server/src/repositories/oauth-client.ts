@@ -44,6 +44,36 @@ export class OAuthClientRepository extends BaseRepository {
       .orderBy(desc(min(tokens.createdAt)));
   }
 
+  /** One agent that holds a token, or null once it was removed */
+  public async findConnection(where: { clientId: string }) {
+    const tokens = oauthAccessTokenTable;
+
+    const rows = await this.db
+      .select({
+        clientId: tokens.clientId,
+        name: oauthApplicationTable.name,
+        redirectUrls: oauthApplicationTable.redirectUrls,
+        userEmail: userTable.email,
+        connectedAt: min(tokens.createdAt).mapWith(tokens.createdAt),
+        lastTokenAt: max(tokens.updatedAt).mapWith(tokens.updatedAt),
+      })
+      .from(tokens)
+      .innerJoin(
+        oauthApplicationTable,
+        eq(oauthApplicationTable.clientId, tokens.clientId),
+      )
+      .leftJoin(userTable, eq(userTable.id, tokens.userId))
+      .where(eq(tokens.clientId, where.clientId))
+      .groupBy(
+        tokens.clientId,
+        oauthApplicationTable.name,
+        oauthApplicationTable.redirectUrls,
+        userTable.email,
+      );
+
+    return rows.at(0) || null;
+  }
+
   /** Returns how many tokens were removed */
   public async deleteTokens(where: { clientId: string }) {
     const removed = await this.db

@@ -6,7 +6,7 @@ import {
   timestamp,
   index,
 } from "drizzle-orm/pg-core";
-import { timestamps } from "../utils";
+import { createdAt, id, timestamps } from "../utils";
 
 export const userTable = pgTable("user", {
   id: text().primaryKey(),
@@ -181,7 +181,39 @@ export const oauthConsentTable = pgTable(
   ],
 );
 
+export const mcpRequestsTable = pgTable(
+  "mcp_requests",
+  {
+    mcpRequestId: id(),
+
+    // -- fields
+    clientId: text()
+      .notNull()
+      .references(() => oauthApplicationTable.clientId, {
+        onDelete: "cascade",
+      }),
+    userId: text().references(() => userTable.id, { onDelete: "set null" }),
+    rpcMethod: text().notNull(),
+    toolName: text(),
+    requestBody: text().notNull(),
+    responseBody: text().notNull(),
+    statusCode: integer().notNull(),
+    isError: boolean().notNull().default(false),
+    durationMs: integer().notNull(),
+
+    // -- timestamps
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index("mcp_requests_clientId_createdAt_idx").on(
+      table.clientId,
+      table.createdAt,
+    ),
+  ],
+);
+
 export type User = typeof userTable.$inferSelect;
+export type McpRequest = typeof mcpRequestsTable.$inferSelect;
 export type Session = typeof sessionTable.$inferSelect;
 export type OAuthApplication = typeof oauthApplicationTable.$inferSelect;
 export const usersTable = userTable;
