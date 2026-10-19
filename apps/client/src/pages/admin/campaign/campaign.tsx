@@ -147,7 +147,7 @@ export const Campaign = () => {
         onStatusChange={(status) => setStatus.mutate(status)}
       />
       <PipelineOverview stages={stages} />
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto overflow-y-hidden pb-2">
         <Tabs
           onValueChange={(value) =>
             navigate({
