@@ -1,6 +1,7 @@
 import z from "zod";
 import {
   campaignStatuses,
+  maxKeywords,
   leadStatuses,
   stageNumbers,
 } from "@repo/constants/campaign";
@@ -9,10 +10,25 @@ import {
   skoolVisibilities,
 } from "@server/lib/base-skool-scraper";
 
+const uniqueKeywords = (keywords: string[]) => {
+  const seen = new Set<string>();
+
+  return keywords.filter((keyword) => {
+    const key = keyword.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 const campaignFields = {
   name: z.string().trim().min(1).max(255),
   description: z.string().trim().min(1).max(2000).nullable().optional(),
-  keyword: z.string().trim().min(1).max(255),
+  keywords: z
+    .array(z.string().trim().min(1).max(255))
+    .min(1)
+    .max(maxKeywords)
+    .transform(uniqueKeywords),
   types: z.array(z.enum(skoolVisibilities)).min(1).optional(),
   pricingModels: z.array(z.enum(skoolPriceFilters)).min(1).optional(),
   minMonthlyPriceUsd: z.number().min(0).nullable().optional(),

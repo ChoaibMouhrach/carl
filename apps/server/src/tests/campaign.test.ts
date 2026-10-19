@@ -39,7 +39,10 @@ test("admins manage campaigns and non-admins are refused", async () => {
     const created = await admin.app.request("/api/campaigns", {
       method: "POST",
       headers,
-      body: JSON.stringify({ name: "Coaches", keyword: "business coaching" }),
+      body: JSON.stringify({
+        name: "Coaches",
+        keywords: ["business coaching"],
+      }),
     });
     expect(created.status).toBe(201);
     const { campaign } = z
@@ -51,7 +54,7 @@ test("admins manage campaigns and non-admins are refused", async () => {
     });
     expect(stored).toMatchObject({
       name: "Coaches",
-      keyword: "business coaching",
+      keywords: ["business coaching"],
       status: "draft",
     });
     expect(stored?.types).toEqual(["public", "private"]);
@@ -151,7 +154,7 @@ test("scraping a campaign attaches the found leads at stage 1 and records the ru
 
     const draft = await context.repositories.campaign.create({
       name: "Draft",
-      keyword: "coaching",
+      keywords: ["coaching"],
       ...searches,
     });
     const refusedDraft = await admin.app.request(
@@ -162,13 +165,13 @@ test("scraping a campaign attaches the found leads at stage 1 and records the ru
 
     const first = await context.repositories.campaign.create({
       name: "First",
-      keyword: "coaching",
+      keywords: ["coaching"],
       ...searches,
       status: "active",
     });
     const second = await context.repositories.campaign.create({
       name: "Second",
-      keyword: "coaching",
+      keywords: ["coaching"],
       ...searches,
       status: "active",
     });
@@ -297,7 +300,7 @@ test("a scrape that cannot reach Skool marks the run failed with the reason", as
     );
     const campaign = await context.repositories.campaign.create({
       name: "Broken",
-      keyword: "x",
+      keywords: ["x"],
       types: ["private"],
       pricingModels: ["free"],
       status: "active",
@@ -331,7 +334,7 @@ test("a campaign's lead list carries the contact details", async () => {
     });
     const campaign = await context.repositories.campaign.create({
       name: "Contacts",
-      keyword: "coaching",
+      keywords: ["coaching"],
       types: ["public"],
       pricingModels: ["paid"],
     });
@@ -348,10 +351,12 @@ test("a campaign's lead list carries the contact details", async () => {
     });
     await context.repositories.campaignLead.attach({
       campaignId: campaign.campaignId,
-      leadIds: [lead.leadId, bare.leadId],
+      leads: [
+        { leadId: lead.leadId, keyword: "coaching" },
+        { leadId: bare.leadId, keyword: "coaching" },
+      ],
       stage: 1,
       status: "done",
-      keyword: "coaching",
     });
 
     const response = await admin.app.request(

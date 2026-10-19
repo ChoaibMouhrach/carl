@@ -1,6 +1,7 @@
 import { SelectField } from "@/components/select-field";
 import { TextField } from "@/components/text-field";
 import {
+  maxKeywords,
   skoolPriceFilters,
   skoolVisibilities,
   type SkoolPriceFilter,
@@ -17,7 +18,7 @@ import z from "zod";
 export interface CampaignFormValues {
   name: string;
   description: string | null;
-  keyword: string;
+  keywords: string[];
   types: SkoolVisibility[];
   pricingModels: SkoolPriceFilter[];
   minMonthlyPriceUsd: number | null;
@@ -32,6 +33,12 @@ interface CampaignFormProps {
   isPending: boolean;
   onSubmit: (values: CampaignFormValues) => Promise<unknown>;
 }
+
+const splitKeywords = (value: string) =>
+  value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
 
 const optionalNumber = (integer: boolean) =>
   z
@@ -48,7 +55,15 @@ const optionalNumber = (integer: boolean) =>
 const schema = z.object({
   name: z.string().trim().min(1).max(255),
   description: z.string().trim().max(2000),
-  keyword: z.string().trim().min(1).max(255),
+  keywords: z.string().refine((value) => {
+    const keywords = splitKeywords(value);
+
+    return (
+      keywords.length >= 1 &&
+      keywords.length <= maxKeywords &&
+      keywords.every((keyword) => keyword.length <= 255)
+    );
+  }),
   type: z.enum(skoolVisibilities),
   pricingModel: z.enum(skoolPriceFilters),
   minMonthlyPriceUsd: optionalNumber(false),
@@ -75,7 +90,7 @@ export const CampaignForm = ({
     defaultValues: {
       name: campaign?.name ?? "",
       description: campaign?.description ?? "",
-      keyword: campaign?.keyword ?? "",
+      keywords: campaign?.keywords.join("\n") ?? "",
       type: campaign?.types[0],
       pricingModel: campaign?.pricingModels[0],
       minMonthlyPriceUsd: fromNumber(campaign?.minMonthlyPriceUsd),
@@ -111,7 +126,7 @@ export const CampaignForm = ({
       await onSubmit({
         name: input.name,
         description: input.description || null,
-        keyword: input.keyword,
+        keywords: splitKeywords(input.keywords),
         types: [input.type],
         pricingModels: [input.pricingModel],
         minMonthlyPriceUsd: toNumber(input.minMonthlyPriceUsd),
@@ -145,9 +160,10 @@ export const CampaignForm = ({
             />
             <TextField
               control={form.control}
-              label={t("campaignForm.keyword")}
-              name="keyword"
-              placeholder={t("campaignForm.keywordPlaceholder")}
+              label={t("campaignForm.keywords")}
+              multiline
+              name="keywords"
+              placeholder={t("campaignForm.keywordsPlaceholder")}
               required
             />
             <div className="grid gap-4 sm:grid-cols-2">

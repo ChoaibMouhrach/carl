@@ -16,26 +16,25 @@ export class CampaignLeadRepository extends BaseRepository {
   /** Adds leads at the given position, leaving leads already in the campaign untouched */
   public async attach(input: {
     campaignId: number;
-    leadIds: number[];
+    leads: { leadId: number; keyword: string }[];
     stage: StageNumber;
     status: LeadStatus;
-    keyword: string;
   }) {
     let attached = 0;
 
     for (
       let start = 0;
-      start < input.leadIds.length;
+      start < input.leads.length;
       start += ATTACH_CHUNK_SIZE
     ) {
-      const rows = input.leadIds
+      const rows = input.leads
         .slice(start, start + ATTACH_CHUNK_SIZE)
-        .map((leadId) => ({
+        .map(({ leadId, keyword }) => ({
           campaignId: input.campaignId,
           leadId,
           stage: input.stage,
           status: input.status,
-          keyword: input.keyword,
+          keyword,
         }));
 
       const inserted = await this.db

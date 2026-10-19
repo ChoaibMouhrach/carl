@@ -9,7 +9,7 @@ import { Services } from "../services";
 
 const { values } = parseArgs({
   options: {
-    keyword: { type: "string" },
+    keyword: { type: "string", multiple: true },
     type: { type: "string", multiple: true },
     pricing: { type: "string", multiple: true },
     "min-price": { type: "string" },
@@ -44,9 +44,9 @@ const parseNumber = (value: string | undefined) =>
   value === undefined ? undefined : Number(value);
 
 const run = async () => {
-  if (!values.keyword) {
+  if (!values.keyword?.length) {
     console.error(
-      'Usage: bun run scrape --keyword "business coaching" [--type public --pricing paid --min-price 10 --max-price 100 --min-members 50 --max-members 5000 ...]',
+      'Usage: bun run scrape --keyword "business coaching" [--keyword "online courses" ...] [--type public --pricing paid --min-price 10 --max-price 100 --min-members 50 --max-members 5000 ...]',
     );
     process.exit(1);
   }
@@ -56,7 +56,7 @@ const run = async () => {
 
   const startedAt = performance.now();
   const { summary } = await services.scrape.run({
-    keyword: values.keyword,
+    keywords: values.keyword,
     searches: buildSearches(
       parseAll("type", skoolVisibilities, values.type) ?? skoolVisibilities,
       parseAll("pricing", skoolPriceFilters, values.pricing) ??

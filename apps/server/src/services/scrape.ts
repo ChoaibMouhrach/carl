@@ -34,7 +34,7 @@ export interface ScrapeFailure {
 }
 
 export interface ScrapeSummary {
-  keyword: string;
+  keywords: string[];
   discovered: number;
   alreadyKnown: number;
   duplicatesInRun: number;
@@ -45,12 +45,16 @@ export interface ScrapeSummary {
   failures: ScrapeFailure[];
 }
 
-interface RunState {
+export interface FoundLead {
+  leadId: number;
   keyword: string;
+}
+
+interface RunState {
   filters: CommunityFilters;
   communities: Map<string, Promise<unknown>>;
   leads: Map<string, Promise<Lead>>;
-  leadIds: Set<number>;
+  leadKeywords: Map<number, string>;
   summary: ScrapeSummary;
 }
 
@@ -59,14 +63,14 @@ const toMessage = (error: unknown) =>
 
 export class ScrapeService extends BaseService {
   public async run(input: {
-    keyword: string;
+    keywords: string[];
     searches?: DiscoveryCriteria[];
     filters?: CommunityFilters;
     discoveryConcurrency?: number;
     communityConcurrency?: number;
-  }): Promise<{ summary: ScrapeSummary; leadIds: number[] }> {
+  }): Promise<{ summary: ScrapeSummary; leads: FoundLead[] }> {
     const summary: ScrapeSummary = {
-      keyword: input.keyword,
+      keywords: input.keywords,
       discovered: 0,
       alreadyKnown: 0,
       duplicatesInRun: 0,
@@ -78,7 +82,7 @@ export class ScrapeService extends BaseService {
     };
 
     const discovered = await this.discover({
-      keyword: input.keyword,
+      keywords: input.keywords,
       searches: input.searches ?? this.context.discoveryCriteria,
       concurrency: input.discoveryConcurrency ?? SKOOL_DISCOVERY_CONCURRENCY,
       failures: summary.failures,
@@ -101,12 +105,28 @@ export class ScrapeService extends BaseService {
     );
     summary.alreadyKnown = discovered.length - pending.length;
 
+    // The first keyword to find a community names its lead
+    const keywordBySkoolId = new Map<string, string>();
+    for (const community of discovered) {
+      if (!keywordBySkoolId.has(community.skoolId)) {
+        keywordBySkoolId.set(community.skoolId, community.keyword);
+      }
+    }
+
+    const leadKeywords = new Map<number, string>();
+    for (const row of matching) {
+      const keyword = keywordBySkoolId.get(row.skoolId);
+
+      if (keyword && !leadKeywords.has(row.leadId)) {
+        leadKeywords.set(row.leadId, keyword);
+      }
+    }
+
     const state: RunState = {
-      keyword: input.keyword,
       filters,
       communities: new Map(),
       leads: new Map(),
-      leadIds: new Set(matching.map((row) => row.leadId)),
+      leadKeywords,
       summary,
     };
 
@@ -131,7 +151,13 @@ export class ScrapeService extends BaseService {
       },
     );
 
-    return { summary, leadIds: [...state.leadIds] };
+    return {
+      summary,
+      leads: [...state.leadKeywords].map(([leadId, keyword]) => ({
+        leadId,
+        keyword,
+      })),
+    };
   }
 
   public async start(input: { campaignId: number; replace?: boolean }) {
@@ -192,8 +218,8 @@ export class ScrapeService extends BaseService {
     await eventBus.publish("campaigns.changed");
 
     try {
-      const { summary, leadIds } = await this.run({
-        keyword: campaign.keyword,
+      const { summary, leads } = await this.run({
+        keywords: campaign.keywords,
         searches: buildSearches(campaign.types, campaign.pricingModels),
         filters: campaign,
       });
@@ -201,16 +227,18 @@ export class ScrapeService extends BaseService {
       // A lead that finished the scrape has completed stage 1 and waits for stage 2
       const leadsAttached = await repositories.campaignLead.attach({
         campaignId: campaign.campaignId,
-        leadIds,
+        leads,
         stage: 1,
         status: "done",
-        keyword: campaign.keyword,
       });
 
       // An incomplete run cannot tell a lead that is gone from one it failed to reach
       const leadsRemoved =
         scrapeRun.replace && summary.failures.length === 0
-          ? await this.removeUnfoundLeads(campaign.campaignId, leadIds)
+          ? await this.removeUnfoundLeads(
+              campaign.campaignId,
+              leads.map((lead) => lead.leadId),
+            )
           : 0;
 
       await repositories.scrapeRun.update(input, {
@@ -256,25 +284,28 @@ export class ScrapeService extends BaseService {
   }
 
   private async discover(input: {
-    keyword: string;
+    keywords: string[];
     searches: DiscoveryCriteria[];
     concurrency: number;
     failures: ScrapeFailure[];
   }): Promise<DiscoveredCommunity[]> {
     const { skoolScraper, logger } = this.context;
 
-    const firstPages = await Promise.all(
-      input.searches.map(async (criteria) => ({
-        criteria,
-        result: await skoolScraper.discover({
-          ...criteria,
-          keyword: input.keyword,
-          page: 1,
-        }),
-      })),
+    const queries = input.keywords.flatMap((keyword) =>
+      input.searches.map((criteria) => ({ keyword, criteria })),
     );
 
-    const remaining = firstPages.flatMap(({ criteria, result }) => {
+    const firstPages = await mapPool(
+      queries,
+      input.concurrency,
+      async ({ keyword, criteria }) => ({
+        keyword,
+        criteria,
+        result: await skoolScraper.discover({ ...criteria, keyword, page: 1 }),
+      }),
+    );
+
+    const remaining = firstPages.flatMap(({ keyword, criteria, result }) => {
       const reachable = Math.min(
         result.totalGroups,
         SKOOL_DISCOVERY_MAX_RESULTS,
@@ -282,6 +313,7 @@ export class ScrapeService extends BaseService {
       const lastPage = Math.ceil(reachable / SKOOL_DISCOVERY_PAGE_SIZE);
 
       return Array.from({ length: Math.max(0, lastPage - 1) }, (_, index) => ({
+        keyword,
         criteria,
         page: index + 2,
       }));
@@ -290,8 +322,8 @@ export class ScrapeService extends BaseService {
     await logger.info(
       `discovery: ${firstPages
         .map(
-          ({ criteria, result }) =>
-            `${searchName(criteria)}=${result.totalGroups}`,
+          ({ keyword, criteria, result }) =>
+            `${keyword}/${searchName(criteria)}=${result.totalGroups}`,
         )
         .join(" ")}, ${remaining.length} more pages`,
     );
@@ -299,17 +331,17 @@ export class ScrapeService extends BaseService {
     const otherPages = await mapPool(
       remaining,
       input.concurrency,
-      async ({ criteria, page }) => {
+      async ({ keyword, criteria, page }) => {
         try {
           const result = await skoolScraper.discover({
             ...criteria,
-            keyword: input.keyword,
+            keyword,
             page,
           });
-          return { criteria, result };
+          return { keyword, criteria, result };
         } catch (error) {
           input.failures.push({
-            target: `${searchName(criteria)} page ${page}`,
+            target: `${keyword}/${searchName(criteria)} page ${page}`,
             reason: toMessage(error),
           });
           return null;
@@ -317,12 +349,19 @@ export class ScrapeService extends BaseService {
       },
     );
 
-    return [...firstPages, ...otherPages].flatMap((page) =>
+    const discovered = [...firstPages, ...otherPages].flatMap((page) =>
       page
         ? page.result.groups.map((group) =>
-            classifyGroup(page.criteria, group, input.keyword),
+            classifyGroup(page.criteria, group, page.keyword),
           )
         : [],
+    );
+
+    // Earlier keywords win when several find the same community
+    return [...discovered].sort(
+      (left, right) =>
+        input.keywords.indexOf(left.keyword) -
+        input.keywords.indexOf(right.keyword),
     );
   }
 
@@ -405,7 +444,9 @@ export class ScrapeService extends BaseService {
     });
 
     if (community) state.summary.communitiesCreated += 1;
-    state.leadIds.add(lead.leadId);
+    if (!state.leadKeywords.has(lead.leadId)) {
+      state.leadKeywords.set(lead.leadId, discovered.keyword);
+    }
   }
 
   private async resolveLead(owner: SkoolOwner, state: RunState) {

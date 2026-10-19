@@ -41,7 +41,7 @@ export const campaignsTable = pgTable("campaigns", {
   status: text().$type<CampaignStatus>().notNull().default("draft"),
 
   // -- stage 1 (scrape) settings
-  keyword: text().notNull(),
+  keywords: jsonb().$type<string[]>().notNull(),
   types: jsonb().$type<SkoolVisibility[]>().notNull(),
   pricingModels: jsonb().$type<SkoolPriceFilter[]>().notNull(),
   minMonthlyPriceUsd: doublePrecision(),

@@ -137,7 +137,7 @@ export class CampaignService extends BaseService {
   public async create(input: {
     name: string;
     description?: string | null;
-    keyword: string;
+    keywords: string[];
     types?: SkoolVisibility[];
     pricingModels?: SkoolPriceFilter[];
     minMonthlyPriceUsd?: number | null;
@@ -148,7 +148,7 @@ export class CampaignService extends BaseService {
     const campaign = await this.context.repositories.campaign.create({
       name: input.name,
       description: input.description,
-      keyword: input.keyword,
+      keywords: input.keywords,
       types: input.types ?? [...skoolVisibilities],
       pricingModels: input.pricingModels ?? [...skoolPriceFilters],
       minMonthlyPriceUsd: input.minMonthlyPriceUsd,
@@ -167,7 +167,7 @@ export class CampaignService extends BaseService {
     fields: {
       name?: string;
       description?: string | null;
-      keyword?: string;
+      keywords?: string[];
       types?: SkoolVisibility[];
       pricingModels?: SkoolPriceFilter[];
       minMonthlyPriceUsd?: number | null;

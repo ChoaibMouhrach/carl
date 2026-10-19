@@ -111,7 +111,7 @@ test("changing campaigns, leads and communities publishes what the dashboard mus
 
     const created = await send("/api/campaigns", "POST", {
       name: "Coaches",
-      keyword: "coaching",
+      keywords: ["coaching"],
     });
     expect(created.status).toBe(201);
     const { campaign } = z
@@ -171,7 +171,7 @@ test("a scrape run announces each stage it goes through", async () => {
     });
     const campaign = await context.repositories.campaign.create({
       name: "Scrape",
-      keyword: "coaching",
+      keywords: ["coaching"],
       types: ["private"],
       pricingModels: ["free"],
       status: "active",

@@ -31,7 +31,7 @@ test("scraping stores each community under its owner with pricing and bio emails
     );
     const services = new Services({ context });
 
-    const { summary } = await services.scrape.run({ keyword: "coaching" });
+    const { summary } = await services.scrape.run({ keywords: ["coaching"] });
 
     expect(summary).toMatchObject({
       discovered: 3,
@@ -98,7 +98,7 @@ test("known communities and leads are not fetched again", async () => {
     const services = new Services({ context });
 
     const { summary: first } = await services.scrape.run({
-      keyword: "coaching",
+      keywords: ["coaching"],
     });
 
     expect(first).toMatchObject({
@@ -111,7 +111,7 @@ test("known communities and leads are not fetched again", async () => {
     expect(client.profileCalls).toEqual(["jane"]);
 
     const { summary: second } = await services.scrape.run({
-      keyword: "coaching",
+      keywords: ["coaching"],
     });
 
     expect(second).toMatchObject({
@@ -150,7 +150,7 @@ test("an owner whose profile cannot be fetched is still saved and the failure is
     );
     const services = new Services({ context });
 
-    const { summary } = await services.scrape.run({ keyword: "coaching" });
+    const { summary } = await services.scrape.run({ keywords: ["coaching"] });
 
     expect(summary.communitiesCreated).toBe(1);
     expect(summary.failures).toEqual([
@@ -201,7 +201,7 @@ test("communities outside the price and member limits are dropped before anythin
     const services = new Services({ context });
 
     const { summary } = await services.scrape.run({
-      keyword: "coaching",
+      keywords: ["coaching"],
       filters: {
         minMonthlyPriceUsd: 5,
         maxMonthlyPriceUsd: 50,
@@ -264,7 +264,7 @@ test("a free community passes a price ceiling but not a price floor", async () =
     const services = new Services({ context });
 
     const { summary: ceiling } = await services.scrape.run({
-      keyword: "coaching",
+      keywords: ["coaching"],
       filters: { maxMonthlyPriceUsd: 20 },
     });
     expect(ceiling).toMatchObject({ communitiesCreated: 1, filteredOut: 0 });
@@ -286,7 +286,7 @@ test("a free community passes a price ceiling but not a price floor", async () =
     const services = new Services({ context });
 
     const { summary: floor } = await services.scrape.run({
-      keyword: "coaching",
+      keywords: ["coaching"],
       filters: { minMonthlyPriceUsd: 1 },
     });
     expect(floor).toMatchObject({ communitiesCreated: 0, filteredOut: 1 });

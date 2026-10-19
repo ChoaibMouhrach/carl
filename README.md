@@ -32,10 +32,10 @@ the API and the dashboard SPA.
 
 **What it does:**
 
-- **Scrapes Skool** discovery and community pages for a keyword, then stores
+- **Scrapes Skool** discovery and community pages for your keywords, then stores
   each community and its owner. The owner is the lead; the community is how we
   found them
-- **Campaigns** — several can run side by side, each with its own keyword,
+- **Campaigns** — several can run side by side, each with its own keywords,
   search settings and filters, and its own view of where every lead sits in the
   pipeline
 - **A dashboard** to manage campaigns, leads and communities, start scrapes and
@@ -59,7 +59,7 @@ A campaign has these scrape settings:
 
 | Setting       | Meaning                                                               |
 | ------------- | --------------------------------------------------------------------- |
-| Keyword       | What to search for on Skool                                           |
+| Keywords      | What to search for on Skool: up to 10, one per line                   |
 | Type          | `public` or `private` communities                                     |
 | Pricing model | `free`, `paid` or `free-trial`                                        |
 | Monthly price | Optional minimum and maximum, in USD. Yearly prices are divided by 12 |
@@ -82,7 +82,7 @@ found, new communities, leads added, filtered out and failed.
 
 How the scraper works:
 
-1. **Discover** — queries Skool's discovery pages for the keyword, one search per
+1. **Discover** — queries Skool's discovery pages for each keyword, one search per
    chosen type and pricing model, and fetches the remaining pages in parallel.
    Discovery results are not deduplicated
 2. **Skip known communities** — one database lookup skips every community
@@ -104,13 +104,13 @@ at `infrastructure/skool/apify` without touching the services.
 You can also run a scrape from the command line, without a campaign:
 
 ```bash
-bun --cwd apps/server run scrape --keyword "business coaching" \
+bun --cwd apps/server run scrape --keyword "business coaching" --keyword "online courses" \
   --type public --pricing paid \
   --min-price 10 --max-price 100 --min-members 50 --max-members 5000
 ```
 
-`--type` and `--pricing` can be repeated, and leaving one out searches all of
-its options.
+`--keyword` is required and can be repeated. `--type` and `--pricing` can be
+repeated too, and leaving them out searches all of their options.
 
 ## Tech stack
 

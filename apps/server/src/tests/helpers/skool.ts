@@ -95,6 +95,7 @@ export class FakeSkoolScraper extends BaseSkoolScraper {
   public failingProfiles = new Set<string>();
   public discoverError: Error | null = null;
   public memberCounts: Record<string, number> = {};
+  public byKeyword: Record<string, Record<string, SkoolDiscoveryGroup[]>> = {};
 
   public constructor(
     public pages: Record<string, SkoolDiscoveryGroup[]>,
@@ -107,7 +108,8 @@ export class FakeSkoolScraper extends BaseSkoolScraper {
     query: SkoolDiscoveryQuery,
   ): Promise<SkoolDiscoveryPage> {
     if (this.discoverError) throw this.discoverError;
-    const groups = this.pages[`${query.visibility}-${query.price}`] ?? [];
+    const source = this.byKeyword[query.keyword] ?? this.pages;
+    const groups = source[`${query.visibility}-${query.price}`] ?? [];
     return { totalGroups: groups.length, groups };
   }
 

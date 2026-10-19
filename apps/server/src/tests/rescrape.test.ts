@@ -26,11 +26,11 @@ test("a re-scrape applies the campaign limits to communities we already hold", a
     );
     const services = new Services({ context });
 
-    const first = await services.scrape.run({ keyword: "coaching" });
-    expect(first.leadIds).toHaveLength(2);
+    const first = await services.scrape.run({ keywords: ["coaching"] });
+    expect(first.leads).toHaveLength(2);
 
     const second = await services.scrape.run({
-      keyword: "coaching",
+      keywords: ["coaching"],
       filters: { minMembers: 50 },
     });
 
@@ -42,7 +42,7 @@ test("a re-scrape applies the campaign limits to communities we already hold", a
       communitiesCreated: 0,
       filteredOut: 1,
     });
-    expect(second.leadIds).toEqual([big?.leadId]);
+    expect(second.leads.map((lead) => lead.leadId)).toEqual([big?.leadId]);
   });
 });
 
@@ -68,7 +68,7 @@ test("campaign leads remember the keyword that found them and a replace run drop
     });
     const campaign = await context.repositories.campaign.create({
       name: "Rescrape",
-      keyword: "alpha",
+      keywords: ["alpha"],
       types: ["private"],
       pricingModels: ["free"],
       status: "active",
@@ -95,7 +95,7 @@ test("campaign leads remember the keyword that found them and a replace run drop
 
     await context.repositories.campaign.update(
       { campaignId: campaign.campaignId },
-      { keyword: "beta" },
+      { keywords: ["beta"] },
     );
     scraper.pages = { "private-free": [group("beta-club")] };
     expect((await scrape()).status).toBe(202);
@@ -117,10 +117,9 @@ test("campaign leads remember the keyword that found them and a replace run drop
     });
     await context.repositories.campaignLead.attach({
       campaignId: campaign.campaignId,
-      leadIds: [advanced.leadId],
+      leads: [{ leadId: advanced.leadId, keyword: "alpha" }],
       stage: 2,
       status: "pending",
-      keyword: "alpha",
     });
 
     expect((await scrape("?replace=true")).status).toBe(202);
@@ -155,7 +154,7 @@ test("a replace run that had failures keeps every lead", async () => {
     );
     const campaign = await context.repositories.campaign.create({
       name: "Failing",
-      keyword: "alpha",
+      keywords: ["alpha"],
       types: ["private"],
       pricingModels: ["free"],
       status: "active",
@@ -166,10 +165,9 @@ test("a replace run that had failures keeps every lead", async () => {
     });
     await context.repositories.campaignLead.attach({
       campaignId: campaign.campaignId,
-      leadIds: [stale.leadId],
+      leads: [{ leadId: stale.leadId, keyword: "old" }],
       stage: 1,
       status: "done",
-      keyword: "old",
     });
     const scrapeRun = await context.repositories.scrapeRun.create({
       campaignId: campaign.campaignId,
@@ -203,7 +201,7 @@ test("an invalid replace flag is refused without creating a run", async () => {
     });
     const campaign = await context.repositories.campaign.create({
       name: "Flag",
-      keyword: "x",
+      keywords: ["x"],
       types: ["private"],
       pricingModels: ["free"],
       status: "active",
@@ -220,5 +218,106 @@ test("an invalid replace flag is refused without creating a run", async () => {
       limit: 5,
     });
     expect(runs).toEqual([]);
+  });
+});
+
+test("several keywords are searched together and the first one to find a community names its lead", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const scraper = new FakeSkoolScraper(
+      {},
+      {
+        "a-club": owner("amy"),
+        "shared-club": owner("sam"),
+        "b-club": owner("ben"),
+      },
+    );
+    scraper.byKeyword = {
+      alpha: { "private-free": [group("a-club"), group("shared-club")] },
+      beta: { "private-free": [group("shared-club"), group("b-club")] },
+    };
+    const context = createContext(
+      db,
+      pool,
+      initENV(),
+      new TestMailer(),
+      undefined,
+      scraper,
+    );
+
+    const { summary, leads } = await new Services({ context }).scrape.run({
+      keywords: ["alpha", "beta"],
+      searches: [{ visibility: "private", price: "free" }],
+    });
+
+    expect(summary).toMatchObject({
+      keywords: ["alpha", "beta"],
+      discovered: 4,
+      duplicatesInRun: 1,
+      communitiesCreated: 3,
+      leadsCreated: 3,
+      failures: [],
+    });
+
+    const names = await Promise.all(
+      leads.map(async (lead) => {
+        const stored = await context.repositories.lead.findByLeadId({
+          leadId: lead.leadId,
+        });
+        return `${stored?.skoolUsername}:${lead.keyword}`;
+      }),
+    );
+    expect(names.toSorted()).toEqual(["amy:alpha", "ben:beta", "sam:alpha"]);
+    expect(scraper.aboutCalls.toSorted()).toEqual([
+      "a-club",
+      "b-club",
+      "shared-club",
+    ]);
+  });
+});
+
+test("campaign keywords are trimmed, deduplicated and limited", async () => {
+  await withTestDatabase(async ({ context }) => {
+    const admin = await createAuthenticatedApp({
+      context,
+      email: "keywords-admin@example.com",
+      role: "admin",
+    });
+    const create = (body: object) =>
+      admin.app.request("/api/campaigns", {
+        method: "POST",
+        headers: {
+          cookie: admin.cookie,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+    const countCampaigns = async () =>
+      (await context.repositories.campaign.list({ page: 1 })).campaigns.length;
+
+    const created = await create({
+      name: "Many",
+      keywords: ["Coaching ", " coaching", "Fitness"],
+    });
+    expect(created.status).toBe(201);
+    const stored = await context.repositories.campaign.list({ page: 1 });
+    expect(stored.campaigns.map((campaign) => campaign.keywords)).toEqual([
+      ["Coaching", "Fitness"],
+    ]);
+
+    const rejected = [
+      { name: "None", keywords: [] },
+      { name: "Blank", keywords: ["  "] },
+      { name: "Legacy", keyword: "coaching" },
+      {
+        name: "Too many",
+        keywords: Array.from({ length: 11 }, (_, index) => `keyword ${index}`),
+      },
+    ];
+
+    for (const body of rejected) {
+      expect((await create(body)).status).toBe(400);
+    }
+    // Validation refuses each request before the service runs, so only the first campaign exists
+    expect(await countCampaigns()).toBe(1);
   });
 });

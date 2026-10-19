@@ -46,7 +46,7 @@ export class CampaignRepository extends BaseRepository {
           name: table.name,
           description: table.description,
           status: table.status,
-          keyword: table.keyword,
+          keywords: table.keywords,
           types: table.types,
           pricingModels: table.pricingModels,
           createdAt: table.createdAt,
