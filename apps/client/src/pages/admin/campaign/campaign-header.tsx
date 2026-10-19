@@ -1,4 +1,4 @@
-import type { Campaign } from "@/api/campaign";
+import type { CampaignDetail } from "@/api/campaign";
 import { AdminPageDescription, AdminPageTitle } from "@/components/admin-page";
 import { formatNumber } from "@/lib/format";
 import type { CampaignStatus } from "@/lib/campaign";
@@ -10,7 +10,7 @@ import { useTranslation } from "react-i18next";
 import { CampaignStatusBadge } from "../campaigns/campaign-status-badge";
 
 interface CampaignHeaderProps {
-  campaign: Campaign;
+  campaign: CampaignDetail;
   isStatusPending: boolean;
   onStatusChange: (status: CampaignStatus) => void;
 }

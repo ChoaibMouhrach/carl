@@ -25,6 +25,7 @@ export const CampaignLeadTable = ({ leads }: CampaignLeadTableProps) => {
         <TableRow>
           <TableHead>{t("adminCampaign.lead")}</TableHead>
           <TableHead>{t("adminCampaign.community")}</TableHead>
+          <TableHead>{t("adminCampaign.email")}</TableHead>
           <TableHead>{t("adminCampaign.members")}</TableHead>
           <TableHead>{t("adminCampaign.stageColumn")}</TableHead>
           <TableHead>{t("adminCampaign.statusColumn")}</TableHead>
@@ -34,7 +35,7 @@ export const CampaignLeadTable = ({ leads }: CampaignLeadTableProps) => {
       <TableBody>
         {leads.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={6}>{t("adminCampaign.emptyLeads")}</TableCell>
+            <TableCell colSpan={7}>{t("adminCampaign.emptyLeads")}</TableCell>
           </TableRow>
         ) : (
           leads.map((lead) => (
@@ -46,6 +47,7 @@ export const CampaignLeadTable = ({ leads }: CampaignLeadTableProps) => {
                 </div>
               </TableCell>
               <TableCell>{lead.communityName}</TableCell>
+              <TableCell>{lead.emails.at(0) ?? "—"}</TableCell>
               <TableCell>{formatNumber(lead.memberCount)}</TableCell>
               <TableCell>
                 <Badge variant="outline">

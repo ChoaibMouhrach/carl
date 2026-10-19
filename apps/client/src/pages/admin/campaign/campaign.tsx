@@ -1,4 +1,5 @@
 import { api } from "@/api";
+import type { ScrapeRun } from "@/api/campaign";
 import { DataPagination } from "@/components/data-pagination";
 import { TableSkeleton } from "@/components/table-skeleton";
 import { onError } from "@/lib/base-api";
@@ -25,6 +26,10 @@ import { PipelineOverview } from "./pipeline-overview";
 import { StagePanel } from "./stage-panel";
 
 const allStages = "all";
+const POLL_INTERVAL_MS = 2_000;
+
+const isScrapeActive = (run?: ScrapeRun) =>
+  run?.status === "queued" || run?.status === "running";
 
 const findStage = (value: string): StageNumber | undefined =>
   stageNumbers.find((stage) => String(stage) === value);
@@ -40,17 +45,24 @@ export const Campaign = () => {
     queryKey: ["admin", "campaigns", campaignId],
     queryFn: () => api.campaign.show({ campaignId }),
     placeholderData: (previousData) => previousData,
+    refetchInterval: (query) =>
+      isScrapeActive(query.state.data?.scrapeRuns.at(0))
+        ? POLL_INTERVAL_MS
+        : false,
   });
+
+  const isScraping = isScrapeActive(campaign.data?.scrapeRuns.at(0));
 
   const leads = useQuery({
     queryKey: ["admin", "campaigns", campaignId, "leads", searchParams],
     queryFn: () => api.campaign.leads({ campaignId }, searchParams),
     placeholderData: (previousData) => previousData,
+    refetchInterval: isScraping ? POLL_INTERVAL_MS : false,
   });
 
   const setStatus = useMutation({
     mutationFn: (status: CampaignStatus) =>
-      api.campaign.setStatus({ campaignId }, { status }),
+      api.campaign.update({ campaignId }, { status }),
     onError,
     onSuccess: async () => {
       toast.success(t("adminCampaign.statusUpdated"));
@@ -58,22 +70,11 @@ export const Campaign = () => {
     },
   });
 
-  const runStage = useMutation({
-    mutationFn: (stage: StageNumber) =>
-      api.campaign.runStage({ campaignId, stage }),
-    onError,
-    onSuccess: async (_, stage) => {
-      toast.success(t("adminCampaign.stageProcessed", { number: stage }));
-      await invalidateCampaignData(queryClient);
-    },
-  });
-
-  const retryFailed = useMutation({
-    mutationFn: (stage: StageNumber) =>
-      api.campaign.retryFailed({ campaignId, stage }),
+  const startScrape = useMutation({
+    mutationFn: () => api.campaign.scrape({ campaignId }),
     onError,
     onSuccess: async () => {
-      toast.success(t("adminCampaign.retried"));
+      toast.success(t("adminCampaign.scrapeStarted"));
       await invalidateCampaignData(queryClient);
     },
   });
@@ -102,7 +103,7 @@ export const Campaign = () => {
         <Skeleton className="h-9 w-full max-w-2xl" />
         <Card>
           <CardContent>
-            <TableSkeleton columns={6} />
+            <TableSkeleton columns={7} />
           </CardContent>
         </Card>
       </div>
@@ -170,15 +171,9 @@ export const Campaign = () => {
       {selectedStage && (
         <StagePanel
           canRun={campaign.data.campaign.status === "active"}
-          isRetrying={
-            retryFailed.isPending &&
-            retryFailed.variables === selectedStage.stage
-          }
-          isRunning={
-            runStage.isPending && runStage.variables === selectedStage.stage
-          }
-          onRetry={() => retryFailed.mutate(selectedStage.stage)}
-          onRun={() => runStage.mutate(selectedStage.stage)}
+          isRunning={startScrape.isPending || isScraping}
+          onRun={() => startScrape.mutate()}
+          scrapeRun={campaign.data.scrapeRuns.at(0)}
           stage={selectedStage}
         />
       )}
@@ -200,7 +195,7 @@ export const Campaign = () => {
               status={searchParams.status}
             />
             {leads.isPending ? (
-              <TableSkeleton columns={6} />
+              <TableSkeleton columns={7} />
             ) : (
               <CampaignLeadTable leads={leads.data.leads} />
             )}

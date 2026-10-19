@@ -1,4 +1,4 @@
-import type { Campaign } from "@/api/campaign";
+import type { CampaignSummary } from "@/api/campaign";
 import { RowActions } from "@/components/row-actions";
 import { formatDate, formatNumber } from "@/lib/format";
 import {
@@ -15,7 +15,7 @@ import { CampaignStatusBadge } from "./campaign-status-badge";
 import { StageBars } from "./stage-bars";
 
 interface CampaignTableProps {
-  campaigns: Campaign[];
+  campaigns: CampaignSummary[];
   isMutating: boolean;
   onRemove: (campaignId: number) => void;
   removingCampaignId?: number;

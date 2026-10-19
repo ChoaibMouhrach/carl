@@ -395,7 +395,31 @@
     "descriptionLabel": "Descripción",
     "descriptionPlaceholder": "A quién se dirige esta campaña y por qué.",
     "save": "Guardar",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "keyword": "Palabra clave",
+    "keywordPlaceholder": "coaching de negocios",
+    "visibility": {
+      "public": "Pública",
+      "private": "Privada"
+    },
+    "price": {
+      "free": "Gratis",
+      "paid": "De pago",
+      "free-trial": "Prueba gratis"
+    },
+    "types": "Tipo",
+    "pricingModels": "Modelo de precios",
+    "typesPlaceholder": "Selecciona un tipo",
+    "pricingModelsPlaceholder": "Selecciona un modelo de precio",
+    "minMonthlyPrice": "Precio mín. por mes ($)",
+    "minMonthlyPricePlaceholder": "Sin mínimo",
+    "maxMonthlyPrice": "Precio máx. por mes ($)",
+    "maxMonthlyPricePlaceholder": "Sin máximo",
+    "minMembers": "Mín. de miembros",
+    "minMembersPlaceholder": "Sin mínimo",
+    "maxMembers": "Máx. de miembros",
+    "maxMembersPlaceholder": "Sin máximo",
+    "rangeError": "El mínimo no puede ser mayor que el máximo."
   },
   "adminCampaign": {
     "back": "Volver a campañas",
@@ -414,10 +438,6 @@
     "stageDescription": "Ejecuta esta etapa para cada lead que esté listo.",
     "ready": "Listos para ejecutar",
     "completedLabel": "Completados",
-    "runStage": "Ejecutar etapa",
-    "retryFailed": "Reintentar fallidos",
-    "stageProcessed": "Etapa {{number}} procesada.",
-    "retried": "Los leads fallidos están listos para ejecutarse de nuevo.",
     "inactiveHint": "Activa la campaña para ejecutar sus etapas.",
     "leadStatus": {
       "pending": "Pendiente",
@@ -435,6 +455,16 @@
     "stageColumn": "Etapa",
     "statusColumn": "Estado",
     "updatedColumn": "Actualizado",
-    "emptyLeads": "Ningún lead coincide con estos filtros."
+    "emptyLeads": "Ningún lead coincide con estos filtros.",
+    "scrapeStarted": "Scrape iniciado.",
+    "runScrape": "Ejecutar scrape",
+    "scrapeStatus": {
+      "queued": "En cola",
+      "running": "En curso",
+      "completed": "Completado",
+      "failed": "Fallido"
+    },
+    "scrapeSummary": "{{discovered}} encontradas · {{created}} comunidades nuevas · {{attached}} leads añadidos · {{filtered}} filtradas · {{failed}} fallidos",
+    "email": "Correo"
   }
 }

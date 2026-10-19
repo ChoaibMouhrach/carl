@@ -395,7 +395,31 @@
     "descriptionLabel": "Description",
     "descriptionPlaceholder": "Who this campaign targets and why.",
     "save": "Save",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "keyword": "Search keyword",
+    "keywordPlaceholder": "business coaching",
+    "visibility": {
+      "public": "Public",
+      "private": "Private"
+    },
+    "price": {
+      "free": "Free",
+      "paid": "Paid",
+      "free-trial": "Free trial"
+    },
+    "types": "Type",
+    "pricingModels": "Pricing model",
+    "typesPlaceholder": "Select a type",
+    "pricingModelsPlaceholder": "Select a pricing model",
+    "minMonthlyPrice": "Min price per month ($)",
+    "minMonthlyPricePlaceholder": "No minimum",
+    "maxMonthlyPrice": "Max price per month ($)",
+    "maxMonthlyPricePlaceholder": "No maximum",
+    "minMembers": "Min members",
+    "minMembersPlaceholder": "No minimum",
+    "maxMembers": "Max members",
+    "maxMembersPlaceholder": "No maximum",
+    "rangeError": "Minimum cannot be greater than maximum."
   },
   "adminCampaign": {
     "back": "Back to campaigns",
@@ -414,10 +438,6 @@
     "stageDescription": "Run this stage for every lead that is ready for it.",
     "ready": "Ready to run",
     "completedLabel": "Completed",
-    "runStage": "Run stage",
-    "retryFailed": "Retry failed",
-    "stageProcessed": "Stage {{number}} processed.",
-    "retried": "Failed leads are ready to run again.",
     "inactiveHint": "Activate the campaign to run its stages.",
     "leadStatus": {
       "pending": "Pending",
@@ -435,6 +455,16 @@
     "stageColumn": "Stage",
     "statusColumn": "Status",
     "updatedColumn": "Updated",
-    "emptyLeads": "No leads match these filters."
+    "emptyLeads": "No leads match these filters.",
+    "scrapeStarted": "Scrape started.",
+    "runScrape": "Run scrape",
+    "scrapeStatus": {
+      "queued": "Queued",
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
+    "scrapeSummary": "{{discovered}} found · {{created}} new communities · {{attached}} leads added · {{filtered}} filtered out · {{failed}} failed",
+    "email": "Email"
   }
 }

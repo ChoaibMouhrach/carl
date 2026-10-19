@@ -1,6 +1,7 @@
-import type { StageCount } from "@/api/campaign";
+import type { ScrapeRun, StageCount } from "@/api/campaign";
 import { formatNumber } from "@/lib/format";
 import { leadStatuses } from "@/lib/campaign";
+import { Badge } from "@repo/ui/components/ui/badge";
 import { Button } from "@repo/ui/components/ui/button";
 import {
   Card,
@@ -11,28 +12,28 @@ import {
 } from "@repo/ui/components/ui/card";
 import { Progress } from "@repo/ui/components/ui/progress";
 import { Spinner } from "@repo/ui/components/ui/spinner";
-import { PlayIcon, RotateCcwIcon } from "lucide-react";
+import { PlayIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
+
+const FIRST_STAGE = 1;
 
 interface StagePanelProps {
   canRun: boolean;
-  isRetrying: boolean;
   isRunning: boolean;
-  onRetry: () => void;
   onRun: () => void;
+  scrapeRun?: ScrapeRun;
   stage: StageCount;
 }
 
 export const StagePanel = ({
   canRun,
-  isRetrying,
   isRunning,
-  onRetry,
   onRun,
+  scrapeRun,
   stage,
 }: StagePanelProps) => {
   const { t } = useTranslation();
-  const isBusy = isRunning || isRetrying;
+  const canStart = stage.stage === FIRST_STAGE;
 
   return (
     <Card>
@@ -41,9 +42,9 @@ export const StagePanel = ({
           {t("adminCampaign.stageTitle", { number: stage.stage })}
         </CardTitle>
         <CardDescription>
-          {canRun
-            ? t("adminCampaign.stageDescription")
-            : t("adminCampaign.inactiveHint")}
+          {canStart && !canRun
+            ? t("adminCampaign.inactiveHint")
+            : t("adminCampaign.stageDescription")}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -72,23 +73,49 @@ export const StagePanel = ({
             aria-label={t("adminCampaign.completedLabel")}
             value={stage.total === 0 ? 0 : (stage.done / stage.total) * 100}
           />
-          <div className="flex flex-wrap gap-2">
-            <Button
-              disabled={!canRun || stage.ready === 0 || isBusy}
-              onClick={onRun}
-            >
-              {isRunning ? <Spinner /> : <PlayIcon />}
-              {t("adminCampaign.runStage")}
-            </Button>
-            <Button
-              disabled={stage.failed === 0 || isBusy}
-              onClick={onRetry}
-              variant="outline"
-            >
-              {isRetrying ? <Spinner /> : <RotateCcwIcon />}
-              {t("adminCampaign.retryFailed")}
-            </Button>
-          </div>
+          {canStart && (
+            <div className="flex flex-wrap items-center gap-3">
+              <Button disabled={!canRun || isRunning} onClick={onRun}>
+                {isRunning ? <Spinner /> : <PlayIcon />}
+                {t("adminCampaign.runScrape")}
+              </Button>
+              {scrapeRun && (
+                <>
+                  <Badge
+                    variant={
+                      scrapeRun.status === "failed"
+                        ? "destructive"
+                        : scrapeRun.status === "completed"
+                          ? "default"
+                          : "secondary"
+                    }
+                  >
+                    {t(`adminCampaign.scrapeStatus.${scrapeRun.status}`)}
+                  </Badge>
+                  {scrapeRun.summary && (
+                    <span className="text-sm text-muted-foreground">
+                      {t("adminCampaign.scrapeSummary", {
+                        discovered: formatNumber(scrapeRun.summary.discovered),
+                        created: formatNumber(
+                          scrapeRun.summary.communitiesCreated,
+                        ),
+                        attached: formatNumber(scrapeRun.summary.leadsAttached),
+                        filtered: formatNumber(
+                          scrapeRun.summary.filteredOut ?? 0,
+                        ),
+                        failed: formatNumber(scrapeRun.summary.failures.length),
+                      })}
+                    </span>
+                  )}
+                  {scrapeRun.error && (
+                    <span className="text-sm text-destructive">
+                      {scrapeRun.error}
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

@@ -395,7 +395,31 @@
     "descriptionLabel": "Description",
     "descriptionPlaceholder": "La cible de cette campagne et pourquoi.",
     "save": "Enregistrer",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "keyword": "Mot-clé de recherche",
+    "keywordPlaceholder": "coaching d'entreprise",
+    "visibility": {
+      "public": "Publique",
+      "private": "Privée"
+    },
+    "price": {
+      "free": "Gratuite",
+      "paid": "Payante",
+      "free-trial": "Essai gratuit"
+    },
+    "types": "Type",
+    "pricingModels": "Modèle tarifaire",
+    "typesPlaceholder": "Sélectionnez un type",
+    "pricingModelsPlaceholder": "Sélectionnez un modèle de prix",
+    "minMonthlyPrice": "Prix min par mois ($)",
+    "minMonthlyPricePlaceholder": "Aucun minimum",
+    "maxMonthlyPrice": "Prix max par mois ($)",
+    "maxMonthlyPricePlaceholder": "Aucun maximum",
+    "minMembers": "Membres min",
+    "minMembersPlaceholder": "Aucun minimum",
+    "maxMembers": "Membres max",
+    "maxMembersPlaceholder": "Aucun maximum",
+    "rangeError": "Le minimum ne peut pas dépasser le maximum."
   },
   "adminCampaign": {
     "back": "Retour aux campagnes",
@@ -414,10 +438,6 @@
     "stageDescription": "Lancez cette étape pour chaque lead prêt.",
     "ready": "Prêts à lancer",
     "completedLabel": "Terminés",
-    "runStage": "Lancer l'étape",
-    "retryFailed": "Réessayer les échecs",
-    "stageProcessed": "Étape {{number}} traitée.",
-    "retried": "Les leads en échec sont prêts à être relancés.",
     "inactiveHint": "Activez la campagne pour lancer ses étapes.",
     "leadStatus": {
       "pending": "En attente",
@@ -435,6 +455,16 @@
     "stageColumn": "Étape",
     "statusColumn": "Statut",
     "updatedColumn": "Mis à jour",
-    "emptyLeads": "Aucun lead ne correspond à ces filtres."
+    "emptyLeads": "Aucun lead ne correspond à ces filtres.",
+    "scrapeStarted": "Scrape lancé.",
+    "runScrape": "Lancer le scrape",
+    "scrapeStatus": {
+      "queued": "En file",
+      "running": "En cours",
+      "completed": "Terminé",
+      "failed": "Échec"
+    },
+    "scrapeSummary": "{{discovered}} trouvées · {{created}} nouvelles communautés · {{attached}} leads ajoutés · {{filtered}} filtrées · {{failed}} en échec",
+    "email": "E-mail"
   }
 }
