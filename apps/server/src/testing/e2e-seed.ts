@@ -1,13 +1,29 @@
-import { and, desc, eq, like } from "drizzle-orm";
+import { and, asc, desc, eq, like } from "drizzle-orm";
 import { hashPassword, makeSignature, signJWT } from "better-auth/crypto";
 import IORedis from "ioredis";
 import { initDB, type DB } from "../infrastructure/database/client";
 import {
   accountTable,
+  campaignLeadsTable,
+  campaignsTable,
+  communitiesTable,
+  leadsTable,
+  scrapeRunsTable,
   sessionTable,
   userTable,
   verificationTable,
+  type Campaign,
+  type CampaignInsert,
+  type Community,
+  type Lead,
+  type LeadInsert,
+  type ScrapeRun,
 } from "../infrastructure/database/schemas";
+import {
+  clearSkoolScript,
+  writeSkoolScript,
+  type SkoolScript,
+} from "../infrastructure/skool/scripted/script";
 
 const RESET_PASSWORD_PREFIX = "reset-password:";
 
@@ -311,3 +327,268 @@ export const getPasswordResetToken = async (
 
     return verification.identifier.slice(RESET_PASSWORD_PREFIX.length);
   });
+
+export type SeedLeadInput = Pick<LeadInsert, "skoolUsername" | "name"> &
+  Partial<Omit<LeadInsert, "leadId" | "createdAt" | "updatedAt">>;
+
+export const createLead = async (
+  config: SeedConfig,
+  input: SeedLeadInput,
+): Promise<Lead> =>
+  withDb(config, async (db) => {
+    const [lead] = await db.insert(leadsTable).values(input).returning();
+
+    if (!lead) throw new Error("lead was not created");
+
+    return lead;
+  });
+
+export interface SeedCommunityInput {
+  leadId: number;
+  skoolId: string;
+  name: string;
+  displayName: string;
+  memberCount: number;
+  /** Cents per month; leave out for a free community */
+  monthlyPrice?: number;
+}
+
+export const createCommunity = async (
+  config: SeedConfig,
+  input: SeedCommunityInput,
+): Promise<Community> =>
+  withDb(config, async (db) => {
+    const monthlyUsd =
+      input.monthlyPrice === undefined ? null : input.monthlyPrice / 100;
+
+    const [community] = await db
+      .insert(communitiesTable)
+      .values({
+        leadId: input.leadId,
+        skoolId: input.skoolId,
+        name: input.name,
+        displayName: input.displayName,
+        communityUrl: `https://www.skool.com/${input.name}`,
+        memberCount: input.memberCount,
+        pricingType: monthlyUsd === null ? "free" : "paid",
+        pricingInterval: monthlyUsd === null ? null : "month",
+        priceAmount: input.monthlyPrice ?? 0,
+        priceCurrency: monthlyUsd === null ? null : "USD",
+        prices:
+          monthlyUsd === null
+            ? [{ type: "free", interval: null, amount: 0, currency: null }]
+            : [
+                {
+                  type: "paid",
+                  interval: "month",
+                  amount: input.monthlyPrice ?? 0,
+                  currency: "USD",
+                },
+              ],
+        monthlyPriceUsd: monthlyUsd,
+        estMonthlyRevenue:
+          monthlyUsd === null ? null : monthlyUsd * input.memberCount,
+      })
+      .returning();
+
+    if (!community) throw new Error("community was not created");
+
+    return community;
+  });
+
+export type SeedCampaignInput = Pick<CampaignInsert, "name"> &
+  Partial<Omit<CampaignInsert, "campaignId" | "createdAt" | "updatedAt">>;
+
+export const createCampaign = async (
+  config: SeedConfig,
+  input: SeedCampaignInput,
+): Promise<Campaign> =>
+  withDb(config, async (db) => {
+    const [campaign] = await db
+      .insert(campaignsTable)
+      .values({
+        keywords: ["coaching"],
+        types: ["public"],
+        pricingModels: ["paid"],
+        ...input,
+      })
+      .returning();
+
+    if (!campaign) throw new Error("campaign was not created");
+
+    return campaign;
+  });
+
+export interface SeedCampaignLead {
+  leadId: number;
+  stage: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+  status: "pending" | "running" | "done" | "failed";
+  keyword?: string;
+}
+
+export const attachCampaignLeads = async (
+  config: SeedConfig,
+  input: { campaignId: number; leads: SeedCampaignLead[] },
+): Promise<void> =>
+  withDb(config, async (db) => {
+    await db.insert(campaignLeadsTable).values(
+      input.leads.map((lead) => ({
+        campaignId: input.campaignId,
+        leadId: lead.leadId,
+        stage: lead.stage,
+        status: lead.status,
+        keyword: lead.keyword ?? null,
+      })),
+    );
+  });
+
+export const createScrapeRun = async (
+  config: SeedConfig,
+  input: {
+    campaignId: number;
+    status: "queued" | "running" | "completed" | "failed";
+  },
+): Promise<ScrapeRun> =>
+  withDb(config, async (db) => {
+    const [run] = await db
+      .insert(scrapeRunsTable)
+      .values({ campaignId: input.campaignId, status: input.status })
+      .returning();
+
+    if (!run) throw new Error("scrape run was not created");
+
+    return run;
+  });
+
+export const findLeadByUsername = async (
+  config: SeedConfig,
+  skoolUsername: string,
+): Promise<Lead | null> =>
+  withDb(config, async (db) => {
+    const [lead] = await db
+      .select()
+      .from(leadsTable)
+      .where(eq(leadsTable.skoolUsername, skoolUsername))
+      .limit(1);
+
+    return lead ?? null;
+  });
+
+export const listLeadsByUsernamePrefix = async (
+  config: SeedConfig,
+  prefix: string,
+): Promise<Lead[]> =>
+  withDb(config, (db) =>
+    db
+      .select()
+      .from(leadsTable)
+      .where(like(leadsTable.skoolUsername, `${prefix}%`))
+      .orderBy(asc(leadsTable.leadId)),
+  );
+
+export const findCommunityBySkoolId = async (
+  config: SeedConfig,
+  skoolId: string,
+): Promise<Community | null> =>
+  withDb(config, async (db) => {
+    const [community] = await db
+      .select()
+      .from(communitiesTable)
+      .where(eq(communitiesTable.skoolId, skoolId))
+      .limit(1);
+
+    return community ?? null;
+  });
+
+export const listCommunitiesByLeadId = async (
+  config: SeedConfig,
+  leadId: number,
+): Promise<Community[]> =>
+  withDb(config, (db) =>
+    db
+      .select()
+      .from(communitiesTable)
+      .where(eq(communitiesTable.leadId, leadId))
+      .orderBy(asc(communitiesTable.communityId)),
+  );
+
+export const findCampaignByName = async (
+  config: SeedConfig,
+  name: string,
+): Promise<Campaign | null> =>
+  withDb(config, async (db) => {
+    const [campaign] = await db
+      .select()
+      .from(campaignsTable)
+      .where(eq(campaignsTable.name, name))
+      .limit(1);
+
+    return campaign ?? null;
+  });
+
+export interface CampaignLeadRow {
+  skoolUsername: string;
+  leadId: number;
+  stage: number;
+  status: string;
+  keyword: string | null;
+}
+
+export const listCampaignLeads = async (
+  config: SeedConfig,
+  campaignId: number,
+): Promise<CampaignLeadRow[]> =>
+  withDb(config, (db) =>
+    db
+      .select({
+        skoolUsername: leadsTable.skoolUsername,
+        leadId: leadsTable.leadId,
+        stage: campaignLeadsTable.stage,
+        status: campaignLeadsTable.status,
+        keyword: campaignLeadsTable.keyword,
+      })
+      .from(campaignLeadsTable)
+      .innerJoin(leadsTable, eq(leadsTable.leadId, campaignLeadsTable.leadId))
+      .where(eq(campaignLeadsTable.campaignId, campaignId))
+      .orderBy(asc(leadsTable.skoolUsername)),
+  );
+
+export const listScrapeRuns = async (
+  config: SeedConfig,
+  campaignId: number,
+): Promise<ScrapeRun[]> =>
+  withDb(config, (db) =>
+    db
+      .select()
+      .from(scrapeRunsTable)
+      .where(eq(scrapeRunsTable.campaignId, campaignId))
+      .orderBy(desc(scrapeRunsTable.scrapeRunId)),
+  );
+
+export const scriptSkool = async (
+  config: SeedConfig,
+  script: SkoolScript,
+): Promise<void> => {
+  const redis = new IORedis(config.redisUrl);
+
+  try {
+    await writeSkoolScript(redis, script);
+  } finally {
+    await redis.quit();
+  }
+};
+
+export const unscriptSkool = async (
+  config: SeedConfig,
+  script: SkoolScript,
+): Promise<void> => {
+  const redis = new IORedis(config.redisUrl);
+
+  try {
+    await clearSkoolScript(redis, script);
+  } finally {
+    await redis.quit();
+  }
+};
+
+export type { SkoolScript } from "../infrastructure/skool/scripted/script";

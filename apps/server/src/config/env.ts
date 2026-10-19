@@ -49,6 +49,9 @@ const baseSchema = z.object({
   MAIL_DOMAIN: z.string().nonempty(),
   MAIL_RATE_LIMIT_PER_SECOND: z.coerce.number().positive().default(2),
 
+  // Lets e2e tests script what Skool returns; anything unscripted still reaches Skool
+  SKOOL_SCRIPTING: z.stringbool().default(false),
+
   // Error monitoring (Sentry-compatible, e.g. Bugsink) — optional
   SENTRY_DSN: z.url().optional(),
 });

@@ -21,6 +21,7 @@ import { DisabledErrorMonitor } from "./infrastructure/error-monitor/disabled";
 import { SentryErrorMonitor } from "./infrastructure/error-monitor/sentry";
 import type { BaseSkoolScraper } from "./lib/base-skool-scraper";
 import { CustomSkoolScraper } from "./infrastructure/skool/custom";
+import { ScriptedSkoolScraper } from "./infrastructure/skool/scripted";
 
 export const initContext = async () => {
   const logger: BaseLogger = new PinoLogger();
@@ -83,7 +84,13 @@ export const initContext = async () => {
         redisUrl: env.REDIS_CONNECTION_STRING,
       });
 
-  const skoolScraper: BaseSkoolScraper = new CustomSkoolScraper();
+  const customScraper = new CustomSkoolScraper();
+  const skoolScraper: BaseSkoolScraper = env.SKOOL_SCRIPTING
+    ? new ScriptedSkoolScraper({
+        fallback: customScraper,
+        redisUrl: env.REDIS_CONNECTION_STRING,
+      })
+    : customScraper;
 
   const auth = createAuth({ db: dbConnection.db, env, queueHub });
 
