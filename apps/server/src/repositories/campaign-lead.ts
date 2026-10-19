@@ -118,6 +118,8 @@ export class CampaignLeadRepository extends BaseRepository {
           name: leadsTable.name,
           skoolUsername: leadsTable.skoolUsername,
           emails: leadsTable.emails,
+          website: leadsTable.website,
+          linkedinUrl: leadsTable.linkedinUrl,
           communityName: topCommunity("displayName").mapWith(String),
           memberCount: topCommunity("memberCount").mapWith(Number),
           stage: table.stage,

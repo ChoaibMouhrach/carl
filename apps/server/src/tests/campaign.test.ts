@@ -321,3 +321,70 @@ test("a scrape that cannot reach Skool marks the run failed with the reason", as
     expect(stored?.finishedAt).not.toBeNull();
   });
 });
+
+test("a campaign's lead list carries the contact details", async () => {
+  await withTestDatabase(async ({ context }) => {
+    const admin = await createAuthenticatedApp({
+      context,
+      email: "campaign-contacts@example.com",
+      role: "admin",
+    });
+    const campaign = await context.repositories.campaign.create({
+      name: "Contacts",
+      keyword: "coaching",
+      types: ["public"],
+      pricingModels: ["paid"],
+    });
+    const lead = await context.repositories.lead.create({
+      skoolUsername: "contact-jane",
+      name: "Jane",
+      emails: ["jane@example.com"],
+      website: "https://jane.example.com",
+      linkedinUrl: "https://linkedin.com/in/jane",
+    });
+    const bare = await context.repositories.lead.create({
+      skoolUsername: "contact-bob",
+      name: "Bob",
+    });
+    await context.repositories.campaignLead.attach({
+      campaignId: campaign.campaignId,
+      leadIds: [lead.leadId, bare.leadId],
+      stage: 1,
+      status: "done",
+    });
+
+    const response = await admin.app.request(
+      `/api/campaigns/${campaign.campaignId}/leads`,
+      { headers: { cookie: admin.cookie } },
+    );
+    const body = z
+      .object({
+        leads: z.array(
+          z.object({
+            skoolUsername: z.string(),
+            emails: z.array(z.string()),
+            website: z.string().nullable(),
+            linkedinUrl: z.string().nullable(),
+          }),
+        ),
+      })
+      .parse(await response.json());
+
+    expect(
+      Object.fromEntries(body.leads.map((item) => [item.skoolUsername, item])),
+    ).toEqual({
+      "contact-jane": {
+        skoolUsername: "contact-jane",
+        emails: ["jane@example.com"],
+        website: "https://jane.example.com",
+        linkedinUrl: "https://linkedin.com/in/jane",
+      },
+      "contact-bob": {
+        skoolUsername: "contact-bob",
+        emails: [],
+        website: null,
+        linkedinUrl: null,
+      },
+    });
+  });
+});
