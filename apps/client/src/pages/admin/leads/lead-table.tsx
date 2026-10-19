@@ -69,7 +69,7 @@ export const LeadTable = ({
               <TableCell>
                 {lead.website ? (
                   <a
-                    className="hover:underline"
+                    className="block max-w-64 truncate hover:underline"
                     href={lead.website}
                     onClick={(event) => event.stopPropagation()}
                     rel="noreferrer"
