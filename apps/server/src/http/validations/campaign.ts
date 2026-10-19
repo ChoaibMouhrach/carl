@@ -73,3 +73,7 @@ export const campaignLeadQuerySchema = z
     status: z.enum(leadStatuses).optional(),
   })
   .optional();
+
+export const scrapeQuerySchema = z
+  .object({ replace: z.enum(["true", "false"]).optional() })
+  .optional();

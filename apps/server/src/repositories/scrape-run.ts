@@ -8,7 +8,10 @@ import {
 export class ScrapeRunRepository extends BaseRepository {
   private static table = scrapeRunsTable;
 
-  public async create(input: { campaignId: number }): Promise<ScrapeRun> {
+  public async create(input: {
+    campaignId: number;
+    replace?: boolean;
+  }): Promise<ScrapeRun> {
     const runs = await this.db
       .insert(ScrapeRunRepository.table)
       .values(input)

@@ -139,13 +139,16 @@ export class CommunityRepository extends BaseRepository {
       );
   }
 
-  public async findLeadIdsBySkoolIds(where: { skoolIds: string[] }) {
+  public async findKnownBySkoolIds(where: { skoolIds: string[] }) {
     if (where.skoolIds.length === 0) return [];
 
     return await this.db
       .select({
         skoolId: CommunityRepository.table.skoolId,
         leadId: CommunityRepository.table.leadId,
+        memberCount: CommunityRepository.table.memberCount,
+        pricingType: CommunityRepository.table.pricingType,
+        monthlyPriceUsd: CommunityRepository.table.monthlyPriceUsd,
       })
       .from(CommunityRepository.table)
       .where(inArray(CommunityRepository.table.skoolId, where.skoolIds));

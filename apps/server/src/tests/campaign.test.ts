@@ -351,6 +351,7 @@ test("a campaign's lead list carries the contact details", async () => {
       leadIds: [lead.leadId, bare.leadId],
       stage: 1,
       status: "done",
+      keyword: "coaching",
     });
 
     const response = await admin.app.request(

@@ -97,7 +97,7 @@ export class FakeSkoolScraper extends BaseSkoolScraper {
   public memberCounts: Record<string, number> = {};
 
   public constructor(
-    private pages: Record<string, SkoolDiscoveryGroup[]>,
+    public pages: Record<string, SkoolDiscoveryGroup[]>,
     private owners: Record<string, SkoolOwner>,
   ) {
     super();

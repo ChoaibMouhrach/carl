@@ -1,4 +1,5 @@
 import {
+  boolean,
   doublePrecision,
   index,
   integer,
@@ -29,6 +30,7 @@ export type ScrapeRunSummary = {
   leadsReused: number;
   filteredOut?: number;
   leadsAttached: number;
+  leadsRemoved?: number;
   failures: { target: string; reason: string }[];
 };
 
@@ -65,6 +67,8 @@ export const campaignLeadsTable = pgTable(
     stage: integer().$type<StageNumber>().notNull().default(1),
     status: text().$type<LeadStatus>().notNull().default("pending"),
     failureReason: text(),
+    /** The campaign keyword that first found the lead */
+    keyword: text(),
 
     ...timestamps(),
   },
@@ -82,6 +86,8 @@ export const scrapeRunsTable = pgTable(
       .notNull()
       .references(() => campaignsTable.campaignId, { onDelete: "cascade" }),
     status: text().$type<ScrapeRunStatus>().notNull().default("queued"),
+    /** Drop stage 1 leads that this run does not find again */
+    replace: boolean().notNull().default(false),
     summary: jsonb().$type<ScrapeRunSummary>(),
     error: text(),
     startedAt: timestamp(),

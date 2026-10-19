@@ -19,6 +19,7 @@ export class CampaignLeadRepository extends BaseRepository {
     leadIds: number[];
     stage: StageNumber;
     status: LeadStatus;
+    keyword: string;
   }) {
     let attached = 0;
 
@@ -34,6 +35,7 @@ export class CampaignLeadRepository extends BaseRepository {
           leadId,
           stage: input.stage,
           status: input.status,
+          keyword: input.keyword,
         }));
 
       const inserted = await this.db
@@ -46,6 +48,56 @@ export class CampaignLeadRepository extends BaseRepository {
     }
 
     return attached;
+  }
+
+  public async listLeadIdsAtStage(where: {
+    campaignId: number;
+    stage: StageNumber;
+  }) {
+    const table = CampaignLeadRepository.table;
+
+    const rows = await this.db
+      .select({ leadId: table.leadId })
+      .from(table)
+      .where(
+        and(
+          eq(table.campaignId, where.campaignId),
+          eq(table.stage, where.stage),
+        ),
+      );
+
+    return rows.map((row) => row.leadId);
+  }
+
+  public async removeByLeadIds(where: {
+    campaignId: number;
+    leadIds: number[];
+  }) {
+    const table = CampaignLeadRepository.table;
+    let removed = 0;
+
+    for (
+      let start = 0;
+      start < where.leadIds.length;
+      start += ATTACH_CHUNK_SIZE
+    ) {
+      const deleted = await this.db
+        .delete(table)
+        .where(
+          and(
+            eq(table.campaignId, where.campaignId),
+            inArray(
+              table.leadId,
+              where.leadIds.slice(start, start + ATTACH_CHUNK_SIZE),
+            ),
+          ),
+        )
+        .returning({ id: table.campaignLeadId });
+
+      removed += deleted.length;
+    }
+
+    return removed;
   }
 
   public async countByStageAndStatus(where: { campaignIds: number[] }) {
@@ -125,6 +177,7 @@ export class CampaignLeadRepository extends BaseRepository {
           stage: table.stage,
           status: table.status,
           failureReason: table.failureReason,
+          keyword: table.keyword,
           updatedAt: table.updatedAt,
         })
         .from(table)

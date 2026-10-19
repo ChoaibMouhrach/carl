@@ -87,9 +87,14 @@ export class ScrapeService extends BaseService {
 
     // Discovery results are not deduplicated; only the community page fetch is skipped when we already hold it
     const knownCommunities =
-      await this.context.repositories.community.findLeadIdsBySkoolIds({
+      await this.context.repositories.community.findKnownBySkoolIds({
         skoolIds: discovered.map((community) => community.skoolId),
       });
+    const filters = input.filters ?? {};
+    const matching = knownCommunities.filter((row) =>
+      matchesFilters(filters, row),
+    );
+    summary.filteredOut += knownCommunities.length - matching.length;
     const known = new Set(knownCommunities.map((row) => row.skoolId));
     const pending = discovered.filter(
       (community) => !known.has(community.skoolId),
@@ -98,10 +103,10 @@ export class ScrapeService extends BaseService {
 
     const state: RunState = {
       keyword: input.keyword,
-      filters: input.filters ?? {},
+      filters,
       communities: new Map(),
       leads: new Map(),
-      leadIds: new Set(knownCommunities.map((row) => row.leadId)),
+      leadIds: new Set(matching.map((row) => row.leadId)),
       summary,
     };
 
@@ -129,7 +134,7 @@ export class ScrapeService extends BaseService {
     return { summary, leadIds: [...state.leadIds] };
   }
 
-  public async start(input: { campaignId: number }) {
+  public async start(input: { campaignId: number; replace?: boolean }) {
     const { repositories, queueHub, eventBus } = this.context;
 
     const campaign = await repositories.campaign.findByCampaignId(input);
@@ -152,7 +157,10 @@ export class ScrapeService extends BaseService {
       });
     }
 
-    const scrapeRun = await repositories.scrapeRun.create(input);
+    const scrapeRun = await repositories.scrapeRun.create({
+      campaignId: input.campaignId,
+      replace: input.replace,
+    });
 
     await queueHub.scrape.add(
       { scrapeRunId: scrapeRun.scrapeRunId },
@@ -196,12 +204,19 @@ export class ScrapeService extends BaseService {
         leadIds,
         stage: 1,
         status: "done",
+        keyword: campaign.keyword,
       });
+
+      // An incomplete run cannot tell a lead that is gone from one it failed to reach
+      const leadsRemoved =
+        scrapeRun.replace && summary.failures.length === 0
+          ? await this.removeUnfoundLeads(campaign.campaignId, leadIds)
+          : 0;
 
       await repositories.scrapeRun.update(input, {
         status: "completed",
         finishedAt: new Date(),
-        summary: { ...summary, leadsAttached },
+        summary: { ...summary, leadsAttached, leadsRemoved },
       });
       await eventBus.publish(
         "campaigns.changed",
@@ -222,6 +237,22 @@ export class ScrapeService extends BaseService {
 
       throw error;
     }
+  }
+
+  // Leads that moved past stage 1 are kept: they carry pipeline progress
+  private async removeUnfoundLeads(campaignId: number, foundLeadIds: number[]) {
+    const { campaignLead } = this.context.repositories;
+
+    const found = new Set(foundLeadIds);
+    const stageOne = await campaignLead.listLeadIdsAtStage({
+      campaignId,
+      stage: 1,
+    });
+
+    return await campaignLead.removeByLeadIds({
+      campaignId,
+      leadIds: stageOne.filter((leadId) => !found.has(leadId)),
+    });
   }
 
   private async discover(input: {

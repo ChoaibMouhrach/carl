@@ -7,6 +7,7 @@ import {
   campaignLeadQuerySchema,
   campaignQuerySchema,
   createCampaignSchema,
+  scrapeQuerySchema,
   updateCampaignSchema,
 } from "../validations/campaign";
 
@@ -85,10 +86,15 @@ export const campaignController = new Hono<AppContext>()
     "/:campaignId/scrape",
     describeRoute({ tags: ["campaign"] }),
     validator("param", campaignIdParamSchema),
+    validator("query", scrapeQuerySchema),
     async (context) => {
       const { campaignId } = context.req.valid("param");
+      const query = context.req.valid("query");
 
-      const result = await context.get("services").scrape.start({ campaignId });
+      const result = await context.get("services").scrape.start({
+        campaignId,
+        replace: query?.replace === "true",
+      });
 
       return context.json(result, 202);
     },
