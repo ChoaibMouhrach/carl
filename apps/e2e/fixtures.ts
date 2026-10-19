@@ -1,7 +1,25 @@
 import { test as base, type BrowserContext } from "@playwright/test";
 import { faker } from "@faker-js/faker";
 import {
+  attachCampaignLeads,
+  createCampaign,
+  createCommunity,
   createEmailChangeUrl,
+  createLead,
+  createScrapeRun,
+  findCampaignByName,
+  findCommunityBySkoolId,
+  findLeadByUsername,
+  listCampaignLeads,
+  listCommunitiesByLeadId,
+  listLeadsByUsernamePrefix,
+  listScrapeRuns,
+  scriptSkool,
+  unscriptSkool,
+  type SeedCampaignInput,
+  type SeedCommunityInput,
+  type SeedLeadInput,
+  type SkoolScript,
   createEmailVerificationUrl,
   createSessionCookie,
   createVerifiedAdmin,
@@ -16,6 +34,38 @@ import {
 import { CLIENT_URL, seedConfig } from "./config";
 
 interface Seed {
+  attachCampaignLeads: (
+    input: Parameters<typeof attachCampaignLeads>[1],
+  ) => ReturnType<typeof attachCampaignLeads>;
+  createCampaign: (
+    input: SeedCampaignInput,
+  ) => ReturnType<typeof createCampaign>;
+  createCommunity: (
+    input: SeedCommunityInput,
+  ) => ReturnType<typeof createCommunity>;
+  createLead: (input: SeedLeadInput) => ReturnType<typeof createLead>;
+  createScrapeRun: (
+    input: Parameters<typeof createScrapeRun>[1],
+  ) => ReturnType<typeof createScrapeRun>;
+  findCampaignByName: (name: string) => ReturnType<typeof findCampaignByName>;
+  findCommunityBySkoolId: (
+    skoolId: string,
+  ) => ReturnType<typeof findCommunityBySkoolId>;
+  findLeadByUsername: (
+    skoolUsername: string,
+  ) => ReturnType<typeof findLeadByUsername>;
+  listCampaignLeads: (
+    campaignId: number,
+  ) => ReturnType<typeof listCampaignLeads>;
+  listCommunitiesByLeadId: (
+    leadId: number,
+  ) => ReturnType<typeof listCommunitiesByLeadId>;
+  listLeadsByUsernamePrefix: (
+    prefix: string,
+  ) => ReturnType<typeof listLeadsByUsernamePrefix>;
+  listScrapeRuns: (campaignId: number) => ReturnType<typeof listScrapeRuns>;
+  scriptSkool: (script: SkoolScript) => Promise<void>;
+  unscriptSkool: (script: SkoolScript) => Promise<void>;
   authenticate: (
     context: BrowserContext,
     email: string,
@@ -58,6 +108,24 @@ export const test = base.extend<{ seed: Seed; resetRateLimits: void }>({
     const config = seedConfig();
 
     await use({
+      attachCampaignLeads: (input) => attachCampaignLeads(config, input),
+      createCampaign: (input) => createCampaign(config, input),
+      createCommunity: (input) => createCommunity(config, input),
+      createLead: (input) => createLead(config, input),
+      createScrapeRun: (input) => createScrapeRun(config, input),
+      findCampaignByName: (name) => findCampaignByName(config, name),
+      findCommunityBySkoolId: (skoolId) =>
+        findCommunityBySkoolId(config, skoolId),
+      findLeadByUsername: (skoolUsername) =>
+        findLeadByUsername(config, skoolUsername),
+      listCampaignLeads: (campaignId) => listCampaignLeads(config, campaignId),
+      listCommunitiesByLeadId: (leadId) =>
+        listCommunitiesByLeadId(config, leadId),
+      listLeadsByUsernamePrefix: (prefix) =>
+        listLeadsByUsernamePrefix(config, prefix),
+      listScrapeRuns: (campaignId) => listScrapeRuns(config, campaignId),
+      scriptSkool: (script) => scriptSkool(config, script),
+      unscriptSkool: (script) => unscriptSkool(config, script),
       authenticate: async (context, email, userAgent) => {
         const cookie = await createSessionCookie(config, { email, userAgent });
         await context.addCookies([
