@@ -1,4 +1,5 @@
 import { initApp } from "./app";
+import { HTTP_IDLE_TIMEOUT_SECONDS } from "./config/constants";
 import { initContext } from "./context";
 import { readClientHtml } from "./http/client-html";
 import { Workers } from "./workers";
@@ -41,6 +42,7 @@ export const initServer = async () => {
             clientIp: server.requestIP(request)?.address,
           }),
         port,
+        idleTimeout: HTTP_IDLE_TIMEOUT_SECONDS,
       });
 
       stopHttpServer = () => {
@@ -49,6 +51,7 @@ export const initServer = async () => {
     },
     close: async () => {
       stopHttpServer?.();
+      await context.eventBus.close();
       await context.rateLimiter.close();
       await context.queueHub.close();
       await context.errorMonitor.flush();

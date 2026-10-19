@@ -118,6 +118,10 @@ export class ScrapeService extends BaseService {
           await this.context.logger.info(
             `communities ${processed}/${pending.length}`,
           );
+          await this.context.eventBus.publish(
+            "leads.changed",
+            "communities.changed",
+          );
         }
       },
     );
@@ -126,7 +130,7 @@ export class ScrapeService extends BaseService {
   }
 
   public async start(input: { campaignId: number }) {
-    const { repositories, queueHub } = this.context;
+    const { repositories, queueHub, eventBus } = this.context;
 
     const campaign = await repositories.campaign.findByCampaignId(input);
 
@@ -154,12 +158,13 @@ export class ScrapeService extends BaseService {
       { scrapeRunId: scrapeRun.scrapeRunId },
       { idempotencyKey: `scrape-run-${scrapeRun.scrapeRunId}` },
     );
+    await eventBus.publish("campaigns.changed");
 
     return { scrapeRun };
   }
 
   public async runCampaign(input: { scrapeRunId: number }) {
-    const { repositories } = this.context;
+    const { repositories, eventBus } = this.context;
 
     const scrapeRun = await repositories.scrapeRun.findByScrapeRunId(input);
     const campaign =
@@ -176,6 +181,7 @@ export class ScrapeService extends BaseService {
       finishedAt: null,
       error: null,
     });
+    await eventBus.publish("campaigns.changed");
 
     try {
       const { summary, leadIds } = await this.run({
@@ -197,12 +203,22 @@ export class ScrapeService extends BaseService {
         finishedAt: new Date(),
         summary: { ...summary, leadsAttached },
       });
+      await eventBus.publish(
+        "campaigns.changed",
+        "leads.changed",
+        "communities.changed",
+      );
     } catch (error) {
       await repositories.scrapeRun.update(input, {
         status: "failed",
         finishedAt: new Date(),
         error: toMessage(error),
       });
+      await eventBus.publish(
+        "campaigns.changed",
+        "leads.changed",
+        "communities.changed",
+      );
 
       throw error;
     }

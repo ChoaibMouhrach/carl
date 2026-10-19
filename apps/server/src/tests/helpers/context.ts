@@ -18,6 +18,11 @@ import {
   type RegisteredQueue,
   type ScheduleJobOptions,
 } from "@server/lib/base-queue";
+import { BaseEventBus } from "@server/lib/base-event-bus";
+import type {
+  LiveEventListener,
+  LiveEventType,
+} from "@server/lib/base-event-bus";
 import { BaseRateLimiter } from "@server/lib/base-rate-limiter";
 import { Repositories } from "@server/repositories";
 import { DisabledErrorMonitor } from "@server/infrastructure/error-monitor/disabled";
@@ -29,7 +34,7 @@ import type { BaseSkoolScraper } from "@server/lib/base-skool-scraper";
 import { CustomSkoolScraper } from "@server/infrastructure/skool/custom";
 import { DEFAULT_SKOOL_SEARCHES } from "@server/config/constants";
 
-class TestLogger extends BaseLogger {
+export class TestLogger extends BaseLogger {
   public override async info(_message: string | object): Promise<void> {}
 }
 
@@ -218,6 +223,35 @@ export class TestQueueHub extends BaseQueueHub {
   public override async close(): Promise<void> {}
 }
 
+export class TestEventBus extends BaseEventBus {
+  public published: LiveEventType[] = [];
+  private listeners = new Set<LiveEventListener>();
+
+  public get listenerCount() {
+    return this.listeners.size;
+  }
+
+  public override async publish(...types: LiveEventType[]): Promise<void> {
+    for (const type of types) {
+      this.published.push(type);
+
+      for (const listener of this.listeners) {
+        listener(type);
+      }
+    }
+  }
+
+  public override subscribe(listener: LiveEventListener): () => void {
+    this.listeners.add(listener);
+
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  public override async close(): Promise<void> {}
+}
+
 class TestRateLimiter extends BaseRateLimiter {
   public anonymous: MiddlewareHandler<AppContext> = async (_context, next) => {
     await next();
@@ -253,7 +287,7 @@ export const createContext = (
   mailer: BaseMailer = new TestMailer(),
   rateLimiter: BaseRateLimiter = new TestRateLimiter(),
   skoolScraper: BaseSkoolScraper = new CustomSkoolScraper(),
-): Context => {
+): Context & { eventBus: TestEventBus } => {
   const queueHub = new TestQueueHub({ mailer });
 
   return {
@@ -263,6 +297,7 @@ export const createContext = (
     logger: new TestLogger(),
     mailer,
     queueHub,
+    eventBus: new TestEventBus(),
     rateLimiter,
     repositories: new Repositories({ dbConnection: { db, pool } }),
     skoolScraper,

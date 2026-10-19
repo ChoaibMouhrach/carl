@@ -77,10 +77,14 @@ export class CommunityService extends BaseService {
       });
     }
 
-    return await this.context.repositories.community.create({
+    const community = await this.context.repositories.community.create({
       ...input,
       ...derivePricing(this.normalizePrices(input.prices), input.memberCount),
     });
+
+    await this.context.eventBus.publish("communities.changed", "leads.changed");
+
+    return community;
   }
 
   public async update(
@@ -106,6 +110,7 @@ export class CommunityService extends BaseService {
       { communityId: input.communityId },
       { ...rest, ...pricing },
     );
+    await this.context.eventBus.publish("communities.changed", "leads.changed");
 
     return await this.findOrFail(input.communityId);
   }
@@ -116,6 +121,7 @@ export class CommunityService extends BaseService {
     await this.context.repositories.community.removeByCommunityId({
       communityId: input.communityId,
     });
+    await this.context.eventBus.publish("communities.changed", "leads.changed");
   }
 
   private async findOrFail(communityId: number) {

@@ -48,7 +48,11 @@ export class LeadService extends BaseService {
       });
     }
 
-    return await this.context.repositories.lead.create(input);
+    const lead = await this.context.repositories.lead.create(input);
+
+    await this.context.eventBus.publish("leads.changed");
+
+    return lead;
   }
 
   public async update(
@@ -61,6 +65,7 @@ export class LeadService extends BaseService {
       { leadId: input.leadId },
       fields,
     );
+    await this.context.eventBus.publish("leads.changed", "communities.changed");
 
     return await this.findOrFail(input.leadId);
   }
@@ -71,6 +76,13 @@ export class LeadService extends BaseService {
     await this.context.repositories.lead.removeByLeadId({
       leadId: input.leadId,
     });
+
+    // Deleting a lead removes its communities and its place in every campaign
+    await this.context.eventBus.publish(
+      "leads.changed",
+      "communities.changed",
+      "campaigns.changed",
+    );
   }
 
   private async findOrFail(leadId: number) {

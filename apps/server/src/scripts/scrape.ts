@@ -86,6 +86,7 @@ const run = async () => {
   console.log(`done in ${seconds}s`);
 
   await context.queueHub.close();
+  await context.eventBus.close();
   await context.rateLimiter.close();
   await context.repositories.close();
 };

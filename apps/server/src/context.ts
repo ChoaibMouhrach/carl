@@ -8,6 +8,8 @@ import type { BaseMailer } from "./lib/base-mailer";
 import { DevMailer } from "./infrastructure/mailer/dev";
 import { ResendMailer } from "./infrastructure/mailer/resend";
 import { RateLimitedMailer } from "./infrastructure/mailer/rate-limited";
+import type { BaseEventBus } from "./lib/base-event-bus";
+import { RedisEventBus } from "./infrastructure/event-bus/redis";
 import type { BaseQueueHub } from "./lib/base-queue";
 import { QueueHub } from "./infrastructure/queue/bullmq";
 import type { BaseRateLimiter } from "./lib/base-rate-limiter";
@@ -69,6 +71,11 @@ export const initContext = async () => {
     redisUrl: env.REDIS_CONNECTION_STRING,
   });
 
+  const eventBus: BaseEventBus = new RedisEventBus({
+    logger,
+    redisUrl: env.REDIS_CONNECTION_STRING,
+  });
+
   const rateLimiter: BaseRateLimiter = env.IS_DEVELOPMENT
     ? new DisabledRateLimiter()
     : new RedisRateLimiter({
@@ -83,6 +90,7 @@ export const initContext = async () => {
   return {
     repositories,
     queueHub,
+    eventBus,
     rateLimiter,
     logger,
     mailer,

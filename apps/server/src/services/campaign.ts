@@ -145,7 +145,7 @@ export class CampaignService extends BaseService {
     minMembers?: number | null;
     maxMembers?: number | null;
   }) {
-    return await this.context.repositories.campaign.create({
+    const campaign = await this.context.repositories.campaign.create({
       name: input.name,
       description: input.description,
       keyword: input.keyword,
@@ -156,6 +156,10 @@ export class CampaignService extends BaseService {
       minMembers: input.minMembers,
       maxMembers: input.maxMembers,
     });
+
+    await this.context.eventBus.publish("campaigns.changed");
+
+    return campaign;
   }
 
   public async update(
@@ -176,6 +180,7 @@ export class CampaignService extends BaseService {
     await this.findOrFail(input.campaignId);
 
     await this.context.repositories.campaign.update(input, fields);
+    await this.context.eventBus.publish("campaigns.changed");
 
     return await this.findOrFail(input.campaignId);
   }
@@ -184,6 +189,7 @@ export class CampaignService extends BaseService {
     await this.findOrFail(input.campaignId);
 
     await this.context.repositories.campaign.removeByCampaignId(input);
+    await this.context.eventBus.publish("campaigns.changed");
   }
 
   private async findOrFail(campaignId: number) {

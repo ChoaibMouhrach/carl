@@ -5,10 +5,12 @@ import { queueController } from "./queue";
 import { leadController } from "./lead";
 import { communityController } from "./community";
 import { campaignController } from "./campaign";
+import { eventController } from "./event";
 
 export const controllers = new Hono<AppContext>()
   .route("/platform-setup", platformSetupController)
   .route("/queues", queueController)
   .route("/leads", leadController)
   .route("/communities", communityController)
-  .route("/campaigns", campaignController);
+  .route("/campaigns", campaignController)
+  .route("/events", eventController);

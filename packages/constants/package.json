@@ -5,6 +5,7 @@
   "exports": {
     "./auth": "./src/auth.ts",
     "./errors": "./src/errors.ts",
-    "./campaign": "./src/campaign.ts"
+    "./campaign": "./src/campaign.ts",
+    "./events": "./src/events.ts"
   }
 }
