@@ -23,6 +23,8 @@ import {
   createEmailVerificationUrl,
   createSessionCookie,
   createVerifiedAdmin,
+  createVerifiedMember,
+  setUserRole,
   getActiveSessionCount,
   getEmailVerificationStatus,
   getPasswordResetToken,
@@ -79,6 +81,10 @@ interface Seed {
   createVerifiedAdmin: (
     input?: Partial<CreateVerifiedUserInput>,
   ) => Promise<SeededUser>;
+  createVerifiedMember: (
+    input?: Partial<CreateVerifiedUserInput>,
+  ) => Promise<SeededUser>;
+  setUserRole: (email: string, role: "admin" | "user") => Promise<void>;
   createEmailVerificationUrl: (email: string) => Promise<string>;
   getActiveSessionCount: (email: string) => Promise<number>;
   getEmailVerificationStatus: (email: string) => Promise<boolean>;
@@ -152,6 +158,10 @@ export const test = base.extend<{ seed: Seed; resetRateLimits: void }>({
       createVerifiedAdmin: (input) => {
         return createVerifiedAdmin(config, createUserInput(input));
       },
+      createVerifiedMember: (input) => {
+        return createVerifiedMember(config, createUserInput(input));
+      },
+      setUserRole: (email, role) => setUserRole(config, { email, role }),
       getActiveSessionCount: (email) => {
         return getActiveSessionCount(config, email);
       },
