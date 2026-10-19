@@ -73,7 +73,7 @@ test("a protocol error is recorded as an error even though the call itself was a
   });
 });
 
-test("a notification with no answer is recorded with an empty response and is not an error", async () => {
+test("a notification the server only acknowledges is recorded with its null answer and is not an error", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const session = await setup(db, pool);
 
@@ -87,7 +87,7 @@ test("a notification with no answer is recorded with an empty response and is no
     expect(row).toMatchObject({
       rpcMethod: "notifications/initialized",
       statusCode: 202,
-      responseBody: "",
+      responseBody: "null",
       isError: false,
     });
   });
