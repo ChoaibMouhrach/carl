@@ -402,8 +402,8 @@
     "descriptionPlaceholder": "A quién se dirige esta campaña y por qué.",
     "save": "Guardar",
     "cancel": "Cancelar",
-    "keywords": "Palabras clave de búsqueda (una por línea)",
-    "keywordsPlaceholder": "coaching de negocios\ncursos en línea",
+    "keywords": "Palabras clave de búsqueda",
+    "keywordsPlaceholder": "Escribe una palabra clave y pulsa Intro",
     "visibility": {
       "public": "Pública",
       "private": "Privada"

@@ -402,8 +402,8 @@
     "descriptionPlaceholder": "La cible de cette campagne et pourquoi.",
     "save": "Enregistrer",
     "cancel": "Annuler",
-    "keywords": "Mots-clés de recherche (un par ligne)",
-    "keywordsPlaceholder": "coaching d'affaires\ncours en ligne",
+    "keywords": "Mots-clés de recherche",
+    "keywordsPlaceholder": "Saisissez un mot-clé puis Entrée",
     "visibility": {
       "public": "Publique",
       "private": "Privée"

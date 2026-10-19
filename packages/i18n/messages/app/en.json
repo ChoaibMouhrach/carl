@@ -402,8 +402,8 @@
     "descriptionPlaceholder": "Who this campaign targets and why.",
     "save": "Save",
     "cancel": "Cancel",
-    "keywords": "Search keywords (one per line)",
-    "keywordsPlaceholder": "business coaching\nonline courses",
+    "keywords": "Search keywords",
+    "keywordsPlaceholder": "Type a keyword and press Enter",
     "visibility": {
       "public": "Public",
       "private": "Private"

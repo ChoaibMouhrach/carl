@@ -1,4 +1,5 @@
 import { SelectField } from "@/components/select-field";
+import { TagsField } from "@/components/tags-field";
 import { TextField } from "@/components/text-field";
 import {
   maxKeywords,
@@ -34,12 +35,6 @@ interface CampaignFormProps {
   onSubmit: (values: CampaignFormValues) => Promise<unknown>;
 }
 
-const splitKeywords = (value: string) =>
-  value
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
 const optionalNumber = (integer: boolean) =>
   z
     .string()
@@ -55,15 +50,7 @@ const optionalNumber = (integer: boolean) =>
 const schema = z.object({
   name: z.string().trim().min(1).max(255),
   description: z.string().trim().max(2000),
-  keywords: z.string().refine((value) => {
-    const keywords = splitKeywords(value);
-
-    return (
-      keywords.length >= 1 &&
-      keywords.length <= maxKeywords &&
-      keywords.every((keyword) => keyword.length <= 255)
-    );
-  }),
+  keywords: z.array(z.string().trim().min(1).max(255)).min(1).max(maxKeywords),
   type: z.enum(skoolVisibilities),
   pricingModel: z.enum(skoolPriceFilters),
   minMonthlyPriceUsd: optionalNumber(false),
@@ -90,7 +77,7 @@ export const CampaignForm = ({
     defaultValues: {
       name: campaign?.name ?? "",
       description: campaign?.description ?? "",
-      keywords: campaign?.keywords.join("\n") ?? "",
+      keywords: campaign?.keywords ?? [],
       type: campaign?.types[0],
       pricingModel: campaign?.pricingModels[0],
       minMonthlyPriceUsd: fromNumber(campaign?.minMonthlyPriceUsd),
@@ -126,7 +113,7 @@ export const CampaignForm = ({
       await onSubmit({
         name: input.name,
         description: input.description || null,
-        keywords: splitKeywords(input.keywords),
+        keywords: input.keywords,
         types: [input.type],
         pricingModels: [input.pricingModel],
         minMonthlyPriceUsd: toNumber(input.minMonthlyPriceUsd),
@@ -158,10 +145,10 @@ export const CampaignForm = ({
               name="description"
               placeholder={t("campaignForm.descriptionPlaceholder")}
             />
-            <TextField
+            <TagsField
               control={form.control}
               label={t("campaignForm.keywords")}
-              multiline
+              max={maxKeywords}
               name="keywords"
               placeholder={t("campaignForm.keywordsPlaceholder")}
               required
