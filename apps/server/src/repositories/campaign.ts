@@ -17,6 +17,7 @@ export class CampaignRepository extends BaseRepository {
     page: number;
     search?: string;
     status?: CampaignStatus;
+    limit?: number;
   }) {
     const table = CampaignRepository.table;
     const conditions = [];
@@ -35,7 +36,7 @@ export class CampaignRepository extends BaseRepository {
     }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
-    const limit = DEFAULT_RECORD_LIMIT;
+    const limit = query.limit ?? DEFAULT_RECORD_LIMIT;
     const offset = (query.page - 1) * limit;
 
     // Qualified by hand: a single-table select renders bare column names, which would compare the inner column with itself
@@ -51,6 +52,10 @@ export class CampaignRepository extends BaseRepository {
           keywords: table.keywords,
           types: table.types,
           pricingModels: table.pricingModels,
+          minMonthlyPriceUsd: table.minMonthlyPriceUsd,
+          maxMonthlyPriceUsd: table.maxMonthlyPriceUsd,
+          minMembers: table.minMembers,
+          maxMembers: table.maxMembers,
           createdAt: table.createdAt,
           updatedAt: table.updatedAt,
           leadCount: leadCount.mapWith(Number),

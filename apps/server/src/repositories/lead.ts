@@ -32,6 +32,7 @@ export class LeadRepository extends BaseRepository {
     hasWebsite?: boolean;
     sortBy: LeadSortBy;
     sortOrder: "asc" | "desc";
+    limit?: number;
   }) {
     const table = LeadRepository.table;
     const conditions = [];
@@ -61,7 +62,7 @@ export class LeadRepository extends BaseRepository {
       communityCount,
     }[query.sortBy];
 
-    const limit = DEFAULT_RECORD_LIMIT;
+    const limit = query.limit ?? DEFAULT_RECORD_LIMIT;
     const offset = (query.page - 1) * limit;
 
     const [leads, [countRow]] = await Promise.all([

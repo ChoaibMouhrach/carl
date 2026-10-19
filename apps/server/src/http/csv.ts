@@ -1,0 +1,4 @@
+export const csvHeaders = (filename: string) => ({
+  "Content-Type": "text/csv; charset=utf-8",
+  "Content-Disposition": `attachment; filename="${filename}"`,
+});

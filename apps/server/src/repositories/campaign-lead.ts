@@ -123,6 +123,7 @@ export class CampaignLeadRepository extends BaseRepository {
     search?: string;
     stage?: StageNumber;
     status?: LeadStatus;
+    limit?: number;
   }) {
     const table = CampaignLeadRepository.table;
     const conditions = [eq(table.campaignId, query.campaignId)];
@@ -157,7 +158,7 @@ export class CampaignLeadRepository extends BaseRepository {
     }
 
     const where = and(...conditions);
-    const limit = DEFAULT_RECORD_LIMIT;
+    const limit = query.limit ?? DEFAULT_RECORD_LIMIT;
     const offset = (query.page - 1) * limit;
 
     const topCommunity = (column: "displayName" | "memberCount") =>

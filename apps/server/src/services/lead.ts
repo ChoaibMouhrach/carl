@@ -1,3 +1,9 @@
+import {
+  csvFilename,
+  EXPORT_FETCH_LIMIT,
+  toCsv,
+  withinExportLimit,
+} from "@server/lib/csv";
 import { BaseService } from "@server/lib/base-service";
 import { ConflictError, NotFoundError } from "@server/lib/errors";
 import type { LeadSortBy } from "@server/repositories/lead";
@@ -24,6 +30,47 @@ export class LeadService extends BaseService {
     });
 
     return { leads, meta: { page, lastPage } };
+  }
+
+  public async exportCsv(query: {
+    search?: string;
+    hasWebsite?: boolean;
+    sortBy?: LeadSortBy;
+    sortOrder?: "asc" | "desc";
+  }) {
+    const { leads } = await this.context.repositories.lead.list({
+      page: 1,
+      limit: EXPORT_FETCH_LIMIT,
+      search: query.search,
+      hasWebsite: query.hasWebsite,
+      sortBy: query.sortBy ?? "createdAt",
+      sortOrder: query.sortOrder ?? "desc",
+    });
+
+    const csv = toCsv(
+      [
+        { header: "Name", value: (lead) => lead.name },
+        { header: "Skool username", value: (lead) => lead.skoolUsername },
+        { header: "First name", value: (lead) => lead.firstName },
+        { header: "Last name", value: (lead) => lead.lastName },
+        { header: "Emails", value: (lead) => lead.emails },
+        { header: "Website", value: (lead) => lead.website },
+        { header: "LinkedIn", value: (lead) => lead.linkedinUrl },
+        { header: "Facebook", value: (lead) => lead.facebookUrl },
+        { header: "Instagram", value: (lead) => lead.instagramUrl },
+        { header: "Twitter", value: (lead) => lead.twitterUrl },
+        { header: "YouTube", value: (lead) => lead.youtubeUrl },
+        { header: "TikTok", value: (lead) => lead.tiktokUrl },
+        { header: "Location", value: (lead) => lead.location },
+        { header: "Bio", value: (lead) => lead.bio },
+        { header: "Followers", value: (lead) => lead.followerCount },
+        { header: "Communities", value: (lead) => lead.communityCount },
+        { header: "Added", value: (lead) => lead.createdAt },
+      ],
+      withinExportLimit(leads),
+    );
+
+    return { csv, filename: csvFilename("leads") };
   }
 
   public async show(input: { leadId: number }) {

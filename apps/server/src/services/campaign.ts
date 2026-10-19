@@ -8,6 +8,12 @@ import {
   type SkoolVisibility,
   type StageNumber,
 } from "@repo/constants/campaign";
+import {
+  csvFilename,
+  EXPORT_FETCH_LIMIT,
+  toCsv,
+  withinExportLimit,
+} from "@server/lib/csv";
 import { BaseService } from "@server/lib/base-service";
 import { BadRequestError, NotFoundError } from "@server/lib/errors";
 
@@ -89,6 +95,84 @@ export class CampaignService extends BaseService {
         ),
       })),
       meta: { page, lastPage },
+    };
+  }
+
+  public async exportCsv(query: { search?: string; status?: CampaignStatus }) {
+    const { campaigns } = await this.context.repositories.campaign.list({
+      page: 1,
+      limit: EXPORT_FETCH_LIMIT,
+      search: query.search,
+      status: query.status,
+    });
+
+    const csv = toCsv(
+      [
+        { header: "Name", value: (campaign) => campaign.name },
+        { header: "Description", value: (campaign) => campaign.description },
+        { header: "Status", value: (campaign) => campaign.status },
+        { header: "Keywords", value: (campaign) => campaign.keywords },
+        { header: "Types", value: (campaign) => campaign.types },
+        {
+          header: "Pricing models",
+          value: (campaign) => campaign.pricingModels,
+        },
+        {
+          header: "Min price per month (USD)",
+          value: (campaign) => campaign.minMonthlyPriceUsd,
+        },
+        {
+          header: "Max price per month (USD)",
+          value: (campaign) => campaign.maxMonthlyPriceUsd,
+        },
+        { header: "Min members", value: (campaign) => campaign.minMembers },
+        { header: "Max members", value: (campaign) => campaign.maxMembers },
+        { header: "Leads", value: (campaign) => campaign.leadCount },
+        { header: "Created", value: (campaign) => campaign.createdAt },
+        { header: "Updated", value: (campaign) => campaign.updatedAt },
+      ],
+      withinExportLimit(campaigns),
+    );
+
+    return { csv, filename: csvFilename("campaigns") };
+  }
+
+  public async exportLeadsCsv(
+    input: { campaignId: number },
+    query: { search?: string; stage?: StageNumber; status?: LeadStatus },
+  ) {
+    const campaign = await this.findOrFail(input.campaignId);
+
+    const { leads } = await this.context.repositories.campaignLead.list({
+      campaignId: input.campaignId,
+      page: 1,
+      limit: EXPORT_FETCH_LIMIT,
+      search: query.search,
+      stage: query.stage,
+      status: query.status,
+    });
+
+    const csv = toCsv(
+      [
+        { header: "Lead", value: (lead) => lead.name },
+        { header: "Skool username", value: (lead) => lead.skoolUsername },
+        { header: "Community", value: (lead) => lead.communityName },
+        { header: "Members", value: (lead) => lead.memberCount },
+        { header: "Keyword", value: (lead) => lead.keyword },
+        { header: "Emails", value: (lead) => lead.emails },
+        { header: "LinkedIn", value: (lead) => lead.linkedinUrl },
+        { header: "Website", value: (lead) => lead.website },
+        { header: "Stage", value: (lead) => lead.stage },
+        { header: "Status", value: (lead) => lead.status },
+        { header: "Failure reason", value: (lead) => lead.failureReason },
+        { header: "Updated", value: (lead) => lead.updatedAt },
+      ],
+      withinExportLimit(leads),
+    );
+
+    return {
+      csv,
+      filename: csvFilename(`campaign-${campaign.campaignId}-leads`),
     };
   }
 

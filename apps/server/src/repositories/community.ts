@@ -39,6 +39,7 @@ export class CommunityRepository extends BaseRepository {
     minRevenue?: number;
     sortBy: CommunitySortBy;
     sortOrder: "asc" | "desc";
+    limit?: number;
   }) {
     const table = CommunityRepository.table;
     const conditions = [];
@@ -82,12 +83,16 @@ export class CommunityRepository extends BaseRepository {
         ? sql`${direction(sortColumn)} NULLS LAST`
         : direction(sortColumn);
 
-    const limit = DEFAULT_RECORD_LIMIT;
+    const limit = query.limit ?? DEFAULT_RECORD_LIMIT;
     const offset = (query.page - 1) * limit;
 
     const [communities, [countRow]] = await Promise.all([
       this.db
-        .select({ ...getTableColumns(table), leadName: leadsTable.name })
+        .select({
+          ...getTableColumns(table),
+          leadName: leadsTable.name,
+          leadSkoolUsername: leadsTable.skoolUsername,
+        })
         .from(table)
         .innerJoin(leadsTable, eq(leadsTable.leadId, table.leadId))
         .where(where)

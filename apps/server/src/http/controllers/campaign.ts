@@ -11,6 +11,8 @@ import {
   updateCampaignSchema,
 } from "../validations/campaign";
 
+import { csvHeaders } from "../csv";
+
 export const campaignController = new Hono<AppContext>()
   .use(adminMiddleware)
 
@@ -28,6 +30,41 @@ export const campaignController = new Hono<AppContext>()
       });
 
       return context.json(result);
+    },
+  )
+
+  .get(
+    "/export",
+    describeRoute({ tags: ["campaign"] }),
+    validator("query", campaignQuerySchema),
+    async (context) => {
+      const query = context.req.valid("query");
+
+      const { csv, filename } = await context
+        .get("services")
+        .campaign.exportCsv({ search: query?.search, status: query?.status });
+
+      return context.body(csv, 200, csvHeaders(filename));
+    },
+  )
+
+  .get(
+    "/:campaignId/leads/export",
+    describeRoute({ tags: ["campaign"] }),
+    validator("param", campaignIdParamSchema),
+    validator("query", campaignLeadQuerySchema),
+    async (context) => {
+      const { campaignId } = context.req.valid("param");
+      const query = context.req.valid("query");
+
+      const { csv, filename } = await context
+        .get("services")
+        .campaign.exportLeadsCsv(
+          { campaignId },
+          { search: query?.search, stage: query?.stage, status: query?.status },
+        );
+
+      return context.body(csv, 200, csvHeaders(filename));
     },
   )
 

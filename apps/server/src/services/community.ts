@@ -1,3 +1,9 @@
+import {
+  csvFilename,
+  EXPORT_FETCH_LIMIT,
+  toCsv,
+  withinExportLimit,
+} from "@server/lib/csv";
 import { BaseService } from "@server/lib/base-service";
 import { derivePricing } from "@server/lib/pricing";
 import {
@@ -52,6 +58,57 @@ export class CommunityService extends BaseService {
       });
 
     return { communities, meta: { page, lastPage } };
+  }
+
+  public async exportCsv(query: {
+    search?: string;
+    pricingType?: CommunityPrice["type"];
+    leadId?: number;
+    minMembers?: number;
+    minRevenue?: number;
+    sortBy?: CommunitySortBy;
+    sortOrder?: "asc" | "desc";
+  }) {
+    const { communities } = await this.context.repositories.community.list({
+      page: 1,
+      limit: EXPORT_FETCH_LIMIT,
+      search: query.search,
+      pricingType: query.pricingType,
+      leadId: query.leadId,
+      minMembers: query.minMembers,
+      minRevenue: query.minRevenue,
+      sortBy: query.sortBy ?? "estMonthlyRevenue",
+      sortOrder: query.sortOrder ?? "desc",
+    });
+
+    const csv = toCsv(
+      [
+        { header: "Community", value: (item) => item.displayName },
+        { header: "Slug", value: (item) => item.name },
+        { header: "URL", value: (item) => item.communityUrl },
+        { header: "Owner", value: (item) => item.leadName },
+        { header: "Owner username", value: (item) => item.leadSkoolUsername },
+        { header: "Members", value: (item) => item.memberCount },
+        { header: "Pricing", value: (item) => item.pricingType },
+        { header: "Interval", value: (item) => item.pricingInterval },
+        { header: "Price", value: (item) => item.priceAmount / 100 },
+        { header: "Currency", value: (item) => item.priceCurrency },
+        {
+          header: "Monthly price (USD)",
+          value: (item) => item.monthlyPriceUsd,
+        },
+        {
+          header: "Est. monthly revenue (USD)",
+          value: (item) => item.estMonthlyRevenue,
+        },
+        { header: "Access", value: (item) => item.accessType },
+        { header: "Description", value: (item) => item.description },
+        { header: "Added", value: (item) => item.createdAt },
+      ],
+      withinExportLimit(communities),
+    );
+
+    return { csv, filename: csvFilename("communities") };
   }
 
   public async show(input: { communityId: number }) {

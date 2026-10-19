@@ -9,6 +9,8 @@ import {
   updateCommunitySchema,
 } from "../validations/community";
 
+import { csvHeaders } from "../csv";
+
 export const communityController = new Hono<AppContext>()
   .use(adminMiddleware)
 
@@ -31,6 +33,29 @@ export const communityController = new Hono<AppContext>()
       });
 
       return context.json(result);
+    },
+  )
+
+  .get(
+    "/export",
+    describeRoute({ tags: ["community"] }),
+    validator("query", communityQuerySchema),
+    async (context) => {
+      const query = context.req.valid("query");
+
+      const { csv, filename } = await context
+        .get("services")
+        .community.exportCsv({
+          search: query?.search,
+          pricingType: query?.pricingType,
+          leadId: query?.leadId,
+          minMembers: query?.minMembers,
+          minRevenue: query?.minRevenue,
+          sortBy: query?.sortBy,
+          sortOrder: query?.sortOrder,
+        });
+
+      return context.body(csv, 200, csvHeaders(filename));
     },
   )
 

@@ -9,6 +9,8 @@ import {
   updateLeadSchema,
 } from "../validations/lead";
 
+import { csvHeaders } from "../csv";
+
 export const leadController = new Hono<AppContext>()
   .use(adminMiddleware)
 
@@ -31,6 +33,27 @@ export const leadController = new Hono<AppContext>()
       });
 
       return context.json(result);
+    },
+  )
+
+  .get(
+    "/export",
+    describeRoute({ tags: ["lead"] }),
+    validator("query", leadQuerySchema),
+    async (context) => {
+      const query = context.req.valid("query");
+
+      const { csv, filename } = await context.get("services").lead.exportCsv({
+        search: query?.search,
+        hasWebsite:
+          query?.hasWebsite === undefined
+            ? undefined
+            : query.hasWebsite === "true",
+        sortBy: query?.sortBy,
+        sortOrder: query?.sortOrder,
+      });
+
+      return context.body(csv, 200, csvHeaders(filename));
     },
   )
 
