@@ -292,6 +292,7 @@ test("the campaign leads export applies the stage, status and search filters", a
     await seedCommunity(context, cat.leadId, {
       displayName: "Sunrise Yoga",
       memberCount: 321,
+      description: 'Daily classes, with "live" Q&A',
     });
     const attach = (
       leadId: number,
@@ -335,11 +336,16 @@ test("the campaign leads export applies the stage, status and search filters", a
       Website: "https://amy.example.com",
       Stage: "1",
       Status: "done",
+      "Community description": "",
     });
     const [catRow] = csvRecords(
       await (await admin.get(`${path}?search=cat`)).text(),
     );
-    expect(catRow).toMatchObject({ Community: "Sunrise Yoga", Members: "321" });
+    expect(catRow).toMatchObject({
+      Community: "Sunrise Yoga",
+      "Community description": 'Daily classes, with "live" Q&A',
+      Members: "321",
+    });
   });
 });
 

@@ -157,6 +157,10 @@ export class CampaignService extends BaseService {
         { header: "Lead", value: (lead) => lead.name },
         { header: "Skool username", value: (lead) => lead.skoolUsername },
         { header: "Community", value: (lead) => lead.communityName },
+        {
+          header: "Community description",
+          value: (lead) => lead.communityDescription,
+        },
         { header: "Members", value: (lead) => lead.memberCount },
         { header: "Keyword", value: (lead) => lead.keyword },
         { header: "Emails", value: (lead) => lead.emails },

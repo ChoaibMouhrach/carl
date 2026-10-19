@@ -161,7 +161,9 @@ export class CampaignLeadRepository extends BaseRepository {
     const limit = query.limit ?? DEFAULT_RECORD_LIMIT;
     const offset = (query.page - 1) * limit;
 
-    const topCommunity = (column: "displayName" | "memberCount") =>
+    const topCommunity = (
+      column: "displayName" | "memberCount" | "description",
+    ) =>
       sql`(select ${communitiesTable[column]} from ${communitiesTable} where ${communitiesTable.leadId} = ${leadsTable.leadId} order by ${communitiesTable.memberCount} desc limit 1)`;
 
     const [leads, [countRow]] = await Promise.all([
@@ -174,6 +176,7 @@ export class CampaignLeadRepository extends BaseRepository {
           website: leadsTable.website,
           linkedinUrl: leadsTable.linkedinUrl,
           communityName: topCommunity("displayName").mapWith(String),
+          communityDescription: topCommunity("description").mapWith(String),
           memberCount: topCommunity("memberCount").mapWith(Number),
           stage: table.stage,
           status: table.status,
