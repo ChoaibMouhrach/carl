@@ -79,10 +79,14 @@ export class CampaignApi extends BaseApi {
     );
   }
 
-  public scrape(where: { campaignId: number }) {
+  public scrape(
+    where: { campaignId: number },
+    options?: { replace?: boolean },
+  ) {
     return this.call(() =>
       http.api.campaigns[":campaignId"].scrape.$post({
         param: { campaignId: where.campaignId.toString() },
+        query: { replace: options?.replace ? "true" : undefined },
       }),
     );
   }

@@ -70,7 +70,8 @@ export const Campaign = () => {
   });
 
   const startScrape = useMutation({
-    mutationFn: () => api.campaign.scrape({ campaignId }),
+    mutationFn: (replace: boolean) =>
+      api.campaign.scrape({ campaignId }, { replace }),
     onError,
     onSuccess: async () => {
       toast.success(t("adminCampaign.scrapeStarted"));
@@ -102,7 +103,7 @@ export const Campaign = () => {
         <Skeleton className="h-9 w-full max-w-2xl" />
         <Card>
           <CardContent>
-            <TableSkeleton columns={9} />
+            <TableSkeleton columns={10} />
           </CardContent>
         </Card>
       </div>
@@ -171,7 +172,7 @@ export const Campaign = () => {
         <StagePanel
           canRun={campaign.data.campaign.status === "active"}
           isRunning={startScrape.isPending || isScraping}
-          onRun={() => startScrape.mutate()}
+          onRun={(replace) => startScrape.mutate(replace)}
           scrapeRun={campaign.data.scrapeRuns.at(0)}
           stage={selectedStage}
         />
@@ -198,7 +199,7 @@ export const Campaign = () => {
               view === "cards" ? (
                 <CardGridSkeleton />
               ) : (
-                <TableSkeleton columns={9} />
+                <TableSkeleton columns={10} />
               )
             ) : view === "cards" ? (
               <CampaignLeadCards leads={leads.data.leads} />

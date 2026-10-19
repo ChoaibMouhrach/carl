@@ -20,6 +20,7 @@ import {
   GlobeIcon,
   LinkIcon,
   MailIcon,
+  SearchIcon,
   UsersIcon,
 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
@@ -77,6 +78,11 @@ export const CampaignLeadCards = ({ leads }: CampaignLeadCardsProps) => {
                       icon: Building2Icon,
                       label: t("adminCampaign.community"),
                       value: lead.communityName,
+                    },
+                    {
+                      icon: SearchIcon,
+                      label: t("adminCampaign.keyword"),
+                      value: lead.keyword ?? "—",
                     },
                     {
                       icon: UsersIcon,

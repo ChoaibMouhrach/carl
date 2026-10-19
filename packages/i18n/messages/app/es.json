@@ -428,6 +428,12 @@
     "rangeError": "El mínimo no puede ser mayor que el máximo."
   },
   "adminCampaign": {
+    "replaceScrape": "Reemplazar leads y scrapear",
+    "replaceTitle": "¿Reemplazar leads y scrapear?",
+    "replaceDescription": "Los leads de scrapes anteriores que siguen en la etapa 1 y que esta ejecución no vuelve a encontrar se eliminan de la campaña. Los leads que pasaron de la etapa 1 se conservan. No se elimina nada si la ejecución tiene fallos.",
+    "replaceConfirm": "Reemplazar y scrapear",
+    "keyword": "Palabra clave",
+    "cancel": "Cancelar",
     "linkedin": "LinkedIn",
     "website": "Sitio web",
     "back": "Volver a campañas",
@@ -472,7 +478,7 @@
       "completed": "Completado",
       "failed": "Fallido"
     },
-    "scrapeSummary": "{{discovered}} encontradas · {{created}} comunidades nuevas · {{attached}} leads añadidos · {{filtered}} filtradas · {{failed}} fallidos",
+    "scrapeSummary": "{{discovered}} encontradas · {{created}} comunidades nuevas · {{attached}} leads añadidos · {{removed}} eliminados · {{filtered}} filtradas · {{failed}} fallidos",
     "email": "Correo"
   }
 }

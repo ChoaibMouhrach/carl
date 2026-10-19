@@ -428,6 +428,12 @@
     "rangeError": "Minimum cannot be greater than maximum."
   },
   "adminCampaign": {
+    "replaceScrape": "Replace leads and scrape",
+    "replaceTitle": "Replace leads and scrape?",
+    "replaceDescription": "Leads from earlier scrapes that are still at stage 1 and are not found again by this run are removed from the campaign. Leads that moved past stage 1 are kept. Nothing is removed if the run has any failures.",
+    "replaceConfirm": "Replace and scrape",
+    "keyword": "Keyword",
+    "cancel": "Cancel",
     "linkedin": "LinkedIn",
     "website": "Website",
     "back": "Back to campaigns",
@@ -472,7 +478,7 @@
       "completed": "Completed",
       "failed": "Failed"
     },
-    "scrapeSummary": "{{discovered}} found · {{created}} new communities · {{attached}} leads added · {{filtered}} filtered out · {{failed}} failed",
+    "scrapeSummary": "{{discovered}} found · {{created}} new communities · {{attached}} leads added · {{removed}} removed · {{filtered}} filtered out · {{failed}} failed",
     "email": "Email"
   }
 }

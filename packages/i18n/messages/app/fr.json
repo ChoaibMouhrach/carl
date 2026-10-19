@@ -428,6 +428,12 @@
     "rangeError": "Le minimum ne peut pas dépasser le maximum."
   },
   "adminCampaign": {
+    "replaceScrape": "Remplacer les leads et scraper",
+    "replaceTitle": "Remplacer les leads et scraper ?",
+    "replaceDescription": "Les leads des scrapes précédents encore à l'étape 1 et non retrouvés par cette exécution sont retirés de la campagne. Les leads passés au-delà de l'étape 1 sont conservés. Rien n'est retiré si l'exécution comporte des échecs.",
+    "replaceConfirm": "Remplacer et scraper",
+    "keyword": "Mot-clé",
+    "cancel": "Annuler",
     "linkedin": "LinkedIn",
     "website": "Site web",
     "back": "Retour aux campagnes",
@@ -472,7 +478,7 @@
       "completed": "Terminé",
       "failed": "Échec"
     },
-    "scrapeSummary": "{{discovered}} trouvées · {{created}} nouvelles communautés · {{attached}} leads ajoutés · {{filtered}} filtrées · {{failed}} en échec",
+    "scrapeSummary": "{{discovered}} trouvées · {{created}} nouvelles communautés · {{attached}} leads ajoutés · {{removed}} retirés · {{filtered}} filtrées · {{failed}} en échec",
     "email": "E-mail"
   }
 }

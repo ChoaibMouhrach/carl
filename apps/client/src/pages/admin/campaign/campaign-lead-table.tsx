@@ -28,6 +28,7 @@ export const CampaignLeadTable = ({ leads }: CampaignLeadTableProps) => {
         <TableRow>
           <TableHead>{t("adminCampaign.lead")}</TableHead>
           <TableHead>{t("adminCampaign.community")}</TableHead>
+          <TableHead>{t("adminCampaign.keyword")}</TableHead>
           <TableHead>{t("adminCampaign.email")}</TableHead>
           <TableHead>{t("adminCampaign.linkedin")}</TableHead>
           <TableHead>{t("adminCampaign.website")}</TableHead>
@@ -40,7 +41,7 @@ export const CampaignLeadTable = ({ leads }: CampaignLeadTableProps) => {
       <TableBody>
         {leads.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={9}>{t("adminCampaign.emptyLeads")}</TableCell>
+            <TableCell colSpan={10}>{t("adminCampaign.emptyLeads")}</TableCell>
           </TableRow>
         ) : (
           leads.map((lead) => (
@@ -61,6 +62,7 @@ export const CampaignLeadTable = ({ leads }: CampaignLeadTableProps) => {
                 </div>
               </TableCell>
               <TableCell>{lead.communityName}</TableCell>
+              <TableCell>{lead.keyword ?? "—"}</TableCell>
               <TableCell>
                 <EmailLink email={lead.emails.at(0)} />
               </TableCell>
