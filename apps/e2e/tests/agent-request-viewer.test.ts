@@ -106,7 +106,7 @@ test("text with quotes, line breaks and emoji survives into the code view and th
   expect(await seed.findLeadByUsername(`e2e-${id}`)).toMatchObject({ bio });
 });
 
-test("a message the server acknowledges without answering opens with an empty response", async ({
+test("a message the server only acknowledges opens with a null response", async ({
   page,
   seed,
 }) => {
@@ -122,7 +122,7 @@ test("a message the server acknowledges without answering opens with an empty re
   await expect(rows(page).first()).toContainText("notifications/initialized");
   await rows(page).first().click();
 
-  await expect(sheet(page).locator("pre").nth(1)).toContainText("(empty)");
+  await expect(sheet(page).locator("pre").nth(1)).toHaveText("null");
 });
 
 test("the counts beside the table match the table and follow new calls after a reload", async ({
