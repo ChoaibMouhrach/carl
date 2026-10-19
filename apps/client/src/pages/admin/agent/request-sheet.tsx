@@ -1,5 +1,6 @@
 import type { AgentRequestDetail } from "@/api/agent";
 import { Badge } from "@repo/ui/components/ui/badge";
+import { ScrollArea } from "@repo/ui/components/ui/scroll-area";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import {
   Sheet,
@@ -12,6 +13,7 @@ import { CodeBlock } from "./code-block";
 import { formatDateTime } from "./format";
 
 interface RequestSheetProps {
+  isError: boolean;
   isPending: boolean;
   isOpen: boolean;
   onClose: () => void;
@@ -19,6 +21,7 @@ interface RequestSheetProps {
 }
 
 export const RequestSheet = ({
+  isError,
   isPending,
   isOpen,
   onClose,
@@ -35,7 +38,9 @@ export const RequestSheet = ({
         <SheetDescription>
           {request
             ? `${formatDateTime(request.createdAt)} · ${request.durationMs} ms`
-            : "Loading the request."}
+            : isError
+              ? "This request is not available."
+              : "Loading the request."}
         </SheetDescription>
         {request && (
           <div className="flex gap-2">
@@ -46,19 +51,23 @@ export const RequestSheet = ({
           </div>
         )}
       </SheetHeader>
-      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 pb-6">
-        {isPending || !request ? (
-          <>
-            <Skeleton className="h-40 w-full" />
-            <Skeleton className="h-64 w-full" />
-          </>
-        ) : (
-          <>
-            <CodeBlock title="Request" value={request.requestBody} />
-            <CodeBlock title="Response" value={request.responseBody} />
-          </>
-        )}
-      </div>
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="space-y-6 px-4 pb-6">
+          {isError && !request ? (
+            <p className="text-sm text-destructive">Request not found.</p>
+          ) : isPending || !request ? (
+            <>
+              <Skeleton className="h-40 w-full" />
+              <Skeleton className="h-64 w-full" />
+            </>
+          ) : (
+            <>
+              <CodeBlock title="Request" value={request.requestBody} />
+              <CodeBlock title="Response" value={request.responseBody} />
+            </>
+          )}
+        </div>
+      </ScrollArea>
     </SheetContent>
   </Sheet>
 );

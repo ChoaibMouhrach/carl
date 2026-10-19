@@ -1,6 +1,7 @@
 import { api } from "@/api";
 import { env } from "@/config/env";
 import { onError } from "@/lib/base-api";
+import { Button } from "@repo/ui/components/ui/button";
 import { Field, FieldLabel } from "@repo/ui/components/ui/field";
 import { Input } from "@repo/ui/components/ui/input";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -34,8 +35,6 @@ export const AgentAccess = () => {
     },
   });
 
-  if (agents.isError) throw agents.error;
-
   return (
     <div className="space-y-6">
       <Field>
@@ -45,17 +44,32 @@ export const AgentAccess = () => {
           <CopyButton value={mcpUrl} />
         </div>
       </Field>
-      <AgentList
-        agents={agents.data?.agents}
-        isRevoking={revoke.isPending}
-        onRevoke={(clientId) => {
-          if (isRevoking.current) return;
+      {agents.isError && !agents.data ? (
+        <div className="space-y-3">
+          <p className="text-sm text-destructive">
+            Could not load the connected agents.
+          </p>
+          <Button
+            onClick={() => agents.refetch()}
+            type="button"
+            variant="outline"
+          >
+            Try again
+          </Button>
+        </div>
+      ) : (
+        <AgentList
+          agents={agents.data?.agents}
+          isRevoking={revoke.isPending}
+          onRevoke={(clientId) => {
+            if (isRevoking.current) return;
 
-          isRevoking.current = true;
-          revoke.mutate(clientId);
-        }}
-        revokingClientId={revoke.isPending ? revoke.variables : undefined}
-      />
+            isRevoking.current = true;
+            revoke.mutate(clientId);
+          }}
+          revokingClientId={revoke.isPending ? revoke.variables : undefined}
+        />
+      )}
     </div>
   );
 };

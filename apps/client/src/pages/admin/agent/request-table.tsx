@@ -12,16 +12,24 @@ import {
 import { formatDateTime } from "./format";
 
 interface RequestTableProps {
+  isError: boolean;
   onOpen: (requestId: number) => void;
   requests?: AgentRequestSummary[];
   selectedId?: number;
 }
 
 export const RequestTable = ({
+  isError,
   onOpen,
   requests,
   selectedId,
 }: RequestTableProps) => {
+  if (isError) {
+    return (
+      <p className="text-sm text-destructive">Could not load the requests.</p>
+    );
+  }
+
   if (!requests) return <TableSkeleton columns={5} />;
 
   return (

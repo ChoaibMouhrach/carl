@@ -1,6 +1,6 @@
 import { api } from "@/api";
 import { DataPagination } from "@/components/data-pagination";
-import { onError } from "@/lib/base-api";
+import { ApiError, onError } from "@/lib/base-api";
 import { adminAgentRoute } from "@/routes/admin/agent";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
@@ -41,7 +41,14 @@ export const Agent = () => {
 
   const remove = useMutation({
     mutationFn: () => api.agent.revoke({ clientId }),
-    onError,
+    onError: async (error) => {
+      onError(error);
+
+      // Already removed somewhere else, so there is nothing left to show here
+      if (error instanceof ApiError && error.statusCode === 404) {
+        await navigate({ to: "/admin/account" });
+      }
+    },
     onSuccess: async () => {
       toast.success("Agent removed.");
       await navigate({ to: "/admin/account" });
@@ -60,46 +67,55 @@ export const Agent = () => {
         <ArrowLeftIcon className="size-4" />
         Account settings
       </Link>
-      {agent.isPending ? (
-        <Skeleton className="h-64 w-full" />
-      ) : (
-        <AgentHeader
-          agent={agent.data.agent}
-          isRemoving={remove.isPending}
-          onRemove={() => remove.mutate()}
-        />
-      )}
-      <Card>
-        <CardContent>
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Requests</h2>
-            <RequestTable
-              onOpen={(requestId) =>
-                navigateWithSearch({
-                  search: (current) => ({ ...current, request: requestId }),
-                })
-              }
-              requests={requests.data?.requests}
-              selectedId={search.request}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="lg:order-2">
+          {agent.isPending ? (
+            <Skeleton className="h-[34rem] w-full" />
+          ) : (
+            <AgentHeader
+              agent={agent.data.agent}
+              isRemoving={remove.isPending}
+              onRemove={() => remove.mutate()}
             />
-            <DataPagination
-              currentPage={search.page}
-              lastPage={requests.data?.meta.lastPage ?? 1}
-              onPageChange={(page) =>
-                navigateWithSearch({
-                  search: (current) => ({
-                    ...current,
-                    page,
-                    request: undefined,
-                  }),
-                })
-              }
-            />
-          </div>
-        </CardContent>
-      </Card>
+          )}
+        </div>
+        <div className="min-w-0 lg:order-1">
+          <Card>
+            <CardContent>
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Requests</h2>
+                <RequestTable
+                  onOpen={(requestId) =>
+                    navigateWithSearch({
+                      search: (current) => ({ ...current, request: requestId }),
+                    })
+                  }
+                  isError={requests.isError && !requests.data}
+                  requests={requests.data?.requests}
+                  selectedId={search.request}
+                />
+                <DataPagination
+                  currentPage={search.page}
+                  // Until the first page arrives the page must not look past the end
+                  lastPage={requests.data?.meta.lastPage ?? search.page}
+                  onPageChange={(page) =>
+                    navigateWithSearch({
+                      search: (current) => ({
+                        ...current,
+                        page,
+                        request: undefined,
+                      }),
+                    })
+                  }
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
       <RequestSheet
         isOpen={search.request !== undefined}
+        isError={selected.isError}
         isPending={selected.isPending}
         onClose={() =>
           navigateWithSearch({

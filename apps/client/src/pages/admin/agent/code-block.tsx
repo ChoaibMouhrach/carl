@@ -1,4 +1,5 @@
 import { CopyButton } from "@/components/copy-button";
+import { ScrollArea, ScrollBar } from "@repo/ui/components/ui/scroll-area";
 
 interface CodeBlockProps {
   title: string;
@@ -32,6 +33,55 @@ const expand = (value: unknown): unknown => {
   return value;
 };
 
+const tokenPattern =
+  /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g;
+
+// Colors that keep their contrast in both themes
+const tokenColors = {
+  key: "text-sky-700 dark:text-sky-300",
+  string: "text-emerald-700 dark:text-emerald-300",
+  number: "text-amber-700 dark:text-amber-300",
+  keyword: "text-violet-700 dark:text-violet-300",
+};
+
+const highlight = (text: string) => {
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+
+  for (const match of text.matchAll(tokenPattern)) {
+    const start = match.index;
+
+    if (start > last) parts.push(text.slice(last, start));
+
+    const [token, quoted, colon, keyword] = match;
+    if (quoted) {
+      parts.push(
+        <span
+          className={colon ? tokenColors.key : tokenColors.string}
+          key={start}
+        >
+          {quoted}
+        </span>,
+      );
+      if (colon) parts.push(colon);
+    } else {
+      parts.push(
+        <span
+          className={keyword ? tokenColors.keyword : tokenColors.number}
+          key={start}
+        >
+          {token}
+        </span>,
+      );
+    }
+    last = start + token.length;
+  }
+
+  if (last < text.length) parts.push(text.slice(last));
+
+  return parts;
+};
+
 const pretty = (value: string) => {
   const parsed = parse(value);
 
@@ -47,9 +97,12 @@ export const CodeBlock = ({ title, value }: CodeBlockProps) => {
         <h3 className="text-sm font-medium">{title}</h3>
         <CopyButton size="sm" value={text} />
       </div>
-      <pre className="max-h-96 overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs leading-relaxed">
-        <code>{text === "" ? "(empty)" : text}</code>
-      </pre>
+      <ScrollArea className="max-h-96 rounded-lg border bg-muted/40">
+        <pre className="p-3 font-mono text-xs leading-relaxed">
+          <code>{text === "" ? "(empty)" : highlight(text)}</code>
+        </pre>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
     </section>
   );
 };

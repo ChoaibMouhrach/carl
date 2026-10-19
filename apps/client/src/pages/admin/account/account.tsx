@@ -66,18 +66,20 @@ export const Account = () => {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Agent access</CardTitle>
-          <CardDescription>
-            Connect an AI agent so it can look Skool up through Carl. Nothing it
-            finds is saved.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <AgentAccess />
-        </CardContent>
-      </Card>
+      {user.role === "admin" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Agent access</CardTitle>
+            <CardDescription>
+              Connect an AI agent so it can look Skool up through Carl. Nothing
+              it finds is saved.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AgentAccess />
+          </CardContent>
+        </Card>
+      )}
     </>
   );
 };
