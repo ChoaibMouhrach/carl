@@ -177,6 +177,26 @@
       "cancel": "Annuler",
       "deleteTitle": "Supprimer cette clé d'accès ?",
       "deleteDescription": "Vous ne pourrez plus vous connecter avec. Cette action est irréversible."
+    },
+    "agents": {
+      "title": "Accès des agents",
+      "description": "Connectez un agent IA pour qu'il consulte Skool via Carl. Rien de ce qu'il trouve n'est enregistré.",
+      "urlLabel": "Adresse du serveur MCP",
+      "copy": "Copier",
+      "copied": "Copié.",
+      "copyFailed": "Impossible de copier. Sélectionnez le texte et copiez-le.",
+      "connectedTitle": "Agents connectés",
+      "empty": "Aucun agent connecté pour l'instant.",
+      "agent": "Agent",
+      "connectedBy": "Connecté par",
+      "connectedAt": "Connecté",
+      "unknownUser": "Inconnu",
+      "menu": "Actions de l'agent",
+      "revoke": "Supprimer l'agent",
+      "revokeTitle": "Supprimer cet agent ?",
+      "revokeDescription": "L'agent est déconnecté immédiatement et doit se reconnecter pour revenir.",
+      "cancel": "Annuler",
+      "revoked": "Agent supprimé."
     }
   },
   "password": {

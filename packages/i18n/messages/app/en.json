@@ -177,6 +177,26 @@
       "cancel": "Cancel",
       "deleteTitle": "Delete this passkey?",
       "deleteDescription": "You won't be able to sign in with it any more. This action cannot be undone."
+    },
+    "agents": {
+      "title": "Agent access",
+      "description": "Connect an AI agent so it can look Skool up through Carl. Nothing it finds is saved.",
+      "urlLabel": "MCP server address",
+      "copy": "Copy",
+      "copied": "Copied.",
+      "copyFailed": "Could not copy. Select the text and copy it.",
+      "connectedTitle": "Connected agents",
+      "empty": "No agents connected yet.",
+      "agent": "Agent",
+      "connectedBy": "Connected by",
+      "connectedAt": "Connected",
+      "unknownUser": "Unknown",
+      "menu": "Agent actions",
+      "revoke": "Remove agent",
+      "revokeTitle": "Remove this agent?",
+      "revokeDescription": "The agent is signed out right away and has to sign in again to come back.",
+      "cancel": "Cancel",
+      "revoked": "Agent removed."
     }
   },
   "password": {

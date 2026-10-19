@@ -95,6 +95,8 @@ export const createAuth = (input: {
         },
       },
     },
+    // Fresh sign-in is not required for sensitive actions such as listing devices
+    session: { freshAge: 0 },
     plugins: [
       admin(),
       mcp({

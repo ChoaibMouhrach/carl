@@ -177,6 +177,26 @@
       "cancel": "Cancelar",
       "deleteTitle": "¿Eliminar esta llave de acceso?",
       "deleteDescription": "Ya no podrás iniciar sesión con ella. Esta acción no se puede deshacer."
+    },
+    "agents": {
+      "title": "Acceso de agentes",
+      "description": "Conecta un agente de IA para que consulte Skool a través de Carl. Nada de lo que encuentre se guarda.",
+      "urlLabel": "Dirección del servidor MCP",
+      "copy": "Copiar",
+      "copied": "Copiado.",
+      "copyFailed": "No se pudo copiar. Selecciona el texto y cópialo.",
+      "connectedTitle": "Agentes conectados",
+      "empty": "Aún no hay agentes conectados.",
+      "agent": "Agente",
+      "connectedBy": "Conectado por",
+      "connectedAt": "Conectado",
+      "unknownUser": "Desconocido",
+      "menu": "Acciones del agente",
+      "revoke": "Eliminar agente",
+      "revokeTitle": "¿Eliminar este agente?",
+      "revokeDescription": "El agente cierra sesión de inmediato y debe iniciar sesión de nuevo para volver.",
+      "cancel": "Cancelar",
+      "revoked": "Agente eliminado."
     }
   },
   "password": {

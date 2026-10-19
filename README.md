@@ -253,8 +253,10 @@ effort: if Redis fails, the request that caused the change still succeeds.
 
 ## MCP for AI agents
 
-An AI agent can look Skool up through Carl without touching its data. Point an
-MCP client (Streamable HTTP) at `<API URL>/api/mcp`; Better Auth's MCP plugin
+An AI agent can look Skool up through Carl without touching its data. Account
+settings shows the address (`<API URL>/api/mcp`) to give an MCP client
+(Streamable HTTP) and lists the connected agents, each with a remove option.
+Better Auth's MCP plugin
 runs the OAuth sign-in, so the agent opens the normal sign-in page once and then
 holds a token. Only admins are accepted.
 

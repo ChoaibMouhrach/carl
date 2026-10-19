@@ -9,6 +9,7 @@ import { ChangePassword } from "@/components/change-password";
 import { LanguageCard } from "@/components/language-card";
 import { getRouteApi } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import { AgentAccess } from "./agent-access";
 import { ChangeEmail } from "./change-email";
 import { Passkeys } from "./passkeys";
 import { SessionManagement } from "./session-management";
@@ -62,6 +63,16 @@ export const Account = () => {
         </CardHeader>
         <CardContent>
           <SessionManagement />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("settings.agents.title")}</CardTitle>
+          <CardDescription>{t("settings.agents.description")}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AgentAccess />
         </CardContent>
       </Card>
 
