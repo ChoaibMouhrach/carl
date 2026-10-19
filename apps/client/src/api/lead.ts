@@ -31,6 +31,24 @@ export class LeadApi extends BaseApi {
     );
   }
 
+  public export(query?: {
+    search?: string;
+    hasWebsite?: boolean;
+    sortBy?: "createdAt" | "name" | "communityCount";
+    sortOrder?: "asc" | "desc";
+  }) {
+    return this.download(() =>
+      http.api.leads.export.$get({
+        query: {
+          search: query?.search,
+          hasWebsite: query?.hasWebsite?.toString(),
+          sortBy: query?.sortBy,
+          sortOrder: query?.sortOrder,
+        },
+      }),
+    );
+  }
+
   public show(where: { leadId: number }) {
     return this.call(() =>
       http.api.leads[":leadId"].$get({

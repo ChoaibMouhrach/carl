@@ -3,6 +3,7 @@ import { DataPagination } from "@/components/data-pagination";
 import { CardGridSkeleton } from "@/components/card-grid";
 import { TableSkeleton } from "@/components/table-skeleton";
 import { SelectionBar } from "@/components/selection-bar";
+import { ExportButton } from "@/components/export-button";
 import { ViewSwitch } from "@/components/view-switch";
 import { onError } from "@/lib/base-api";
 import { invalidateCampaignData } from "@/lib/invalidate";
@@ -82,6 +83,12 @@ export const Campaigns = () => {
                 <PlusIcon />
                 {t("adminCampaigns.create")}
               </Button>
+            }
+            exportAction={
+              <ExportButton
+                filename="campaigns"
+                onExport={() => api.campaign.export(searchParams)}
+              />
             }
             viewSwitch={<ViewSwitch onChange={setView} view={view} />}
             onSearch={(search) =>

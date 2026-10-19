@@ -37,6 +37,30 @@ export class CommunityApi extends BaseApi {
     );
   }
 
+  public export(query?: {
+    search?: string;
+    pricingType?: "free" | "paid";
+    leadId?: number;
+    minMembers?: number;
+    minRevenue?: number;
+    sortBy?: "estMonthlyRevenue" | "memberCount" | "createdAt" | "name";
+    sortOrder?: "asc" | "desc";
+  }) {
+    return this.download(() =>
+      http.api.communities.export.$get({
+        query: {
+          search: query?.search,
+          pricingType: query?.pricingType,
+          leadId: query?.leadId?.toString(),
+          minMembers: query?.minMembers?.toString(),
+          minRevenue: query?.minRevenue?.toString(),
+          sortBy: query?.sortBy,
+          sortOrder: query?.sortOrder,
+        },
+      }),
+    );
+  }
+
   public show(where: { communityId: number }) {
     return this.call(() =>
       http.api.communities[":communityId"].$get({

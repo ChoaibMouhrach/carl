@@ -486,5 +486,9 @@
     },
     "scrapeSummary": "{{discovered}} trouvées · {{created}} nouvelles communautés · {{attached}} leads ajoutés · {{removed}} retirés · {{filtered}} filtrées · {{failed}} en échec",
     "email": "E-mail"
+  },
+  "export": {
+    "button": "Exporter en CSV",
+    "done": "Export prêt."
   }
 }

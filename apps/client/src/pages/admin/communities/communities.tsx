@@ -3,6 +3,7 @@ import { DataPagination } from "@/components/data-pagination";
 import { CardGridSkeleton } from "@/components/card-grid";
 import { TableSkeleton } from "@/components/table-skeleton";
 import { SelectionBar } from "@/components/selection-bar";
+import { ExportButton } from "@/components/export-button";
 import { ViewSwitch } from "@/components/view-switch";
 import { onError } from "@/lib/base-api";
 import { invalidateLeadData } from "@/lib/invalidate";
@@ -83,6 +84,12 @@ export const Communities = () => {
                 <PlusIcon />
                 {t("adminCommunities.create")}
               </Button>
+            }
+            exportAction={
+              <ExportButton
+                filename="communities"
+                onExport={() => api.community.export(searchParams)}
+              />
             }
             viewSwitch={<ViewSwitch onChange={setView} view={view} />}
             onApplyFilters={(filters) =>

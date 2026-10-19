@@ -58,6 +58,30 @@ export class CampaignApi extends BaseApi {
     );
   }
 
+  public export(query?: { search?: string; status?: CampaignStatus }) {
+    return this.download(() =>
+      http.api.campaigns.export.$get({
+        query: { search: query?.search, status: query?.status },
+      }),
+    );
+  }
+
+  public exportLeads(
+    where: { campaignId: number },
+    query?: { search?: string; stage?: StageNumber; status?: LeadStatus },
+  ) {
+    return this.download(() =>
+      http.api.campaigns[":campaignId"].leads.export.$get({
+        param: { campaignId: where.campaignId.toString() },
+        query: {
+          search: query?.search,
+          stage: query?.stage?.toString(),
+          status: query?.status,
+        },
+      }),
+    );
+  }
+
   public create(input: CreateCampaignInput) {
     return this.call(() => http.api.campaigns.$post({ json: input }));
   }

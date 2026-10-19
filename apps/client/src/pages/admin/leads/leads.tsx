@@ -3,6 +3,7 @@ import { DataPagination } from "@/components/data-pagination";
 import { CardGridSkeleton } from "@/components/card-grid";
 import { TableSkeleton } from "@/components/table-skeleton";
 import { SelectionBar } from "@/components/selection-bar";
+import { ExportButton } from "@/components/export-button";
 import { ViewSwitch } from "@/components/view-switch";
 import { onError } from "@/lib/base-api";
 import { invalidateLeadData } from "@/lib/invalidate";
@@ -84,6 +85,12 @@ export const Leads = () => {
                 <PlusIcon />
                 {t("adminLeads.create")}
               </Button>
+            }
+            exportAction={
+              <ExportButton
+                filename="leads"
+                onExport={() => api.lead.export(searchParams)}
+              />
             }
             viewSwitch={<ViewSwitch onChange={setView} view={view} />}
             hasWebsite={searchParams.hasWebsite}

@@ -4,6 +4,7 @@ import { DataPagination } from "@/components/data-pagination";
 import { CardGridSkeleton } from "@/components/card-grid";
 import { TableSkeleton } from "@/components/table-skeleton";
 import { SelectionBar } from "@/components/selection-bar";
+import { ExportButton } from "@/components/export-button";
 import { ViewSwitch } from "@/components/view-switch";
 import { onError } from "@/lib/base-api";
 import {
@@ -188,6 +189,14 @@ export const Campaign = () => {
         <CardContent>
           <div className="space-y-4">
             <CampaignLeadFilters
+              exportAction={
+                <ExportButton
+                  filename={`campaign-${campaignId}-leads`}
+                  onExport={() =>
+                    api.campaign.exportLeads({ campaignId }, searchParams)
+                  }
+                />
+              }
               viewSwitch={<ViewSwitch onChange={setView} view={view} />}
               onSearch={(search) =>
                 navigate({

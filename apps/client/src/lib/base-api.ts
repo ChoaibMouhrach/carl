@@ -57,6 +57,32 @@ const errorSchema = z.object({
 });
 
 export abstract class BaseApi {
+  /** For endpoints that answer with a file instead of JSON */
+  protected async download(cb: () => Promise<Response>): Promise<Blob> {
+    let response: Response;
+
+    try {
+      response = await cb();
+    } catch {
+      throw new ApiError({
+        statusCode: 599,
+        message:
+          "A network error occurred. Please check your internet connection",
+      });
+    }
+
+    if (!response.ok) {
+      // The error body is JSON, so the regular call handling turns it into an ApiError
+      await this.call(() => Promise.resolve(response));
+      throw new ApiError({
+        statusCode: response.status,
+        message: "Something went wrong",
+      });
+    }
+
+    return await response.blob();
+  }
+
   protected async call<
     T extends Promise<Response>,
     B = Awaited<ReturnType<Awaited<T>["json"]>>,
