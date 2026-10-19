@@ -15,7 +15,6 @@ import {
 import { Separator } from "@repo/ui/components/ui/separator";
 import { Link } from "@tanstack/react-router";
 import { BanknoteIcon, TagIcon, UsersIcon } from "lucide-react";
-import { useTranslation } from "react-i18next";
 import { CommunityPrice } from "./community-price";
 import type { CommunityTableProps } from "./community-table";
 
@@ -27,12 +26,8 @@ export const CommunityCards = ({
   selection,
   showLead,
 }: CommunityTableProps) => {
-  const { t } = useTranslation();
-
   if (communities.length === 0) {
-    return (
-      <p className="text-muted-foreground">{t("adminCommunities.empty")}</p>
-    );
+    return <p className="text-muted-foreground">No communities found.</p>;
   }
 
   return (
@@ -76,22 +71,22 @@ export const CommunityCards = ({
               />
               <CardAction>
                 <RowActions
-                  cancelLabel={t("adminCommunities.cancel")}
-                  deleteDescription={t("adminCommunities.deleteDescription")}
-                  deleteLabel={t("adminCommunities.delete")}
-                  deleteTitle={t("adminCommunities.deleteTitle")}
+                  cancelLabel="Cancel"
+                  deleteDescription="This permanently deletes the community. This action cannot be undone."
+                  deleteLabel="Delete"
+                  deleteTitle="Delete this community?"
                   edit={
                     <Link
                       params={{ communityId: community.communityId }}
                       to="/admin/communities/$communityId/edit"
                     />
                   }
-                  editLabel={t("adminCommunities.edit")}
+                  editLabel="Edit"
                   isDeleting={
                     removingCommunityId === community.communityId && isMutating
                   }
                   isDisabled={isMutating}
-                  menuLabel={t("adminCommunities.actions")}
+                  menuLabel="Actions"
                   onDelete={() => onRemove(community.communityId)}
                 />
               </CardAction>
@@ -103,17 +98,17 @@ export const CommunityCards = ({
                   facts={[
                     {
                       icon: UsersIcon,
-                      label: t("adminCommunities.members"),
+                      label: "Members",
                       value: formatNumber(community.memberCount),
                     },
                     {
                       icon: TagIcon,
-                      label: t("adminCommunities.price"),
+                      label: "Price",
                       value: <CommunityPrice community={community} />,
                     },
                     {
                       icon: BanknoteIcon,
-                      label: t("adminCommunities.revenue"),
+                      label: "Est. revenue",
                       value:
                         community.estMonthlyRevenue === null
                           ? "—"

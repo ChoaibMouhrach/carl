@@ -12,7 +12,6 @@ import { Spinner } from "@repo/ui/components/ui/spinner";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { Controller, useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import z from "zod";
 
@@ -23,7 +22,6 @@ const schema = z.object({
 type Output = z.output<typeof schema>;
 
 export const ChangeEmail = ({ email }: { email: string }) => {
-  const { t } = useTranslation();
   const form = useForm({
     defaultValues: { email: "" },
     resolver: zodResolver(schema),
@@ -40,7 +38,7 @@ export const ChangeEmail = ({ email }: { email: string }) => {
     onError,
     onSuccess: () => {
       form.reset();
-      toast.success(t("settings.emailChange.requestedToast"));
+      toast.success("Check your current email to approve this change.");
     },
   });
 
@@ -48,7 +46,7 @@ export const ChangeEmail = ({ email }: { email: string }) => {
     <form onSubmit={form.handleSubmit((output) => mutation.mutate(output))}>
       <FieldGroup>
         <Field>
-          <FieldLabel>{t("settings.profile.email")}</FieldLabel>
+          <FieldLabel>Email</FieldLabel>
           <CustomInput disabled value={email} />
         </Field>
         <Controller
@@ -56,9 +54,7 @@ export const ChangeEmail = ({ email }: { email: string }) => {
           name="email"
           render={({ field, fieldState }) => (
             <Field>
-              <FieldLabel htmlFor={field.name}>
-                {t("settings.emailChange.newEmail")}
-              </FieldLabel>
+              <FieldLabel htmlFor={field.name}>New email address</FieldLabel>
               <CustomInput
                 {...field}
                 id={field.name}
@@ -71,7 +67,7 @@ export const ChangeEmail = ({ email }: { email: string }) => {
         />
         <Button disabled={mutation.isPending} type="submit" className="w-fit">
           {mutation.isPending && <Spinner />}
-          {t("settings.emailChange.submit")}
+          Change email address
         </Button>
       </FieldGroup>
     </form>

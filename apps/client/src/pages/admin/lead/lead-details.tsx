@@ -1,3 +1,4 @@
+import { urlFieldLabels } from "@/lib/lead";
 import { api } from "@/api";
 import {
   Card,
@@ -5,7 +6,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@repo/ui/components/ui/card";
-import { useTranslation } from "react-i18next";
 
 type Lead = Awaited<ReturnType<typeof api.lead.show>>["lead"];
 
@@ -23,7 +23,6 @@ const linkFields = [
 ] as const;
 
 export const LeadDetails = ({ lead }: LeadDetailsProps) => {
-  const { t } = useTranslation();
   const links = linkFields.flatMap((field) => {
     const url = lead[field];
     return url ? [{ field, url }] : [];
@@ -32,23 +31,19 @@ export const LeadDetails = ({ lead }: LeadDetailsProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{t("adminLead.details")}</CardTitle>
+        <CardTitle>Details</CardTitle>
       </CardHeader>
       <CardContent>
         <dl className="grid gap-4">
           <div>
-            <dt className="text-sm text-muted-foreground">
-              {t("adminLead.location")}
-            </dt>
-            <dd>{lead.location ?? t("adminLead.notSet")}</dd>
+            <dt className="text-sm text-muted-foreground">Location</dt>
+            <dd>{lead.location ?? "Not set"}</dd>
           </div>
           <div>
-            <dt className="text-sm text-muted-foreground">
-              {t("adminLead.emails")}
-            </dt>
+            <dt className="text-sm text-muted-foreground">Emails</dt>
             <dd>
               {lead.emails.length === 0 ? (
-                t("adminLead.notSet")
+                "Not set"
               ) : (
                 <ul className="space-y-1">
                   {lead.emails.map((email) => (
@@ -63,26 +58,22 @@ export const LeadDetails = ({ lead }: LeadDetailsProps) => {
             </dd>
           </div>
           <div>
-            <dt className="text-sm text-muted-foreground">
-              {t("adminLead.bio")}
-            </dt>
+            <dt className="text-sm text-muted-foreground">Bio</dt>
             <dd className="whitespace-pre-wrap wrap-anywhere">
-              {lead.bio ?? t("adminLead.notSet")}
+              {lead.bio ?? "Not set"}
             </dd>
           </div>
           <div>
-            <dt className="text-sm text-muted-foreground">
-              {t("adminLead.links")}
-            </dt>
+            <dt className="text-sm text-muted-foreground">Links</dt>
             <dd>
               {links.length === 0 ? (
-                t("adminLead.noLinks")
+                "No links yet."
               ) : (
                 <ul className="space-y-1">
                   {links.map(({ field, url }) => (
                     <li className="break-all" key={field}>
                       <span className="text-muted-foreground">
-                        {t(`leadForm.${field}`)}:{" "}
+                        {urlFieldLabels[field]}:{" "}
                       </span>
                       <a
                         className="hover:underline"

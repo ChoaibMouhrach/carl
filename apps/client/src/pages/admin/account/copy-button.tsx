@@ -1,7 +1,6 @@
 import { Button } from "@repo/ui/components/ui/button";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 interface CopyButtonProps {
@@ -9,26 +8,25 @@ interface CopyButtonProps {
 }
 
 export const CopyButton = ({ value }: CopyButtonProps) => {
-  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(value);
     } catch {
-      toast.error(t("settings.agents.copyFailed"));
+      toast.error("Could not copy. Select the text and copy it.");
       return;
     }
 
     setCopied(true);
-    toast.success(t("settings.agents.copied"));
+    toast.success("Copied.");
     setTimeout(() => setCopied(false), 2_000);
   };
 
   return (
     <Button onClick={copy} type="button" variant="outline">
       {copied ? <CheckIcon /> : <CopyIcon />}
-      {t("settings.agents.copy")}
+      Copy
     </Button>
   );
 };

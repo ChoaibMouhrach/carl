@@ -23,7 +23,6 @@ import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeftIcon } from "lucide-react";
-import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { CampaignHeader } from "./campaign-header";
 import { CampaignLeadCards } from "./campaign-lead-cards";
@@ -41,7 +40,6 @@ const findStage = (value: string): StageNumber | undefined =>
   stageNumbers.find((stage) => String(stage) === value);
 
 export const Campaign = () => {
-  const { t } = useTranslation();
   const { campaignId } = adminCampaignRoute.useParams();
   const searchParams = adminCampaignRoute.useSearch();
   const { view, setView } = useView();
@@ -71,7 +69,7 @@ export const Campaign = () => {
       api.campaign.update({ campaignId }, { status }),
     onError,
     onSuccess: async () => {
-      toast.success(t("adminCampaign.statusUpdated"));
+      toast.success("Campaign status updated.");
       await invalidateCampaignData(queryClient);
     },
   });
@@ -81,7 +79,7 @@ export const Campaign = () => {
       api.campaign.scrape({ campaignId }, { replace }),
     onError,
     onSuccess: async () => {
-      toast.success(t("adminCampaign.scrapeStarted"));
+      toast.success("Scrape started.");
       selection.clear();
       await invalidateCampaignData(queryClient);
     },
@@ -139,7 +137,7 @@ export const Campaign = () => {
         to="/admin/campaigns"
       >
         <ArrowLeftIcon className="size-4" />
-        {t("adminCampaign.back")}
+        Back to campaigns
       </Link>
       <CampaignHeader
         campaign={campaign.data.campaign}
@@ -162,14 +160,14 @@ export const Campaign = () => {
         >
           <TabsList variant="line">
             <TabsTrigger value={allStages}>
-              {t("adminCampaign.allStages")}
+              All stages
               <Badge variant="secondary">
                 {campaign.data.campaign.leadCount}
               </Badge>
             </TabsTrigger>
             {stages.map((stage) => (
               <TabsTrigger key={stage.stage} value={String(stage.stage)}>
-                {t("adminCampaign.stage", { number: stage.stage })}
+                {`Stage ${stage.stage}`}
                 <Badge variant="secondary">{stage.total}</Badge>
               </TabsTrigger>
             ))}

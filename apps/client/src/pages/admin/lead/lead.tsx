@@ -7,7 +7,6 @@ import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeftIcon } from "lucide-react";
-import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { TableSkeleton } from "@/components/table-skeleton";
 import { LeadCommunities } from "./lead-communities";
@@ -15,7 +14,6 @@ import { LeadDetails } from "./lead-details";
 import { LeadHeader } from "./lead-header";
 
 export const Lead = () => {
-  const { t } = useTranslation();
   const { leadId } = adminLeadRoute.useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -30,7 +28,7 @@ export const Lead = () => {
     mutationFn: () => api.lead.remove({ leadId }),
     onError,
     onSuccess: async () => {
-      toast.success(t("adminLeads.deleted"));
+      toast.success("Lead deleted.");
       await navigate({ to: "/admin/leads", search: { page: 1 } });
       await invalidateLeadData(queryClient);
     },
@@ -40,7 +38,7 @@ export const Lead = () => {
     mutationFn: (communityId: number) => api.community.remove({ communityId }),
     onError,
     onSuccess: async () => {
-      toast.success(t("adminCommunities.deleted"));
+      toast.success("Community deleted.");
       await invalidateLeadData(queryClient);
     },
   });
@@ -91,7 +89,7 @@ export const Lead = () => {
         to="/admin/leads"
       >
         <ArrowLeftIcon className="size-4" />
-        {t("adminLead.back")}
+        Leads
       </Link>
       <LeadHeader
         isRemovePending={removeLead.isPending}

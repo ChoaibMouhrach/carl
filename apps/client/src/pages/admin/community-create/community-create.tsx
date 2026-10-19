@@ -8,7 +8,6 @@ import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useDebounce } from "use-debounce";
 import {
@@ -17,7 +16,6 @@ import {
 } from "../communities/community-form";
 
 export const CommunityCreate = () => {
-  const { t } = useTranslation();
   const { leadId } = adminCommunityCreateRoute.useSearch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -45,7 +43,7 @@ export const CommunityCreate = () => {
     },
     onError,
     onSuccess: async (_, values) => {
-      toast.success(t("adminCommunities.created"));
+      toast.success("Community created.");
       await invalidateLeadData(queryClient);
 
       if (leadId === undefined) {
@@ -84,7 +82,7 @@ export const CommunityCreate = () => {
           render={<Link search={{ page: 1 }} to="/admin/communities" />}
           variant="outline"
         >
-          {t("communityForm.cancel")}
+          Cancel
         </Button>
       }
       initialLead={initialLead}

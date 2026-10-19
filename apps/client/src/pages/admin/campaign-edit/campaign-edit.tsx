@@ -7,7 +7,6 @@ import { Card, CardContent } from "@repo/ui/components/ui/card";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   CampaignForm,
@@ -15,7 +14,6 @@ import {
 } from "../campaigns/campaign-form";
 
 export const CampaignEdit = () => {
-  const { t } = useTranslation();
   const { campaignId } = adminCampaignEditRoute.useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -31,7 +29,7 @@ export const CampaignEdit = () => {
       api.campaign.update({ campaignId }, values),
     onError,
     onSuccess: async () => {
-      toast.success(t("adminCampaigns.updatedToast"));
+      toast.success("Campaign updated.");
       await invalidateCampaignData(queryClient);
       await navigate({
         to: "/admin/campaigns/$campaignId",
@@ -78,7 +76,7 @@ export const CampaignEdit = () => {
           }
           variant="outline"
         >
-          {t("campaignForm.cancel")}
+          Cancel
         </Button>
       }
       isPending={update.isPending}

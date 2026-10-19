@@ -16,14 +16,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PlusIcon } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@repo/ui/components/ui/button";
-import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { LeadCards } from "./lead-cards";
 import { LeadFilters } from "./lead-filters";
 import { LeadTable } from "./lead-table";
 
 export const Leads = () => {
-  const { t } = useTranslation();
   const searchParams = adminLeadsRoute.useSearch();
   const { view, setView } = useView();
   const navigate = adminLeadsRoute.useNavigate();
@@ -43,7 +41,7 @@ export const Leads = () => {
     mutationFn: (leadId: number) => api.lead.remove({ leadId }),
     onError,
     onSuccess: async () => {
-      toast.success(t("adminLeads.deleted"));
+      toast.success("Lead deleted.");
       await invalidateLeadData(queryClient);
     },
   });
@@ -83,7 +81,7 @@ export const Leads = () => {
             createAction={
               <Button render={<Link to="/admin/leads/new" />}>
                 <PlusIcon />
-                {t("adminLeads.create")}
+                New lead
               </Button>
             }
             exportAction={

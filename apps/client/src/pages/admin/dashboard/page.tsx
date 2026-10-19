@@ -1,4 +1,3 @@
-import { useTranslation } from "react-i18next";
 import {
   AdminPage,
   AdminPageContent,
@@ -8,14 +7,13 @@ import {
 } from "@/components/admin-page";
 
 export const AdminDashboardPage = () => {
-  const { t } = useTranslation();
-
   return (
     <AdminPage>
       <AdminPageHeader>
-        <AdminPageTitle>{t("dashboard.title")}</AdminPageTitle>
+        <AdminPageTitle>Start with your product.</AdminPageTitle>
         <AdminPageDescription>
-          {t("dashboard.description")}
+          Your SaaS foundation is ready. Add a focused domain module when you
+          know what your customers need.
         </AdminPageDescription>
       </AdminPageHeader>
       <AdminPageContent></AdminPageContent>

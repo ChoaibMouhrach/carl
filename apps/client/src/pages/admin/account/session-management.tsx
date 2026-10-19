@@ -14,7 +14,6 @@ import { Button } from "@repo/ui/components/ui/button";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 const formatDate = (value: Date | string) =>
@@ -24,7 +23,6 @@ const formatDate = (value: Date | string) =>
   }).format(new Date(value));
 
 export const SessionManagement = () => {
-  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [showSignOutOthers, setShowSignOutOthers] = useState(false);
   const currentSession = authClient.useSession();
@@ -41,7 +39,7 @@ export const SessionManagement = () => {
       unwrapAuthResponse(authClient.revokeSession({ token })),
     onError,
     onSuccess: async () => {
-      toast.success(t("settings.sessions.signedOutToast"));
+      toast.success("Device signed out.");
       await invalidate();
     },
   });
@@ -54,7 +52,7 @@ export const SessionManagement = () => {
     },
     onSuccess: async () => {
       setShowSignOutOthers(false);
-      toast.success(t("settings.sessions.othersSignedOutToast"));
+      toast.success("Other devices signed out.");
       await invalidate();
     },
   });
@@ -83,19 +81,15 @@ export const SessionManagement = () => {
               <div className="min-w-0 space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-medium">
-                    {session.userAgent ?? t("settings.sessions.unknownDevice")}
+                    {session.userAgent ?? "Unknown device"}
                   </p>
-                  {isCurrent && <Badge>{t("settings.sessions.current")}</Badge>}
+                  {isCurrent && <Badge>Current device</Badge>}
                 </div>
                 <p className="text-muted-foreground text-sm">
-                  {t("settings.sessions.signedIn", {
-                    date: formatDate(session.createdAt),
-                  })}
+                  {`Signed in ${formatDate(session.createdAt)}`}
                 </p>
                 <p className="text-muted-foreground text-sm">
-                  {t("settings.sessions.ipAddress", {
-                    ip: session.ipAddress ?? t("settings.sessions.unknownIp"),
-                  })}
+                  {`IP address: ${session.ipAddress ?? "Unknown IP address"}`}
                 </p>
               </div>
               {!isCurrent && (
@@ -106,7 +100,7 @@ export const SessionManagement = () => {
                 >
                   {revokeSession.isPending &&
                     revokeSession.variables === session.token && <Spinner />}
-                  {t("settings.sessions.signOut")}
+                  Sign out
                 </Button>
               )}
             </div>
@@ -121,7 +115,7 @@ export const SessionManagement = () => {
           onClick={() => setShowSignOutOthers(true)}
           variant="outline"
         >
-          {t("settings.sessions.signOutOthers")}
+          Sign out other devices
         </Button>
       )}
 
@@ -134,11 +128,10 @@ export const SessionManagement = () => {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("settings.sessions.dialog.title")}
-            </AlertDialogTitle>
+            <AlertDialogTitle>Sign out other devices?</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("settings.sessions.dialog.description")}
+              This will end every other active session. Your current session
+              will stay active.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -147,14 +140,14 @@ export const SessionManagement = () => {
               onClick={() => setShowSignOutOthers(false)}
               variant="outline"
             >
-              {t("settings.sessions.dialog.keep")}
+              Keep devices signed in
             </Button>
             <Button
               disabled={revokeOtherSessions.isPending}
               onClick={() => revokeOtherSessions.mutate()}
             >
               {revokeOtherSessions.isPending && <Spinner />}
-              {t("settings.sessions.dialog.confirm")}
+              Sign out other devices
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

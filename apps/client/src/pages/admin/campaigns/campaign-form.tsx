@@ -13,7 +13,6 @@ import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
 import z from "zod";
 
 export interface CampaignFormValues {
@@ -71,8 +70,6 @@ export const CampaignForm = ({
   isPending,
   onSubmit,
 }: CampaignFormProps) => {
-  const { t } = useTranslation();
-
   const form = useForm<FormInput>({
     defaultValues: {
       name: campaign?.name ?? "",
@@ -94,7 +91,7 @@ export const CampaignForm = ({
             Number(input.minMonthlyPriceUsd) <=
               Number(input.maxMonthlyPriceUsd),
           {
-            message: t("campaignForm.rangeError"),
+            message: "Minimum cannot be greater than maximum.",
             path: ["maxMonthlyPriceUsd"],
           },
         )
@@ -103,7 +100,10 @@ export const CampaignForm = ({
             input.minMembers === "" ||
             input.maxMembers === "" ||
             Number(input.minMembers) <= Number(input.maxMembers),
-          { message: t("campaignForm.rangeError"), path: ["maxMembers"] },
+          {
+            message: "Minimum cannot be greater than maximum.",
+            path: ["maxMembers"],
+          },
         ),
     ),
   });
@@ -133,47 +133,51 @@ export const CampaignForm = ({
           <div className="grid gap-4">
             <TextField
               control={form.control}
-              label={t("campaignForm.name")}
+              label="Name"
               name="name"
-              placeholder={t("campaignForm.namePlaceholder")}
+              placeholder="Fitness coaches, Q4"
               required
             />
             <TextField
               control={form.control}
-              label={t("campaignForm.descriptionLabel")}
+              label="Description"
               multiline
               name="description"
-              placeholder={t("campaignForm.descriptionPlaceholder")}
+              placeholder="Who this campaign targets and why."
             />
             <TagsField
               control={form.control}
-              label={t("campaignForm.keywords")}
+              label="Search keywords"
               max={maxKeywords}
               name="keywords"
-              placeholder={t("campaignForm.keywordsPlaceholder")}
+              placeholder="Type a keyword and press Enter"
               required
             />
             <div className="grid gap-4 sm:grid-cols-2">
               <SelectField
                 control={form.control}
-                label={t("campaignForm.types")}
+                label="Type"
                 name="type"
                 options={skoolVisibilities.map((value) => ({
                   value,
-                  label: t(`campaignForm.visibility.${value}`),
+                  label: { public: "Public", private: "Private" }[value],
                 }))}
-                placeholder={t("campaignForm.typesPlaceholder")}
+                placeholder="Select a type"
                 required
               />
               <SelectField
                 control={form.control}
-                label={t("campaignForm.pricingModels")}
+                label="Pricing model"
                 name="pricingModel"
                 options={skoolPriceFilters.map((value) => ({
                   value,
-                  label: t(`campaignForm.price.${value}`),
+                  label: {
+                    free: "Free",
+                    paid: "Paid",
+                    "free-trial": "Free trial",
+                  }[value],
                 }))}
-                placeholder={t("campaignForm.pricingModelsPlaceholder")}
+                placeholder="Select a pricing model"
                 required
               />
             </div>
@@ -181,37 +185,37 @@ export const CampaignForm = ({
               <TextField
                 control={form.control}
                 inputMode="decimal"
-                label={t("campaignForm.minMonthlyPrice")}
+                label="Min price per month ($)"
                 name="minMonthlyPriceUsd"
-                placeholder={t("campaignForm.minMonthlyPricePlaceholder")}
+                placeholder="No minimum"
               />
               <TextField
                 control={form.control}
                 inputMode="decimal"
-                label={t("campaignForm.maxMonthlyPrice")}
+                label="Max price per month ($)"
                 name="maxMonthlyPriceUsd"
-                placeholder={t("campaignForm.maxMonthlyPricePlaceholder")}
+                placeholder="No maximum"
               />
               <TextField
                 control={form.control}
                 inputMode="numeric"
-                label={t("campaignForm.minMembers")}
+                label="Min members"
                 name="minMembers"
-                placeholder={t("campaignForm.minMembersPlaceholder")}
+                placeholder="No minimum"
               />
               <TextField
                 control={form.control}
                 inputMode="numeric"
-                label={t("campaignForm.maxMembers")}
+                label="Max members"
                 name="maxMembers"
-                placeholder={t("campaignForm.maxMembersPlaceholder")}
+                placeholder="No maximum"
               />
             </div>
           </div>
           <div className="mt-6 flex gap-2">
             <Button disabled={isPending} type="submit">
               {isPending && <Spinner />}
-              {t("campaignForm.save")}
+              Save
             </Button>
             {cancelAction}
           </div>

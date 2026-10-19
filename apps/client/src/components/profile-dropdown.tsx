@@ -9,7 +9,6 @@ import {
 import { Button } from "@repo/ui/components/ui/button";
 import { ChevronsUpDown } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { onError } from "@/lib/base-api";
 import { authClient, unwrapAuthResponse } from "@/lib/auth-client";
@@ -32,9 +31,8 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   className,
 }) => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
 
-  const roleLabel = t("roles.admin");
+  const roleLabel = "Admin";
 
   const signOut = useMutation({
     mutationFn: () => {
@@ -77,14 +75,14 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuGroup>
-          <DropdownMenuLabel>{t("profile.myAccount")}</DropdownMenuLabel>
+          <DropdownMenuLabel>My Account</DropdownMenuLabel>
           <DropdownMenuItem
             render={<Link to="/admin/account" onClick={() => onNavigate?.()} />}
           >
-            {t("profile.settings")}
+            Settings
           </DropdownMenuItem>
           <DropdownMenuItem disabled={signOut.isPending} onClick={onSignOut}>
-            {t("profile.signOut")} {signOut.isPending && <Spinner />}
+            Sign out {signOut.isPending && <Spinner />}
           </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>

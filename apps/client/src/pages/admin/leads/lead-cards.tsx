@@ -17,7 +17,6 @@ import {
 import { Separator } from "@repo/ui/components/ui/separator";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Building2Icon, CalendarIcon, GlobeIcon } from "lucide-react";
-import { useTranslation } from "react-i18next";
 
 type Lead = Awaited<ReturnType<typeof api.lead.list>>["leads"][number];
 
@@ -36,11 +35,10 @@ export const LeadCards = ({
   removingLeadId,
   selection,
 }: LeadCardsProps) => {
-  const { t } = useTranslation();
   const navigate = useNavigate();
 
   if (leads.length === 0) {
-    return <p className="text-muted-foreground">{t("adminLeads.empty")}</p>;
+    return <p className="text-muted-foreground">No leads found.</p>;
   }
 
   return (
@@ -71,20 +69,20 @@ export const LeadCards = ({
               />
               <CardAction>
                 <RowActions
-                  cancelLabel={t("adminLeads.cancel")}
-                  deleteDescription={t("adminLeads.deleteDescription")}
-                  deleteLabel={t("adminLeads.delete")}
-                  deleteTitle={t("adminLeads.deleteTitle")}
+                  cancelLabel="Cancel"
+                  deleteDescription="This permanently deletes the lead and all of their communities. This action cannot be undone."
+                  deleteLabel="Delete"
+                  deleteTitle="Delete this lead?"
                   edit={
                     <Link
                       params={{ leadId: lead.leadId }}
                       to="/admin/leads/$leadId/edit"
                     />
                   }
-                  editLabel={t("adminLeads.edit")}
+                  editLabel="Edit"
                   isDeleting={removingLeadId === lead.leadId && isMutating}
                   isDisabled={isMutating}
-                  menuLabel={t("adminLeads.actions")}
+                  menuLabel="Actions"
                   onDelete={() => onRemove(lead.leadId)}
                 />
               </CardAction>
@@ -96,7 +94,7 @@ export const LeadCards = ({
                   facts={[
                     {
                       icon: GlobeIcon,
-                      label: t("adminLeads.website"),
+                      label: "Website",
                       value: lead.website ? (
                         <a
                           className="hover:underline"
@@ -108,19 +106,17 @@ export const LeadCards = ({
                           {lead.website}
                         </a>
                       ) : (
-                        <span className="text-muted-foreground">
-                          {t("adminLeads.noWebsite")}
-                        </span>
+                        <span className="text-muted-foreground">None</span>
                       ),
                     },
                     {
                       icon: Building2Icon,
-                      label: t("adminLeads.communities"),
+                      label: "Communities",
                       value: lead.communityCount,
                     },
                     {
                       icon: CalendarIcon,
-                      label: t("adminLeads.added"),
+                      label: "Added",
                       value: formatDate(lead.createdAt),
                     },
                   ]}

@@ -4,23 +4,20 @@ import {
   AdminPageHeader,
   AdminPageTitle,
 } from "@/components/admin-page";
-import { useTranslation } from "react-i18next";
 import { CampaignCreate } from "./campaign-create";
 
 export const AdminCampaignCreatePage = () => {
-  const { t } = useTranslation();
-
   return (
     <AdminPage
       breadcrumbs={[
-        { label: t("nav.campaigns"), href: "/admin/campaigns" },
-        { label: t("campaignForm.createTitle") },
+        { label: "Campaigns", href: "/admin/campaigns" },
+        { label: "New campaign" },
       ]}
     >
       <AdminPageHeader>
-        <AdminPageTitle>{t("campaignForm.createTitle")}</AdminPageTitle>
+        <AdminPageTitle>New campaign</AdminPageTitle>
         <AdminPageDescription>
-          {t("campaignForm.description")}
+          Name the campaign and say what it is for.
         </AdminPageDescription>
       </AdminPageHeader>
       <CampaignCreate />

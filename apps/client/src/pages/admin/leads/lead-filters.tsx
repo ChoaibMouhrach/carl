@@ -8,7 +8,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/ui/select";
-import { useTranslation } from "react-i18next";
 
 type SortBy = "createdAt" | "name" | "communityCount";
 type SortOrder = "asc" | "desc";
@@ -40,30 +39,28 @@ export const LeadFilters = ({
   sortBy,
   sortOrder,
 }: LeadFiltersProps) => {
-  const { t } = useTranslation();
-
   const websiteItems = [
-    { value: "all", label: t("adminLeads.allWebsites") },
-    { value: "true", label: t("adminLeads.withWebsite") },
-    { value: "false", label: t("adminLeads.withoutWebsite") },
+    { value: "all", label: "Any website" },
+    { value: "true", label: "Has website" },
+    { value: "false", label: "No website" },
   ];
 
   const sortByItems: { value: SortBy; label: string }[] = [
-    { value: "createdAt", label: t("adminLeads.sortCreatedAt") },
-    { value: "name", label: t("adminLeads.sortName") },
-    { value: "communityCount", label: t("adminLeads.sortCommunityCount") },
+    { value: "createdAt", label: "Date added" },
+    { value: "name", label: "Name" },
+    { value: "communityCount", label: "Communities" },
   ];
 
   const sortOrderItems: { value: SortOrder; label: string }[] = [
-    { value: "desc", label: t("adminLeads.descending") },
-    { value: "asc", label: t("adminLeads.ascending") },
+    { value: "desc", label: "Descending" },
+    { value: "asc", label: "Ascending" },
   ];
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Search
         onSearch={onSearch}
-        placeholder={t("adminLeads.search")}
+        placeholder="Search by name or username"
         value={search}
       />
       <Select
@@ -75,12 +72,12 @@ export const LeadFilters = ({
         }
         value={hasWebsite === undefined ? "all" : String(hasWebsite)}
       >
-        <SelectTrigger aria-label={t("adminLeads.websiteFilter")}>
+        <SelectTrigger aria-label="Website">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
-            <SelectLabel>{t("adminLeads.websiteFilter")}</SelectLabel>
+            <SelectLabel>Website</SelectLabel>
             {websiteItems.map((item) => (
               <SelectItem key={item.value} value={item.value}>
                 {item.label}
@@ -97,12 +94,12 @@ export const LeadFilters = ({
         }}
         value={sortBy}
       >
-        <SelectTrigger aria-label={t("adminLeads.sortBy")}>
+        <SelectTrigger aria-label="Sort by">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
-            <SelectLabel>{t("adminLeads.sortBy")}</SelectLabel>
+            <SelectLabel>Sort by</SelectLabel>
             {sortByItems.map((item) => (
               <SelectItem key={item.value} value={item.value}>
                 {item.label}
@@ -119,12 +116,12 @@ export const LeadFilters = ({
         }}
         value={sortOrder}
       >
-        <SelectTrigger aria-label={t("adminLeads.sortOrder")}>
+        <SelectTrigger aria-label="Order">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
-            <SelectLabel>{t("adminLeads.sortOrder")}</SelectLabel>
+            <SelectLabel>Order</SelectLabel>
             {sortOrderItems.map((item) => (
               <SelectItem key={item.value} value={item.value}>
                 {item.label}

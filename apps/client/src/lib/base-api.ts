@@ -3,8 +3,8 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { serverErrorCodes, type ServerErrorCode } from "@repo/constants/errors";
 import { AuthClientError } from "@/lib/auth-client";
-import { getAuthErrorTranslationCode } from "@/lib/auth-errors";
-import i18n from "@/lib/i18n";
+import { getAuthErrorCode } from "@/lib/auth-errors";
+import { serverErrorMessages } from "@/lib/server-errors";
 
 export type FieldError = {
   field: string;
@@ -25,11 +25,11 @@ export const onError = (error: Error) => {
     error instanceof ApiError
       ? error.code
       : error instanceof AuthClientError
-        ? getAuthErrorTranslationCode(error.code)
+        ? getAuthErrorCode(error.code)
         : undefined;
 
   if (errorCode && isServerErrorCode(errorCode)) {
-    message = i18n.t(`serverErrors.${errorCode}`);
+    message = serverErrorMessages[errorCode];
   }
 
   toast.error(message);

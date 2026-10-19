@@ -1,5 +1,4 @@
 import { authClient, unwrapAuthResponse } from "@/lib/auth-client";
-import i18n from "@/lib/i18n";
 import { PasswordInput } from "@/components/password-input";
 import { Button } from "@repo/ui/components/ui/button";
 import {
@@ -16,7 +15,6 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";
 import { Controller, useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
 import z from "zod";
 import { Separator } from "@repo/ui/components/ui/separator";
 
@@ -26,7 +24,7 @@ const schema = z
     passwordConfirmation: z.string().min(8).max(60),
   })
   .refine((data) => data.password === data.passwordConfirmation, {
-    error: () => i18n.t("validation.passwordsMatch"),
+    error: () => "Passwords don't match",
     path: ["passwordConfirmation"],
   });
 
@@ -34,7 +32,6 @@ type Output = z.output<typeof schema>;
 
 export const ResetPassword = () => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
   const search = resetPasswordRoute.useSearch();
 
   const form = useForm({
@@ -55,7 +52,7 @@ export const ResetPassword = () => {
       );
     },
     onSuccess: () => {
-      toast.success(t("auth.resetPassword.successToast"));
+      toast.success("Password reset successfully");
       navigate({ to: "/sign-in" });
     },
     onError,
@@ -73,9 +70,7 @@ export const ResetPassword = () => {
           control={form.control}
           render={({ field, fieldState }) => (
             <Field>
-              <FieldLabel htmlFor={field.name}>
-                {t("auth.resetPassword.password")}
-              </FieldLabel>
+              <FieldLabel htmlFor={field.name}>Password</FieldLabel>
               <PasswordInput
                 {...field}
                 id={field.name}
@@ -92,9 +87,7 @@ export const ResetPassword = () => {
           control={form.control}
           render={({ field, fieldState }) => (
             <Field>
-              <FieldLabel htmlFor={field.name}>
-                {t("auth.resetPassword.confirmPassword")}
-              </FieldLabel>
+              <FieldLabel htmlFor={field.name}>Confirm password</FieldLabel>
               <PasswordInput
                 {...field}
                 id={field.name}
@@ -107,13 +100,12 @@ export const ResetPassword = () => {
         />
 
         <Button type="submit" disabled={resetPassword.isPending}>
-          {resetPassword.isPending && <Spinner />}{" "}
-          {t("auth.resetPassword.submit")}
+          {resetPassword.isPending && <Spinner />} Reset password
         </Button>
 
         <div className="flex items-center gap-4 text-muted-foreground">
           <Separator className="shrink flex-1" />
-          <span className="text-sm">{t("common.or")}</span>
+          <span className="text-sm">OR</span>
           <Separator className="shrink flex-1" />
         </div>
 
@@ -124,7 +116,7 @@ export const ResetPassword = () => {
           nativeButton={false}
           render={<Link to="/sign-in" />}
         >
-          {t("common.signIn")}
+          Sign in
         </Button>
       </FieldGroup>
     </form>

@@ -4,7 +4,6 @@ import { invalidateCampaignData } from "@/lib/invalidate";
 import { Button } from "@repo/ui/components/ui/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   CampaignForm,
@@ -12,7 +11,6 @@ import {
 } from "../campaigns/campaign-form";
 
 export const CampaignCreate = () => {
-  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -20,7 +18,7 @@ export const CampaignCreate = () => {
     mutationFn: (values: CampaignFormValues) => api.campaign.create(values),
     onError,
     onSuccess: async ({ campaign }) => {
-      toast.success(t("adminCampaigns.created"));
+      toast.success("Campaign created.");
       await invalidateCampaignData(queryClient);
       await navigate({
         to: "/admin/campaigns/$campaignId",
@@ -37,7 +35,7 @@ export const CampaignCreate = () => {
           render={<Link search={{ page: 1 }} to="/admin/campaigns" />}
           variant="outline"
         >
-          {t("campaignForm.cancel")}
+          Cancel
         </Button>
       }
       isPending={create.isPending}

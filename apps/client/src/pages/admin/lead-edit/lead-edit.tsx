@@ -8,12 +8,10 @@ import { Card, CardContent } from "@repo/ui/components/ui/card";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { LeadForm, type LeadFormValues } from "../leads/lead-form";
 
 export const LeadEdit = () => {
-  const { t } = useTranslation();
   const { leadId } = adminLeadEditRoute.useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -29,7 +27,7 @@ export const LeadEdit = () => {
       api.lead.update({ leadId }, toLeadUpdate(values)),
     onError,
     onSuccess: async () => {
-      toast.success(t("adminLeads.updated"));
+      toast.success("Lead updated.");
       await invalidateLeadData(queryClient);
       await navigate({ to: "/admin/leads/$leadId", params: { leadId } });
     },
@@ -65,7 +63,7 @@ export const LeadEdit = () => {
           render={<Link params={{ leadId }} to="/admin/leads/$leadId" />}
           variant="outline"
         >
-          {t("leadForm.cancel")}
+          Cancel
         </Button>
       }
       isPending={update.isPending}

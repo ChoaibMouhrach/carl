@@ -6,19 +6,16 @@ import {
   AuthPageHeader,
   AuthPageTitle,
 } from "@/components/auth-page";
-import { useTranslation } from "react-i18next";
 import { ForgotPassword } from "./forgot-password";
 
 export const ForgotPasswordPage = () => {
-  const { t } = useTranslation();
-
   return (
     <AuthPage>
       <AuthPageHeader>
         <AuthLogo />
-        <AuthPageTitle>{t("auth.forgotPassword.title")}</AuthPageTitle>
+        <AuthPageTitle>Forgot password</AuthPageTitle>
         <AuthPageDescription>
-          {t("auth.forgotPassword.subtitle")}
+          {"Enter your email and we'll send you a reset link"}
         </AuthPageDescription>
       </AuthPageHeader>
       <AuthPageContent>

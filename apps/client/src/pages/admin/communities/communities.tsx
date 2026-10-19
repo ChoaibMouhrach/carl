@@ -16,14 +16,12 @@ import { Link } from "@tanstack/react-router";
 import { PlusIcon } from "lucide-react";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { CommunityCards } from "./community-cards";
 import { CommunityFilters } from "./community-filters";
 import { CommunityTable } from "./community-table";
 
 export const Communities = () => {
-  const { t } = useTranslation();
   const searchParams = adminCommunitiesRoute.useSearch();
   const { view, setView } = useView();
   const navigate = adminCommunitiesRoute.useNavigate();
@@ -44,7 +42,7 @@ export const Communities = () => {
     mutationFn: (communityId: number) => api.community.remove({ communityId }),
     onError,
     onSuccess: async () => {
-      toast.success(t("adminCommunities.deleted"));
+      toast.success("Community deleted.");
       await invalidateLeadData(queryClient);
     },
   });
@@ -82,7 +80,7 @@ export const Communities = () => {
             createAction={
               <Button render={<Link to="/admin/communities/new" search={{}} />}>
                 <PlusIcon />
-                {t("adminCommunities.create")}
+                New community
               </Button>
             }
             exportAction={

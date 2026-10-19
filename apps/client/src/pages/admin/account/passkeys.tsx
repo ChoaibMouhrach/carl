@@ -6,7 +6,6 @@ import {
 } from "@/lib/auth-client";
 import { onError } from "@/lib/base-api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { AddPasskeyForm } from "./add-passkey-form";
 import { PasskeyList } from "./passkey-list";
@@ -17,7 +16,6 @@ const isPasskeySupported = () =>
   typeof window.PublicKeyCredential !== "undefined";
 
 export const Passkeys = () => {
-  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   const passkeys = useQuery({
@@ -43,7 +41,7 @@ export const Passkeys = () => {
       if (!isCancelled) onError(error);
     },
     onSuccess: async () => {
-      toast.success(t("settings.passkeys.addedToast"));
+      toast.success("Passkey added.");
       await invalidate();
     },
   });
@@ -53,7 +51,7 @@ export const Passkeys = () => {
       unwrapAuthResponse(authClient.passkey.deletePasskey({ id })),
     onError,
     onSuccess: async () => {
-      toast.success(t("settings.passkeys.removedToast"));
+      toast.success("Passkey removed.");
       await invalidate();
     },
   });
@@ -70,12 +68,12 @@ export const Passkeys = () => {
         />
       ) : (
         <p className="text-muted-foreground text-sm">
-          {t("settings.passkeys.unsupported")}
+          {"This browser doesn't support passkeys."}
         </p>
       )}
       {passkeys.data.length === 0 ? (
         <p className="text-muted-foreground text-sm">
-          {t("settings.passkeys.empty")}
+          {"You haven't added any passkeys yet."}
         </p>
       ) : (
         <PasskeyList

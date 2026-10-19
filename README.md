@@ -20,7 +20,6 @@ pipeline, organised into campaigns.
 - [Observability](#observability)
 - [Scripts](#scripts)
 - [Database & migrations](#database--migrations)
-- [Internationalization](#internationalization)
 - [Testing](#testing)
 - [Deployment](#deployment)
 - [Architecture & conventions](#architecture--conventions)
@@ -43,7 +42,6 @@ the API and the dashboard SPA.
   watch their progress
 - **A single admin account**, created by a first-run setup flow. There is no
   public sign-up
-- **Internationalization** across the whole stack (English, French, Spanish)
 - Rate limiting (Redis-backed), background job queues, and a provider-agnostic
   infrastructure layer
 
@@ -125,7 +123,6 @@ repeated too, and leaving them out searches all of their options.
 | Dashboard (SPA) | Vite + React 19 + [TanStack Router](https://tanstack.com/router) + TanStack Query |
 | UI              | Tailwind CSS v4 + shadcn/ui (shared in `@repo/ui`)                                |
 | Forms           | react-hook-form + Zod                                                             |
-| i18n            | react-i18next, shared catalogs                                                    |
 | Email           | [Resend](https://resend.com)                                                      |
 
 ## Monorepo layout
@@ -138,7 +135,6 @@ apps/
 packages/
   constants/  Shared types & constants (@repo/constants): error codes, campaign enums…
   ui/         Shared shadcn/ui component library (@repo/ui)
-  i18n/       Shared locale config + message catalogs (@repo/i18n)
 ```
 
 The server follows a strict three-layer architecture (controllers → services →
@@ -364,19 +360,6 @@ SQL migrations in `apps/server/drizzle/`. After changing a schema:
 bun run db:generate   # writes a new migration
 bun run db:migrate    # applies it
 ```
-
-## Internationalization
-
-Supported locales: **English (`en`), French (`fr`), Spanish (`es`)**.
-
-- **Shared foundation** — `@repo/i18n` holds the locale config (`locales`,
-  `defaultLocale`, `Locale`, `localeLabels`) and the message catalogs:
-  `messages/app/*` for the dashboard.
-- **Dashboard (react-i18next)** — language is detected in this order:
-  `?lng=` query → `NEXT_LOCALE` cookie → `localStorage` → browser.
-- **Errors** — form validation (Zod) is localized via a custom error map, and
-  API errors carry a stable `code` (`@repo/constants/errors`) that the client
-  translates, falling back to the server's message.
 
 ## Testing
 

@@ -13,7 +13,6 @@ import {
 } from "@repo/ui/components/ui/select";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { Controller, useForm, useWatch } from "react-hook-form";
-import { useTranslation } from "react-i18next";
 import z from "zod";
 import { LeadPicker, type LeadOption } from "./lead-picker";
 
@@ -88,8 +87,6 @@ export const CommunityForm = ({
   onLeadSearch,
   onSubmit,
 }: CommunityFormProps) => {
-  const { t } = useTranslation();
-
   const form = useForm<FormInput>({
     defaultValues: {
       lead: initialLead,
@@ -108,14 +105,14 @@ export const CommunityForm = ({
   });
 
   const priceTypeItems = [
-    { value: "free", label: t("communityForm.free") },
-    { value: "paid", label: t("communityForm.paid") },
+    { value: "free", label: "Free" },
+    { value: "paid", label: "Paid" },
   ];
 
   const intervalItems = [
-    { value: "month", label: t("communityForm.month") },
-    { value: "year", label: t("communityForm.year") },
-    { value: "one_time", label: t("communityForm.oneTime") },
+    { value: "month", label: "Monthly" },
+    { value: "year", label: "Yearly" },
+    { value: "one_time", label: "One-time" },
   ];
 
   const priceType = useWatch({ control: form.control, name: "priceType" });
@@ -124,31 +121,31 @@ export const CommunityForm = ({
     let hasError = false;
 
     if (!input.lead) {
-      form.setError("lead", { message: t("communityForm.leadRequired") });
+      form.setError("lead", { message: "Select a lead." });
       hasError = true;
     }
 
     if (!z.url().safeParse(input.communityUrl).success) {
-      form.setError("communityUrl", { message: t("communityForm.invalidUrl") });
+      form.setError("communityUrl", { message: "Enter a valid URL." });
       hasError = true;
     }
 
     if (!/^\d+$/.test(input.memberCount)) {
       form.setError("memberCount", {
-        message: t("communityForm.invalidNumber"),
+        message: "Enter a whole number.",
       });
       hasError = true;
     }
 
     if (input.priceType === "paid") {
       if (!/^\d+(\.\d{1,2})?$/.test(input.amount)) {
-        form.setError("amount", { message: t("communityForm.invalidAmount") });
+        form.setError("amount", { message: "Enter a valid price." });
         hasError = true;
       }
 
       if (!/^[A-Za-z]{3}$/.test(input.currency)) {
         form.setError("currency", {
-          message: t("communityForm.invalidCurrency"),
+          message: "Use a 3-letter currency code.",
         });
         hasError = true;
       }
@@ -194,16 +191,16 @@ export const CommunityForm = ({
                 render={({ field, fieldState }) => (
                   <Field>
                     <FieldLabel htmlFor={field.name}>
-                      {t("communityForm.lead")}
+                      Lead
                       <RequiredIndicator />
                     </FieldLabel>
                     <LeadPicker
-                      emptyLabel={t("communityForm.noLeads")}
+                      emptyLabel="No leads found."
                       id={field.name}
                       leads={leads}
                       onChange={field.onChange}
                       onSearch={onLeadSearch}
-                      placeholder={t("communityForm.leadPlaceholder")}
+                      placeholder="Search leads by name or username"
                       value={field.value}
                     />
                     {fieldState.invalid && (
@@ -216,39 +213,39 @@ export const CommunityForm = ({
             <TextField
               control={form.control}
               disabled={Boolean(community)}
-              label={t("communityForm.skoolId")}
+              label="Skool ID"
               name="skoolId"
-              placeholder={t("communityForm.skoolIdPlaceholder")}
+              placeholder="0123abcd..."
               required
             />
             <TextField
               control={form.control}
-              label={t("communityForm.name")}
+              label="Slug"
               name="name"
-              placeholder={t("communityForm.namePlaceholder")}
+              placeholder="my-community"
               required
             />
             <TextField
               control={form.control}
-              label={t("communityForm.displayName")}
+              label="Display name"
               name="displayName"
-              placeholder={t("communityForm.displayNamePlaceholder")}
+              placeholder="My Community"
               required
             />
             <TextField
               control={form.control}
               inputMode="url"
-              label={t("communityForm.communityUrl")}
+              label="Community URL"
               name="communityUrl"
-              placeholder={t("communityForm.urlPlaceholder")}
+              placeholder="https://www.skool.com/my-community"
               required
             />
             <TextField
               control={form.control}
               inputMode="numeric"
-              label={t("communityForm.memberCount")}
+              label="Members"
               name="memberCount"
-              placeholder={t("communityForm.memberCountPlaceholder")}
+              placeholder="1200"
               required
             />
             <Controller
@@ -257,7 +254,7 @@ export const CommunityForm = ({
               render={({ field }) => (
                 <Field>
                   <FieldLabel htmlFor={field.name}>
-                    {t("communityForm.priceType")}
+                    Pricing
                     <RequiredIndicator />
                   </FieldLabel>
                   <Select
@@ -291,7 +288,7 @@ export const CommunityForm = ({
                   render={({ field }) => (
                     <Field>
                       <FieldLabel htmlFor={field.name}>
-                        {t("communityForm.interval")}
+                        Billing interval
                         <RequiredIndicator />
                       </FieldLabel>
                       <Select
@@ -324,33 +321,33 @@ export const CommunityForm = ({
                 <TextField
                   control={form.control}
                   inputMode="decimal"
-                  label={t("communityForm.amount")}
+                  label="Price"
                   name="amount"
-                  placeholder={t("communityForm.amountPlaceholder")}
+                  placeholder="49"
                   required
                 />
                 <TextField
                   control={form.control}
-                  label={t("communityForm.currency")}
+                  label="Currency"
                   name="currency"
-                  placeholder={t("communityForm.currencyPlaceholder")}
+                  placeholder="USD"
                   required
                 />
               </>
             )}
             <TextField
               control={form.control}
-              label={t("communityForm.descriptionLabel")}
+              label="Description"
               multiline
               name="description"
-              placeholder={t("communityForm.descriptionPlaceholder")}
+              placeholder="What the community is about"
               wrapperClassName="sm:col-span-2"
             />
           </div>
           <div className="mt-6 flex gap-2">
             <Button disabled={isPending} type="submit">
               {isPending && <Spinner />}
-              {t("communityForm.save")}
+              Save
             </Button>
             {cancelAction}
           </div>

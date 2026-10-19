@@ -4,18 +4,15 @@ import {
   AdminPageHeader,
   AdminPageTitle,
 } from "@/components/admin-page";
-import { useTranslation } from "react-i18next";
 import { Queues } from "./queues";
 
 export const AdminQueuesPage = () => {
-  const { t } = useTranslation();
-
   return (
     <AdminPage>
       <AdminPageHeader>
-        <AdminPageTitle>{t("adminQueues.title")}</AdminPageTitle>
+        <AdminPageTitle>Queues</AdminPageTitle>
         <AdminPageDescription>
-          {t("adminQueues.description")}
+          Monitor background jobs, inspect failures, and retry work.
         </AdminPageDescription>
       </AdminPageHeader>
       <Queues />

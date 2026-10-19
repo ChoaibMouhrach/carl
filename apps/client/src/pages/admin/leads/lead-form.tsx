@@ -4,8 +4,8 @@ import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
 import z from "zod";
+import { urlFieldLabels } from "@/lib/lead";
 
 export interface LeadFormValues {
   skoolUsername: string;
@@ -63,8 +63,6 @@ export const LeadForm = ({
   lead,
   onSubmit,
 }: LeadFormProps) => {
-  const { t } = useTranslation();
-
   const form = useForm<FormInput>({
     defaultValues: {
       skoolUsername: lead?.skoolUsername ?? "",
@@ -90,7 +88,7 @@ export const LeadForm = ({
     );
 
     if (invalidUrlField) {
-      form.setError(invalidUrlField, { message: t("leadForm.invalidUrl") });
+      form.setError(invalidUrlField, { message: "Enter a valid URL." });
       return;
     }
 
@@ -122,59 +120,59 @@ export const LeadForm = ({
             <TextField
               control={form.control}
               disabled={Boolean(lead)}
-              label={t("leadForm.skoolUsername")}
+              label="Skool username"
               name="skoolUsername"
-              placeholder={t("leadForm.usernamePlaceholder")}
+              placeholder="jane-doe"
               required
             />
             <TextField
               control={form.control}
-              label={t("leadForm.name")}
+              label="Name"
               name="name"
-              placeholder={t("leadForm.namePlaceholder")}
+              placeholder="Jane Doe"
               required
             />
             <TextField
               control={form.control}
-              label={t("leadForm.firstName")}
+              label="First name"
               name="firstName"
-              placeholder={t("leadForm.firstNamePlaceholder")}
+              placeholder="Jane"
             />
             <TextField
               control={form.control}
-              label={t("leadForm.lastName")}
+              label="Last name"
               name="lastName"
-              placeholder={t("leadForm.lastNamePlaceholder")}
+              placeholder="Doe"
             />
             <TextField
               control={form.control}
-              label={t("leadForm.location")}
+              label="Location"
               name="location"
-              placeholder={t("leadForm.locationPlaceholder")}
+              placeholder="Austin, TX"
             />
             {urlFields.map((field) => (
               <TextField
                 control={form.control}
                 inputMode="url"
                 key={field}
-                label={t(`leadForm.${field}`)}
+                label={urlFieldLabels[field]}
                 name={field}
-                placeholder={t("leadForm.urlPlaceholder")}
+                placeholder="https://example.com"
               />
             ))}
             <TextField
               control={form.control}
-              label={t("leadForm.bio")}
+              label="Bio"
               multiline
               name="bio"
-              placeholder={t("leadForm.bioPlaceholder")}
+              placeholder="A few words about the owner"
               wrapperClassName="sm:col-span-2"
             />
           </div>
           <div className="mt-6 flex gap-2">
             <Button disabled={isPending} type="submit">
               {isPending && <Spinner />}
-              {t("leadForm.save")}
+              Save
             </Button>
             {cancelAction}
           </div>

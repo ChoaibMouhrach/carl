@@ -16,14 +16,12 @@ import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { PlusIcon } from "lucide-react";
-import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { CampaignCards } from "./campaign-cards";
 import { CampaignFilters } from "./campaign-filters";
 import { CampaignTable } from "./campaign-table";
 
 export const Campaigns = () => {
-  const { t } = useTranslation();
   const searchParams = adminCampaignsRoute.useSearch();
   const { view, setView } = useView();
   const navigate = adminCampaignsRoute.useNavigate();
@@ -43,7 +41,7 @@ export const Campaigns = () => {
     mutationFn: (campaignId: number) => api.campaign.remove({ campaignId }),
     onError,
     onSuccess: async () => {
-      toast.success(t("adminCampaigns.deleted"));
+      toast.success("Campaign deleted.");
       await invalidateCampaignData(queryClient);
     },
   });
@@ -81,7 +79,7 @@ export const Campaigns = () => {
             createAction={
               <Button render={<Link to="/admin/campaigns/new" />}>
                 <PlusIcon />
-                {t("adminCampaigns.create")}
+                New campaign
               </Button>
             }
             exportAction={

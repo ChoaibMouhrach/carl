@@ -13,7 +13,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";
 import { Controller, useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
 import z from "zod";
 import { Separator } from "@repo/ui/components/ui/separator";
 import { Link } from "@tanstack/react-router";
@@ -25,8 +24,6 @@ const schema = z.object({
 type Output = z.output<typeof schema>;
 
 export const ForgotPassword = () => {
-  const { t } = useTranslation();
-
   const form = useForm({
     resolver: zodResolver(schema),
     values: {
@@ -44,7 +41,9 @@ export const ForgotPassword = () => {
       );
     },
     onSuccess: () => {
-      toast.success(t("auth.forgotPassword.sentToast"));
+      toast.success(
+        "If an account exists with that email, you'll receive a reset link shortly",
+      );
     },
     onError,
   });
@@ -61,9 +60,7 @@ export const ForgotPassword = () => {
           control={form.control}
           render={({ field, fieldState }) => (
             <Field>
-              <FieldLabel htmlFor={field.name}>
-                {t("auth.forgotPassword.email")}
-              </FieldLabel>
+              <FieldLabel htmlFor={field.name}>Email address</FieldLabel>
               <CustomInput
                 {...field}
                 type="email"
@@ -76,13 +73,12 @@ export const ForgotPassword = () => {
         />
 
         <Button type="submit" disabled={forgotPassword.isPending}>
-          {forgotPassword.isPending && <Spinner />}{" "}
-          {t("auth.forgotPassword.submit")}
+          {forgotPassword.isPending && <Spinner />} Send Reset Link
         </Button>
 
         <div className="flex items-center gap-4 text-muted-foreground">
           <Separator className="shrink flex-1" />
-          <span className="text-sm">{t("common.or")}</span>
+          <span className="text-sm">OR</span>
           <Separator className="shrink flex-1" />
         </div>
 
@@ -93,7 +89,7 @@ export const ForgotPassword = () => {
           nativeButton={false}
           render={<Link to="/sign-in" />}
         >
-          {t("common.signIn")}
+          Sign in
         </Button>
       </FieldGroup>
     </form>

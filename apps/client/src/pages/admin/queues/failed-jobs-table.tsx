@@ -42,7 +42,6 @@ import {
   RotateCwIcon,
   Trash2Icon,
 } from "lucide-react";
-import { useTranslation } from "react-i18next";
 
 type FailedJob = Awaited<
   ReturnType<typeof api.queue.listFailed>
@@ -77,12 +76,10 @@ export const FailedJobsTable = ({
   removingJobId,
   retryingJobId,
 }: FailedJobsTableProps) => {
-  const { t } = useTranslation();
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{t("adminQueues.failedTitle")}</CardTitle>
+        <CardTitle>Failed jobs</CardTitle>
         <CardAction>
           <Button
             disabled={isMutating || jobs.length === 0}
@@ -91,7 +88,7 @@ export const FailedJobsTable = ({
             variant="outline"
           >
             {isRetryAllPending ? <Spinner /> : <RotateCwIcon />}
-            {t("adminQueues.retryAll")}
+            Retry all
           </Button>
         </CardAction>
       </CardHeader>
@@ -104,9 +101,9 @@ export const FailedJobsTable = ({
               <EmptyMedia variant="icon">
                 <CircleCheckIcon />
               </EmptyMedia>
-              <EmptyTitle>{t("adminQueues.emptyTitle")}</EmptyTitle>
+              <EmptyTitle>No failed jobs</EmptyTitle>
               <EmptyDescription>
-                {t("adminQueues.emptyDescription")}
+                Every job in this queue has processed cleanly.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -118,14 +115,9 @@ export const FailedJobsTable = ({
                   <CircleAlertIcon />
                 </ItemMedia>
                 <ItemContent>
-                  <ItemTitle>
-                    {job.failedReason || t("adminQueues.unknownError")}
-                  </ItemTitle>
+                  <ItemTitle>{job.failedReason || "Unknown error"}</ItemTitle>
                   <ItemDescription>
-                    {t("adminQueues.jobMeta", {
-                      attempts: job.attemptsMade,
-                      id: job.id,
-                    })}
+                    {`${job.attemptsMade} attempts · Job ${job.id}`}
                   </ItemDescription>
                 </ItemContent>
                 <ItemActions>
@@ -136,7 +128,7 @@ export const FailedJobsTable = ({
                     variant="outline"
                   >
                     {retryingJobId === job.id ? <Spinner /> : <RotateCwIcon />}
-                    {t("adminQueues.retry")}
+                    Retry
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger
@@ -149,26 +141,23 @@ export const FailedJobsTable = ({
                       }
                     >
                       {removingJobId === job.id ? <Spinner /> : <Trash2Icon />}
-                      {t("adminQueues.remove")}
+                      Remove
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          {t("adminQueues.removeTitle")}
-                        </AlertDialogTitle>
+                        <AlertDialogTitle>Remove this job?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          {t("adminQueues.removeDescription")}
+                          This permanently removes the job from the queue. This
+                          action cannot be undone.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>
-                          {t("adminQueues.cancel")}
-                        </AlertDialogCancel>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction
                           onClick={() => onRemove(job.id)}
                           variant="destructive"
                         >
-                          {t("adminQueues.remove")}
+                          Remove
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>

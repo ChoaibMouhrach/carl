@@ -4,7 +4,6 @@ import { Button } from "@repo/ui/components/ui/button";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { useMutation } from "@tanstack/react-query";
 import { DownloadIcon } from "lucide-react";
-import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 interface ExportButtonProps {
@@ -14,15 +13,13 @@ interface ExportButtonProps {
 }
 
 export const ExportButton = ({ filename, onExport }: ExportButtonProps) => {
-  const { t } = useTranslation();
-
   const exporting = useMutation({
     mutationFn: async () => {
       const blob = await onExport();
       saveBlob(blob, csvFilename(filename));
     },
     onError,
-    onSuccess: () => toast.success(t("export.done")),
+    onSuccess: () => toast.success("Export ready."),
   });
 
   return (
@@ -32,7 +29,7 @@ export const ExportButton = ({ filename, onExport }: ExportButtonProps) => {
       variant="outline"
     >
       {exporting.isPending ? <Spinner /> : <DownloadIcon />}
-      {t("export.button")}
+      Export CSV
     </Button>
   );
 };

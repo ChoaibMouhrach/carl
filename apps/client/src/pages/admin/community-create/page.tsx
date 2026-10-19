@@ -4,23 +4,20 @@ import {
   AdminPageHeader,
   AdminPageTitle,
 } from "@/components/admin-page";
-import { useTranslation } from "react-i18next";
 import { CommunityCreate } from "./community-create";
 
 export const AdminCommunityCreatePage = () => {
-  const { t } = useTranslation();
-
   return (
     <AdminPage
       breadcrumbs={[
-        { label: t("nav.communities"), href: "/admin/communities" },
-        { label: t("communityForm.createTitle") },
+        { label: "Communities", href: "/admin/communities" },
+        { label: "New community" },
       ]}
     >
       <AdminPageHeader>
-        <AdminPageTitle>{t("communityForm.createTitle")}</AdminPageTitle>
+        <AdminPageTitle>New community</AdminPageTitle>
         <AdminPageDescription>
-          {t("communityForm.description")}
+          Community details and primary price.
         </AdminPageDescription>
       </AdminPageHeader>
       <CommunityCreate />

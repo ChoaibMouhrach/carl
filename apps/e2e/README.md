@@ -56,7 +56,7 @@ Keep specs consistent — codegen defaults are cleaned up to follow these:
   fields. `getByLabel` works for every input type.
 - **Buttons and links → `getByRole`** (`"button"` / `"link"`).
 - **Assert on behavior, not copy** — prefer `toHaveURL(...)` over matching
-  translated text, which changes with i18n.
+  the visible copy, which changes.
 - **Exception:** the sign-in password field's label embeds the
   "Forgot password?" link (and a "Show password" button also matches
   "password"), so `getByLabel("Password")` is ambiguous there — use

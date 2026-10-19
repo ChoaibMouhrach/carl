@@ -12,7 +12,6 @@ import {
   TableRow,
 } from "@repo/ui/components/ui/table";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useTranslation } from "react-i18next";
 import { CampaignStatusBadge } from "./campaign-status-badge";
 import { StageBars } from "./stage-bars";
 
@@ -31,7 +30,6 @@ export const CampaignTable = ({
   removingCampaignId,
   selection,
 }: CampaignTableProps) => {
-  const { t } = useTranslation();
   const navigate = useNavigate();
 
   return (
@@ -42,24 +40,24 @@ export const CampaignTable = ({
             <SelectCheckbox
               checked={selection.allSelected}
               indeterminate={selection.someSelected}
-              label={t("selection.selectAll")}
+              label="Select all"
               onChange={selection.toggleAll}
             />
           </TableHead>
-          <TableHead>{t("adminCampaigns.campaign")}</TableHead>
-          <TableHead>{t("adminCampaigns.statusFilter")}</TableHead>
-          <TableHead>{t("adminCampaigns.pipeline")}</TableHead>
-          <TableHead>{t("adminCampaigns.leads")}</TableHead>
-          <TableHead>{t("adminCampaigns.updated")}</TableHead>
+          <TableHead>Campaign</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>Pipeline</TableHead>
+          <TableHead>Leads</TableHead>
+          <TableHead>Updated</TableHead>
           <TableHead>
-            <span className="sr-only">{t("adminCampaigns.actions")}</span>
+            <span className="sr-only">Actions</span>
           </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {campaigns.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={7}>{t("adminCampaigns.empty")}</TableCell>
+            <TableCell colSpan={7}>No campaigns found.</TableCell>
           </TableRow>
         ) : (
           campaigns.map((campaign) => (
@@ -98,22 +96,22 @@ export const CampaignTable = ({
               <TableCell>{formatDate(campaign.updatedAt)}</TableCell>
               <TableCell>
                 <RowActions
-                  cancelLabel={t("adminCampaigns.cancel")}
-                  deleteDescription={t("adminCampaigns.deleteDescription")}
-                  deleteLabel={t("adminCampaigns.delete")}
-                  deleteTitle={t("adminCampaigns.deleteTitle")}
+                  cancelLabel="Cancel"
+                  deleteDescription="This permanently deletes the campaign and all of its leads. This action cannot be undone."
+                  deleteLabel="Delete"
+                  deleteTitle="Delete this campaign?"
                   edit={
                     <Link
                       params={{ campaignId: campaign.campaignId }}
                       to="/admin/campaigns/$campaignId/edit"
                     />
                   }
-                  editLabel={t("adminCampaigns.edit")}
+                  editLabel="Edit"
                   isDeleting={
                     removingCampaignId === campaign.campaignId && isMutating
                   }
                   isDisabled={isMutating}
-                  menuLabel={t("adminCampaigns.actions")}
+                  menuLabel="Actions"
                   onDelete={() => onRemove(campaign.campaignId)}
                 />
               </TableCell>

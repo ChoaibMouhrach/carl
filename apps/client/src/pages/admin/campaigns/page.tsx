@@ -4,18 +4,15 @@ import {
   AdminPageHeader,
   AdminPageTitle,
 } from "@/components/admin-page";
-import { useTranslation } from "react-i18next";
 import { Campaigns } from "./campaigns";
 
 export const AdminCampaignsPage = () => {
-  const { t } = useTranslation();
-
   return (
     <AdminPage>
       <AdminPageHeader>
-        <AdminPageTitle>{t("adminCampaigns.title")}</AdminPageTitle>
+        <AdminPageTitle>Campaigns</AdminPageTitle>
         <AdminPageDescription>
-          {t("adminCampaigns.description")}
+          {"Run each campaign's leads through the pipeline."}
         </AdminPageDescription>
       </AdminPageHeader>
       <Campaigns />

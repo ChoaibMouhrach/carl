@@ -224,7 +224,7 @@ E2E tests live in `apps/e2e` (a standalone Playwright package), never in `apps/c
 - Authenticate with `seed.authenticate` (session cookie), not by driving the sign-in form — unless sign-in itself is under test.
 - Bulk-seed with direct-insert helpers (e.g. `createVerifiedAdmin`); public sign-up is closed, so never create users through the sign-up API.
 
-**Locators** — verify against the real DOM and i18n before writing; never guess labels.
+**Locators** — verify against the real DOM before writing; never guess labels.
 
 - Form inputs use `getByLabel`. Never `getByRole("textbox")` — it does not match `<input type="password">` and fails silently. Buttons and links use `getByRole("button" | "link", { name })`.
 - shadcn `Select` triggers have no accessible name: open with `getByRole("combobox").filter({ hasText })`, and pick options with `getByRole("option", { name, exact: true })`.

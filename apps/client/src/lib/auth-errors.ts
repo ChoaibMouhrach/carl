@@ -1,6 +1,6 @@
 import type { ServerErrorCode } from "@repo/constants/errors";
 
-export const authErrorTranslationCodes: Record<string, ServerErrorCode> = {
+export const authErrorCodes: Record<string, ServerErrorCode> = {
   EMAIL_NOT_VERIFIED: "emailNotVerified",
   INVALID_EMAIL: "invalidCredentials",
   INVALID_EMAIL_OR_PASSWORD: "invalidCredentials",
@@ -18,5 +18,5 @@ export const authErrorTranslationCodes: Record<string, ServerErrorCode> = {
   USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: "emailAlreadyTaken",
 };
 
-export const getAuthErrorTranslationCode = (code?: string) =>
-  code ? authErrorTranslationCodes[code] : undefined;
+export const getAuthErrorCode = (code?: string) =>
+  code ? authErrorCodes[code] : undefined;

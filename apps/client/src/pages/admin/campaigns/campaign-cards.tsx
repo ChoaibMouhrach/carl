@@ -16,7 +16,6 @@ import {
 import { Separator } from "@repo/ui/components/ui/separator";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { CalendarIcon, MegaphoneIcon, UsersIcon } from "lucide-react";
-import { useTranslation } from "react-i18next";
 import { CampaignStatusBadge } from "./campaign-status-badge";
 import { StageBars } from "./stage-bars";
 
@@ -35,11 +34,10 @@ export const CampaignCards = ({
   removingCampaignId,
   selection,
 }: CampaignCardsProps) => {
-  const { t } = useTranslation();
   const navigate = useNavigate();
 
   if (campaigns.length === 0) {
-    return <p className="text-muted-foreground">{t("adminCampaigns.empty")}</p>;
+    return <p className="text-muted-foreground">No campaigns found.</p>;
   }
 
   return (
@@ -71,22 +69,22 @@ export const CampaignCards = ({
               />
               <CardAction>
                 <RowActions
-                  cancelLabel={t("adminCampaigns.cancel")}
-                  deleteDescription={t("adminCampaigns.deleteDescription")}
-                  deleteLabel={t("adminCampaigns.delete")}
-                  deleteTitle={t("adminCampaigns.deleteTitle")}
+                  cancelLabel="Cancel"
+                  deleteDescription="This permanently deletes the campaign and all of its leads. This action cannot be undone."
+                  deleteLabel="Delete"
+                  deleteTitle="Delete this campaign?"
                   edit={
                     <Link
                       params={{ campaignId: campaign.campaignId }}
                       to="/admin/campaigns/$campaignId/edit"
                     />
                   }
-                  editLabel={t("adminCampaigns.edit")}
+                  editLabel="Edit"
                   isDeleting={
                     removingCampaignId === campaign.campaignId && isMutating
                   }
                   isDisabled={isMutating}
-                  menuLabel={t("adminCampaigns.actions")}
+                  menuLabel="Actions"
                   onDelete={() => onRemove(campaign.campaignId)}
                 />
               </CardAction>
@@ -102,12 +100,12 @@ export const CampaignCards = ({
                   facts={[
                     {
                       icon: UsersIcon,
-                      label: t("adminCampaigns.leads"),
+                      label: "Leads",
                       value: formatNumber(campaign.leadCount),
                     },
                     {
                       icon: CalendarIcon,
-                      label: t("adminCampaigns.updated"),
+                      label: "Updated",
                       value: formatDate(campaign.updatedAt),
                     },
                   ]}

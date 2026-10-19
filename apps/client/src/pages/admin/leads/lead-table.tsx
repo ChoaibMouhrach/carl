@@ -12,7 +12,6 @@ import {
   TableRow,
 } from "@repo/ui/components/ui/table";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useTranslation } from "react-i18next";
 
 type Lead = Awaited<ReturnType<typeof api.lead.list>>["leads"][number];
 
@@ -31,7 +30,6 @@ export const LeadTable = ({
   removingLeadId,
   selection,
 }: LeadTableProps) => {
-  const { t } = useTranslation();
   const navigate = useNavigate();
 
   return (
@@ -42,23 +40,23 @@ export const LeadTable = ({
             <SelectCheckbox
               checked={selection.allSelected}
               indeterminate={selection.someSelected}
-              label={t("selection.selectAll")}
+              label="Select all"
               onChange={selection.toggleAll}
             />
           </TableHead>
-          <TableHead>{t("adminLeads.lead")}</TableHead>
-          <TableHead>{t("adminLeads.website")}</TableHead>
-          <TableHead>{t("adminLeads.communities")}</TableHead>
-          <TableHead>{t("adminLeads.added")}</TableHead>
+          <TableHead>Lead</TableHead>
+          <TableHead>Website</TableHead>
+          <TableHead>Communities</TableHead>
+          <TableHead>Added</TableHead>
           <TableHead>
-            <span className="sr-only">{t("adminLeads.actions")}</span>
+            <span className="sr-only">Actions</span>
           </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {leads.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={6}>{t("adminLeads.empty")}</TableCell>
+            <TableCell colSpan={6}>No leads found.</TableCell>
           </TableRow>
         ) : (
           leads.map((lead) => (
@@ -96,29 +94,27 @@ export const LeadTable = ({
                     {lead.website}
                   </a>
                 ) : (
-                  <span className="text-muted-foreground">
-                    {t("adminLeads.noWebsite")}
-                  </span>
+                  <span className="text-muted-foreground">None</span>
                 )}
               </TableCell>
               <TableCell>{lead.communityCount}</TableCell>
               <TableCell>{formatDate(lead.createdAt)}</TableCell>
               <TableCell>
                 <RowActions
-                  cancelLabel={t("adminLeads.cancel")}
-                  deleteDescription={t("adminLeads.deleteDescription")}
-                  deleteLabel={t("adminLeads.delete")}
-                  deleteTitle={t("adminLeads.deleteTitle")}
+                  cancelLabel="Cancel"
+                  deleteDescription="This permanently deletes the lead and all of their communities. This action cannot be undone."
+                  deleteLabel="Delete"
+                  deleteTitle="Delete this lead?"
                   edit={
                     <Link
                       params={{ leadId: lead.leadId }}
                       to="/admin/leads/$leadId/edit"
                     />
                   }
-                  editLabel={t("adminLeads.edit")}
+                  editLabel="Edit"
                   isDeleting={removingLeadId === lead.leadId && isMutating}
                   isDisabled={isMutating}
-                  menuLabel={t("adminLeads.actions")}
+                  menuLabel="Actions"
                   onDelete={() => onRemove(lead.leadId)}
                 />
               </TableCell>

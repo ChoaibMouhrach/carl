@@ -4,7 +4,7 @@ import { onError } from "@/lib/base-api";
 import { Field, FieldLabel } from "@repo/ui/components/ui/field";
 import { Input } from "@repo/ui/components/ui/input";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
+import { useRef } from "react";
 import { toast } from "sonner";
 import { AgentList } from "./agent-list";
 import { CopyButton } from "./copy-button";
@@ -12,7 +12,6 @@ import { CopyButton } from "./copy-button";
 const mcpUrl = `${env.VITE_API_URL.replace(/\/$/, "")}/api/mcp`;
 
 export const AgentAccess = () => {
-  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   const agents = useQuery({
@@ -21,11 +20,16 @@ export const AgentAccess = () => {
     placeholderData: (previousData) => previousData,
   });
 
+  // Query notifications are batched, so two quick clicks can both see "not pending"
+  const isRevoking = useRef(false);
+
   const revoke = useMutation({
     mutationFn: (clientId: string) => api.agent.revoke({ clientId }),
     onError,
-    onSuccess: async () => {
-      toast.success(t("settings.agents.revoked"));
+    onSuccess: () => toast.success("Agent removed."),
+    // Also after a failure: the agent may already have been removed elsewhere
+    onSettled: async () => {
+      isRevoking.current = false;
       await queryClient.invalidateQueries({ queryKey: ["admin", "agents"] });
     },
   });
@@ -35,9 +39,7 @@ export const AgentAccess = () => {
   return (
     <div className="space-y-6">
       <Field>
-        <FieldLabel htmlFor="mcp-url">
-          {t("settings.agents.urlLabel")}
-        </FieldLabel>
+        <FieldLabel htmlFor="mcp-url">MCP server address</FieldLabel>
         <div className="flex gap-2">
           <Input id="mcp-url" readOnly value={mcpUrl} />
           <CopyButton value={mcpUrl} />
@@ -46,7 +48,12 @@ export const AgentAccess = () => {
       <AgentList
         agents={agents.data?.agents}
         isRevoking={revoke.isPending}
-        onRevoke={(clientId) => revoke.mutate(clientId)}
+        onRevoke={(clientId) => {
+          if (isRevoking.current) return;
+
+          isRevoking.current = true;
+          revoke.mutate(clientId);
+        }}
         revokingClientId={revoke.isPending ? revoke.variables : undefined}
       />
     </div>

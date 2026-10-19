@@ -13,7 +13,6 @@ import {
   useSidebar,
 } from "@repo/ui/components/ui/sidebar";
 import { Link, useLocation } from "@tanstack/react-router";
-import { useTranslation } from "react-i18next";
 import { Logo, LogoWithText } from "@repo/ui/logo-mark";
 import {
   Building2Icon,
@@ -33,12 +32,7 @@ interface AdminSidebarProps {
 }
 
 interface NavigationItem {
-  labelKey:
-    | "nav.dashboard"
-    | "nav.campaigns"
-    | "nav.leads"
-    | "nav.communities"
-    | "nav.queues";
+  label: string;
   to:
     | "/admin/dashboard"
     | "/admin/campaigns"
@@ -50,27 +44,27 @@ interface NavigationItem {
 
 const navigation: NavigationItem[] = [
   {
-    labelKey: "nav.dashboard",
+    label: "Dashboard",
     to: "/admin/dashboard",
     icon: LayoutDashboardIcon,
   },
   {
-    labelKey: "nav.campaigns",
+    label: "Campaigns",
     to: "/admin/campaigns",
     icon: MegaphoneIcon,
   },
   {
-    labelKey: "nav.leads",
+    label: "Leads",
     to: "/admin/leads",
     icon: UsersIcon,
   },
   {
-    labelKey: "nav.communities",
+    label: "Communities",
     to: "/admin/communities",
     icon: Building2Icon,
   },
   {
-    labelKey: "nav.queues",
+    label: "Queues",
     to: "/admin/queues",
     icon: LayersIcon,
   },
@@ -78,7 +72,6 @@ const navigation: NavigationItem[] = [
 
 export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
   const location = useLocation();
-  const { t } = useTranslation();
   const { isMobile, setOpenMobile } = useSidebar();
 
   const closeOnMobile = () => {
@@ -120,11 +113,11 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
                       location.pathname === item.to ||
                       location.pathname.startsWith(`${item.to}/`)
                     }
-                    tooltip={t(item.labelKey)}
+                    tooltip={item.label}
                     render={<Link to={item.to} onClick={closeOnMobile} />}
                   >
                     <item.icon />
-                    <span>{t(item.labelKey)}</span>
+                    <span>{item.label}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}

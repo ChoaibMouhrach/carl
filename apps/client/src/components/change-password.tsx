@@ -1,5 +1,4 @@
 import { authClient, unwrapAuthResponse } from "@/lib/auth-client";
-import i18n from "@/lib/i18n";
 import { PasswordInput } from "@/components/password-input";
 import { Button } from "@repo/ui/components/ui/button";
 import {
@@ -22,7 +21,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import z from "zod";
 
@@ -33,14 +31,13 @@ const schema = z
     confirmPassword: z.string().min(8).max(60),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
-    error: () => i18n.t("validation.passwordsMatch"),
+    error: () => "Passwords don't match",
     path: ["confirmPassword"],
   });
 
 type Output = z.output<typeof schema>;
 
 export const ChangePassword = () => {
-  const { t } = useTranslation();
   const [pendingOutput, setPendingOutput] = useState<Output | null>(null);
 
   const form = useForm({
@@ -62,7 +59,7 @@ export const ChangePassword = () => {
         }),
       ),
     onSuccess: () => {
-      toast.success(t("password.changedToast"));
+      toast.success("Password changed successfully");
       form.reset();
       setPendingOutput(null);
     },
@@ -90,13 +87,11 @@ export const ChangePassword = () => {
             control={form.control}
             render={({ field, fieldState }) => (
               <Field>
-                <FieldLabel htmlFor={field.name}>
-                  {t("password.current")}
-                </FieldLabel>
+                <FieldLabel htmlFor={field.name}>Current password</FieldLabel>
                 <PasswordInput
                   {...field}
                   id={field.name}
-                  placeholder={t("password.currentPlaceholder")}
+                  placeholder="Enter your current password"
                 />
                 {fieldState.invalid && (
                   <FieldError errors={[fieldState.error]} />
@@ -110,13 +105,11 @@ export const ChangePassword = () => {
             control={form.control}
             render={({ field, fieldState }) => (
               <Field>
-                <FieldLabel htmlFor={field.name}>
-                  {t("password.new")}
-                </FieldLabel>
+                <FieldLabel htmlFor={field.name}>New password</FieldLabel>
                 <PasswordInput
                   {...field}
                   id={field.name}
-                  placeholder={t("password.newPlaceholder")}
+                  placeholder="Enter your new password"
                 />
                 {fieldState.invalid && (
                   <FieldError errors={[fieldState.error]} />
@@ -131,12 +124,12 @@ export const ChangePassword = () => {
             render={({ field, fieldState }) => (
               <Field>
                 <FieldLabel htmlFor={field.name}>
-                  {t("password.confirm")}
+                  Confirm new password
                 </FieldLabel>
                 <PasswordInput
                   {...field}
                   id={field.name}
-                  placeholder={t("password.confirmPlaceholder")}
+                  placeholder="Confirm your new password"
                 />
                 {fieldState.invalid && (
                   <FieldError errors={[fieldState.error]} />
@@ -147,7 +140,7 @@ export const ChangePassword = () => {
 
           <Button type="submit" disabled={mutation.isPending} className="w-fit">
             {mutation.isPending && <Spinner />}
-            {t("password.submit")}
+            Change password
           </Button>
         </FieldGroup>
       </form>
@@ -160,9 +153,10 @@ export const ChangePassword = () => {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("password.dialog.title")}</AlertDialogTitle>
+            <AlertDialogTitle>Sign out other devices?</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("password.dialog.description")}
+              Your password will be changed. Would you also like to sign out all
+              other active sessions? Your current session will stay active.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -172,14 +166,14 @@ export const ChangePassword = () => {
               onClick={() => handleConfirm(false)}
             >
               {mutation.isPending && <Spinner />}
-              {t("password.dialog.keep")}
+              No, keep them
             </Button>
             <Button
               disabled={mutation.isPending}
               onClick={() => handleConfirm(true)}
             >
               {mutation.isPending && <Spinner />}
-              {t("password.dialog.confirm")}
+              Yes, sign them out
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

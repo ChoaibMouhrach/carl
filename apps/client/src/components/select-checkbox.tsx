@@ -1,5 +1,4 @@
 import { Checkbox } from "@repo/ui/components/ui/checkbox";
-import { useTranslation } from "react-i18next";
 
 interface SelectCheckboxProps {
   checked: boolean;
@@ -17,11 +16,9 @@ export const SelectCheckbox = ({
   label,
   onChange,
 }: SelectCheckboxProps) => {
-  const { t } = useTranslation();
-
   return (
     <Checkbox
-      aria-label={label ?? t("selection.selectItem")}
+      aria-label={label ?? "Select item"}
       checked={checked}
       disabled={disabled}
       indeterminate={indeterminate}

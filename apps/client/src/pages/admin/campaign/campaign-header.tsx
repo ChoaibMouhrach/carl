@@ -6,7 +6,6 @@ import { Button } from "@repo/ui/components/ui/button";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { Link } from "@tanstack/react-router";
 import { PauseIcon, PencilIcon, PlayIcon } from "lucide-react";
-import { useTranslation } from "react-i18next";
 import { CampaignStatusBadge } from "../campaigns/campaign-status-badge";
 
 interface CampaignHeaderProps {
@@ -20,15 +19,14 @@ export const CampaignHeader = ({
   isStatusPending,
   onStatusChange,
 }: CampaignHeaderProps) => {
-  const { t } = useTranslation();
   const isActive = campaign.status === "active";
   const canToggle = campaign.status !== "completed";
 
   const toggleLabel = isActive
-    ? t("adminCampaign.pause")
+    ? "Pause"
     : campaign.status === "paused"
-      ? t("adminCampaign.resume")
-      : t("adminCampaign.activate");
+      ? "Resume"
+      : "Activate";
 
   return (
     <header className="flex flex-wrap items-start justify-between gap-4">
@@ -39,9 +37,7 @@ export const CampaignHeader = ({
         </div>
         <AdminPageDescription>
           {campaign.description ? `${campaign.description} · ` : ""}
-          {t("adminCampaign.leadCount", {
-            count: formatNumber(campaign.leadCount),
-          })}
+          {`${formatNumber(campaign.leadCount)} leads`}
         </AdminPageDescription>
       </div>
       <div className="flex gap-2">
@@ -55,7 +51,7 @@ export const CampaignHeader = ({
           variant="outline"
         >
           <PencilIcon />
-          {t("adminCampaign.edit")}
+          Edit
         </Button>
         {canToggle && (
           <Button

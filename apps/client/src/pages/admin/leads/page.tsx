@@ -4,18 +4,15 @@ import {
   AdminPageHeader,
   AdminPageTitle,
 } from "@/components/admin-page";
-import { useTranslation } from "react-i18next";
 import { Leads } from "./leads";
 
 export const AdminLeadsPage = () => {
-  const { t } = useTranslation();
-
   return (
     <AdminPage>
       <AdminPageHeader>
-        <AdminPageTitle>{t("adminLeads.title")}</AdminPageTitle>
+        <AdminPageTitle>Leads</AdminPageTitle>
         <AdminPageDescription>
-          {t("adminLeads.description")}
+          Community owners found on Skool.
         </AdminPageDescription>
       </AdminPageHeader>
       <Leads />

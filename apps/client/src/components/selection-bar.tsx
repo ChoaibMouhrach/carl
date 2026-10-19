@@ -1,7 +1,6 @@
 import { SelectCheckbox } from "@/components/select-checkbox";
 import type { Selection } from "@/lib/use-selection";
 import { Button } from "@repo/ui/components/ui/button";
-import { useTranslation } from "react-i18next";
 
 interface SelectionBarProps {
   selection: Selection;
@@ -15,8 +14,6 @@ export const SelectionBar = ({
   showSelectAll,
   disabled,
 }: SelectionBarProps) => {
-  const { t } = useTranslation();
-
   if (!showSelectAll && selection.count === 0) return null;
 
   return (
@@ -26,18 +23,16 @@ export const SelectionBar = ({
           checked={selection.allSelected}
           disabled={disabled}
           indeterminate={selection.someSelected}
-          label={t("selection.selectAll")}
+          label="Select all"
           onChange={selection.toggleAll}
         />
       )}
       <span className="text-muted-foreground">
-        {selection.count > 0
-          ? t("selection.selected", { count: selection.count })
-          : t("selection.selectAll")}
+        {selection.count > 0 ? `${selection.count} selected` : "Select all"}
       </span>
       {selection.count > 0 && (
         <Button onClick={selection.clear} size="sm" variant="ghost">
-          {t("selection.clear")}
+          Clear selection
         </Button>
       )}
     </div>

@@ -23,7 +23,6 @@ import {
   TimerIcon,
   type LucideIcon,
 } from "lucide-react";
-import { useTranslation } from "react-i18next";
 
 type QueueOverview = Awaited<
   ReturnType<typeof api.queue.overview>
@@ -53,17 +52,13 @@ interface QueueCountsProps {
 }
 
 export const QueueCounts = ({ queues }: QueueCountsProps) => {
-  const { t } = useTranslation();
-
   return (
     <div className="space-y-4">
       {queues.map((queue) => (
         <Card key={queue.name}>
           <CardHeader>
-            <CardTitle>
-              {t("adminQueues.queueTitle", { name: queue.name })}
-            </CardTitle>
-            <CardDescription>{t("adminQueues.countsCaption")}</CardDescription>
+            <CardTitle>{`${queue.name} queue`}</CardTitle>
+            <CardDescription>Job counts by state</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -76,7 +71,18 @@ export const QueueCounts = ({ queues }: QueueCountsProps) => {
                       <Icon />
                     </ItemMedia>
                     <ItemContent>
-                      <ItemTitle>{t(`adminQueues.states.${key}`)}</ItemTitle>
+                      <ItemTitle>
+                        {
+                          {
+                            waiting: "Waiting",
+                            active: "Active",
+                            completed: "Completed",
+                            failed: "Failed",
+                            delayed: "Delayed",
+                            paused: "Paused",
+                          }[key]
+                        }
+                      </ItemTitle>
                     </ItemContent>
                     <ItemActions>
                       <Badge variant={value === 0 ? "outline" : activeVariant}>

@@ -11,7 +11,6 @@ import {
   TableRow,
 } from "@repo/ui/components/ui/table";
 import { Link } from "@tanstack/react-router";
-import { useTranslation } from "react-i18next";
 import { type CommunityFormSource } from "./community-form";
 import { CommunityPrice } from "./community-price";
 
@@ -39,8 +38,6 @@ export const CommunityTable = ({
   selection,
   showLead,
 }: CommunityTableProps) => {
-  const { t } = useTranslation();
-
   return (
     <Table>
       <TableHeader>
@@ -49,23 +46,23 @@ export const CommunityTable = ({
             <SelectCheckbox
               checked={selection.allSelected}
               indeterminate={selection.someSelected}
-              label={t("selection.selectAll")}
+              label="Select all"
               onChange={selection.toggleAll}
             />
           </TableHead>
-          <TableHead>{t("adminCommunities.community")}</TableHead>
-          <TableHead>{t("adminCommunities.members")}</TableHead>
-          <TableHead>{t("adminCommunities.price")}</TableHead>
-          <TableHead>{t("adminCommunities.revenue")}</TableHead>
+          <TableHead>Community</TableHead>
+          <TableHead>Members</TableHead>
+          <TableHead>Price</TableHead>
+          <TableHead>Est. revenue</TableHead>
           <TableHead>
-            <span className="sr-only">{t("adminCommunities.actions")}</span>
+            <span className="sr-only">Actions</span>
           </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {communities.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={6}>{t("adminCommunities.empty")}</TableCell>
+            <TableCell colSpan={6}>No communities found.</TableCell>
           </TableRow>
         ) : (
           communities.map((community) => (
@@ -108,22 +105,22 @@ export const CommunityTable = ({
               </TableCell>
               <TableCell>
                 <RowActions
-                  cancelLabel={t("adminCommunities.cancel")}
-                  deleteDescription={t("adminCommunities.deleteDescription")}
-                  deleteLabel={t("adminCommunities.delete")}
-                  deleteTitle={t("adminCommunities.deleteTitle")}
+                  cancelLabel="Cancel"
+                  deleteDescription="This permanently deletes the community. This action cannot be undone."
+                  deleteLabel="Delete"
+                  deleteTitle="Delete this community?"
                   edit={
                     <Link
                       params={{ communityId: community.communityId }}
                       to="/admin/communities/$communityId/edit"
                     />
                   }
-                  editLabel={t("adminCommunities.edit")}
+                  editLabel="Edit"
                   isDeleting={
                     removingCommunityId === community.communityId && isMutating
                   }
                   isDisabled={isMutating}
-                  menuLabel={t("adminCommunities.actions")}
+                  menuLabel="Actions"
                   onDelete={() => onRemove(community.communityId)}
                 />
               </TableCell>

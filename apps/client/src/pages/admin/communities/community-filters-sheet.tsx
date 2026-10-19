@@ -22,7 +22,6 @@ import {
 import { SlidersHorizontalIcon } from "lucide-react";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { useTranslation } from "react-i18next";
 import z from "zod";
 
 export type PricingType = "free" | "paid";
@@ -63,8 +62,6 @@ const FiltersForm = ({
   onApply,
   onDone,
 }: CommunityFiltersSheetProps & { onDone: () => void }) => {
-  const { t } = useTranslation();
-
   const form = useForm<FormInput>({
     defaultValues: {
       pricingType: filters.pricingType ?? "all",
@@ -77,21 +74,21 @@ const FiltersForm = ({
   });
 
   const pricingItems = [
-    { value: "all", label: t("adminCommunities.allPricing") },
-    { value: "free", label: t("adminCommunities.free") },
-    { value: "paid", label: t("adminCommunities.paid") },
+    { value: "all", label: "Any pricing" },
+    { value: "free", label: "Free" },
+    { value: "paid", label: "Paid" },
   ];
 
   const sortByItems: { value: SortBy; label: string }[] = [
-    { value: "estMonthlyRevenue", label: t("adminCommunities.sortRevenue") },
-    { value: "memberCount", label: t("adminCommunities.sortMembers") },
-    { value: "createdAt", label: t("adminCommunities.sortCreatedAt") },
-    { value: "name", label: t("adminCommunities.sortName") },
+    { value: "estMonthlyRevenue", label: "Est. revenue" },
+    { value: "memberCount", label: "Members" },
+    { value: "createdAt", label: "Date added" },
+    { value: "name", label: "Name" },
   ];
 
   const sortOrderItems: { value: SortOrder; label: string }[] = [
-    { value: "desc", label: t("adminCommunities.descending") },
-    { value: "asc", label: t("adminCommunities.ascending") },
+    { value: "desc", label: "Descending" },
+    { value: "asc", label: "Ascending" },
   ];
 
   const submit = form.handleSubmit((input) => {
@@ -127,9 +124,7 @@ const FiltersForm = ({
         name="pricingType"
         render={({ field }) => (
           <Field>
-            <FieldLabel htmlFor={field.name}>
-              {t("adminCommunities.pricingFilter")}
-            </FieldLabel>
+            <FieldLabel htmlFor={field.name}>Pricing</FieldLabel>
             <Select
               items={pricingItems}
               onValueChange={(value) => {
@@ -158,9 +153,7 @@ const FiltersForm = ({
         name="minMembers"
         render={({ field, fieldState }) => (
           <Field>
-            <FieldLabel htmlFor={field.name}>
-              {t("adminCommunities.minMembers")}
-            </FieldLabel>
+            <FieldLabel htmlFor={field.name}>Min. members</FieldLabel>
             <CustomInput
               {...field}
               id={field.name}
@@ -176,9 +169,7 @@ const FiltersForm = ({
         name="minRevenue"
         render={({ field, fieldState }) => (
           <Field>
-            <FieldLabel htmlFor={field.name}>
-              {t("adminCommunities.minRevenue")}
-            </FieldLabel>
+            <FieldLabel htmlFor={field.name}>Min. revenue ($/mo)</FieldLabel>
             <CustomInput
               {...field}
               id={field.name}
@@ -194,9 +185,7 @@ const FiltersForm = ({
         name="sortBy"
         render={({ field }) => (
           <Field>
-            <FieldLabel htmlFor={field.name}>
-              {t("adminCommunities.sortBy")}
-            </FieldLabel>
+            <FieldLabel htmlFor={field.name}>Sort by</FieldLabel>
             <Select
               items={sortByItems}
               onValueChange={(value) => {
@@ -226,9 +215,7 @@ const FiltersForm = ({
         name="sortOrder"
         render={({ field }) => (
           <Field>
-            <FieldLabel htmlFor={field.name}>
-              {t("adminCommunities.sortOrder")}
-            </FieldLabel>
+            <FieldLabel htmlFor={field.name}>Order</FieldLabel>
             <Select
               items={sortOrderItems}
               onValueChange={(value) => {
@@ -254,9 +241,9 @@ const FiltersForm = ({
         )}
       />
       <SheetFooter className="px-0">
-        <Button type="submit">{t("adminCommunities.apply")}</Button>
+        <Button type="submit">Apply</Button>
         <Button onClick={reset} type="button" variant="outline">
-          {t("adminCommunities.reset")}
+          Reset
         </Button>
       </SheetFooter>
     </form>
@@ -267,7 +254,6 @@ export const CommunityFiltersSheet = ({
   filters,
   onApply,
 }: CommunityFiltersSheetProps) => {
-  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
   const activeCount = [
@@ -282,14 +268,14 @@ export const CommunityFiltersSheet = ({
     <Sheet onOpenChange={setOpen} open={open}>
       <SheetTrigger render={<Button variant="outline" />}>
         <SlidersHorizontalIcon />
-        {t("adminCommunities.filters")}
+        Filters
         {activeCount > 0 && <Badge variant="secondary">{activeCount}</Badge>}
       </SheetTrigger>
       <SheetContent>
         <SheetHeader>
-          <SheetTitle>{t("adminCommunities.filtersTitle")}</SheetTitle>
+          <SheetTitle>Filters</SheetTitle>
           <SheetDescription>
-            {t("adminCommunities.filtersDescription")}
+            Narrow down and sort the communities.
           </SheetDescription>
         </SheetHeader>
         <FiltersForm

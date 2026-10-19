@@ -6,19 +6,16 @@ import {
   AuthPageHeader,
   AuthPageTitle,
 } from "@/components/auth-page";
-import { useTranslation } from "react-i18next";
 import { ResetPassword } from "./reset-password";
 
 export const ResetPasswordPage = () => {
-  const { t } = useTranslation();
-
   return (
     <AuthPage>
       <AuthPageHeader>
         <AuthLogo />
-        <AuthPageTitle>{t("auth.resetPassword.title")}</AuthPageTitle>
+        <AuthPageTitle>Reset password</AuthPageTitle>
         <AuthPageDescription>
-          {t("auth.resetPassword.subtitle")}
+          Choose a new password for your account
         </AuthPageDescription>
       </AuthPageHeader>
       <AuthPageContent>

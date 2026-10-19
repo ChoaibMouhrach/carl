@@ -1,6 +1,6 @@
 import type { LeadStatus } from "@/lib/campaign";
+import { leadStatusLabels } from "@/lib/campaign";
 import { Badge } from "@repo/ui/components/ui/badge";
-import { useTranslation } from "react-i18next";
 
 const variants = {
   pending: "outline",
@@ -17,11 +17,5 @@ interface LeadStatusBadgeProps {
 }
 
 export const LeadStatusBadge = ({ status }: LeadStatusBadgeProps) => {
-  const { t } = useTranslation();
-
-  return (
-    <Badge variant={variants[status]}>
-      {t(`adminCampaign.leadStatus.${status}`)}
-    </Badge>
-  );
+  return <Badge variant={variants[status]}>{leadStatusLabels[status]}</Badge>;
 };

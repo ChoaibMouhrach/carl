@@ -1,4 +1,5 @@
 import { Search } from "@/components/search";
+import { campaignStatusLabels } from "@/lib/campaign";
 import { campaignStatuses, type CampaignStatus } from "@/lib/campaign";
 import {
   Select,
@@ -9,7 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/ui/select";
-import { useTranslation } from "react-i18next";
 
 interface CampaignFiltersProps {
   createAction: React.ReactNode;
@@ -30,13 +30,11 @@ export const CampaignFilters = ({
   search,
   status,
 }: CampaignFiltersProps) => {
-  const { t } = useTranslation();
-
   const statusItems = [
-    { value: "all", label: t("adminCampaigns.allStatuses") },
+    { value: "all", label: "All statuses" },
     ...campaignStatuses.map((value) => ({
       value,
-      label: t(`adminCampaigns.status.${value}`),
+      label: campaignStatusLabels[value],
     })),
   ];
 
@@ -44,7 +42,7 @@ export const CampaignFilters = ({
     <div className="flex flex-wrap items-center gap-2">
       <Search
         onSearch={onSearch}
-        placeholder={t("adminCampaigns.search")}
+        placeholder="Search campaigns"
         value={search}
       />
       <Select
@@ -54,12 +52,12 @@ export const CampaignFilters = ({
         }
         value={status ?? "all"}
       >
-        <SelectTrigger aria-label={t("adminCampaigns.statusFilter")}>
+        <SelectTrigger aria-label="Status">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
-            <SelectLabel>{t("adminCampaigns.statusFilter")}</SelectLabel>
+            <SelectLabel>Status</SelectLabel>
             {statusItems.map((item) => (
               <SelectItem key={item.value} value={item.value}>
                 {item.label}

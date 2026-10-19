@@ -9,7 +9,6 @@ import {
   ItemTitle,
 } from "@repo/ui/components/ui/item";
 import { KeyRoundIcon } from "lucide-react";
-import { useTranslation } from "react-i18next";
 
 interface PasskeyListItem {
   id: string;
@@ -31,8 +30,6 @@ export const PasskeyList = ({
   passkeys,
   removingPasskeyId,
 }: PasskeyListProps) => {
-  const { t } = useTranslation();
-
   return (
     <div className="flex flex-col gap-2">
       {passkeys.map((passkey) => (
@@ -41,28 +38,24 @@ export const PasskeyList = ({
             <KeyRoundIcon />
           </ItemMedia>
           <ItemContent>
-            <ItemTitle>
-              {passkey.name || t("settings.passkeys.unnamed")}
-            </ItemTitle>
+            <ItemTitle>{passkey.name || "Passkey"}</ItemTitle>
             <ItemDescription>
-              {t("settings.passkeys.createdOn", {
-                date: formatDate(passkey.createdAt),
-              })}
+              {`Added ${formatDate(passkey.createdAt)}`}
               {" · "}
-              {passkey.backedUp
-                ? t("settings.passkeys.synced")
-                : t("settings.passkeys.deviceBound")}
+              {passkey.backedUp ? "Synced across devices" : "This device only"}
             </ItemDescription>
           </ItemContent>
           <ItemActions>
             <RowActions
-              cancelLabel={t("settings.passkeys.cancel")}
-              deleteDescription={t("settings.passkeys.deleteDescription")}
-              deleteLabel={t("settings.passkeys.delete")}
-              deleteTitle={t("settings.passkeys.deleteTitle")}
+              cancelLabel="Cancel"
+              deleteDescription={
+                "You won't be able to sign in with it any more. This action cannot be undone."
+              }
+              deleteLabel="Delete"
+              deleteTitle="Delete this passkey?"
               isDeleting={removingPasskeyId === passkey.id && isMutating}
               isDisabled={isMutating}
-              menuLabel={t("settings.passkeys.actions")}
+              menuLabel="Passkey actions"
               onDelete={() => onRemove(passkey.id)}
             />
           </ItemActions>

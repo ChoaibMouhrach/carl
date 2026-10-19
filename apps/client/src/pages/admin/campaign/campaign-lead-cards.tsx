@@ -26,7 +26,6 @@ import {
   UsersIcon,
 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
-import { useTranslation } from "react-i18next";
 import { LeadStatusBadge } from "./lead-status-badge";
 
 interface CampaignLeadCardsProps {
@@ -40,12 +39,11 @@ export const CampaignLeadCards = ({
   selection,
   selectionLocked,
 }: CampaignLeadCardsProps) => {
-  const { t } = useTranslation();
   const navigate = useNavigate();
 
   if (leads.length === 0) {
     return (
-      <p className="text-muted-foreground">{t("adminCampaign.emptyLeads")}</p>
+      <p className="text-muted-foreground">No leads match these filters.</p>
     );
   }
 
@@ -84,45 +82,43 @@ export const CampaignLeadCards = ({
               <div className="space-y-4">
                 <Separator />
                 <div>
-                  <Badge variant="outline">
-                    {t("adminCampaign.stage", { number: lead.stage })}
-                  </Badge>
+                  <Badge variant="outline">{`Stage ${lead.stage}`}</Badge>
                 </div>
                 <CardFacts
                   facts={[
                     {
                       icon: Building2Icon,
-                      label: t("adminCampaign.community"),
+                      label: "Community",
                       value: lead.communityName,
                     },
                     {
                       icon: SearchIcon,
-                      label: t("adminCampaign.keyword"),
+                      label: "Keyword",
                       value: lead.keyword ?? "—",
                     },
                     {
                       icon: UsersIcon,
-                      label: t("adminCampaign.members"),
+                      label: "Members",
                       value: formatNumber(lead.memberCount),
                     },
                     {
                       icon: MailIcon,
-                      label: t("adminCampaign.email"),
+                      label: "Email",
                       value: <EmailLink email={lead.emails.at(0)} />,
                     },
                     {
                       icon: LinkIcon,
-                      label: t("adminCampaign.linkedin"),
+                      label: "LinkedIn",
                       value: <ExternalLink href={lead.linkedinUrl} />,
                     },
                     {
                       icon: GlobeIcon,
-                      label: t("adminCampaign.website"),
+                      label: "Website",
                       value: <ExternalLink href={lead.website} />,
                     },
                     {
                       icon: CalendarIcon,
-                      label: t("adminCampaign.updatedColumn"),
+                      label: "Updated",
                       value: formatDate(lead.updatedAt),
                     },
                   ]}

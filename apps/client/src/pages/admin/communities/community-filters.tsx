@@ -1,5 +1,4 @@
 import { Search } from "@/components/search";
-import { useTranslation } from "react-i18next";
 import {
   CommunityFiltersSheet,
   type CommunityFilterValues,
@@ -24,14 +23,12 @@ export const CommunityFilters = ({
   onSearch,
   search,
 }: CommunityFiltersProps) => {
-  const { t } = useTranslation();
-
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Search
         id="community-search"
         onSearch={onSearch}
-        placeholder={t("adminCommunities.search")}
+        placeholder="Search by name"
         value={search}
       />
       <CommunityFiltersSheet filters={filters} onApply={onApplyFilters} />

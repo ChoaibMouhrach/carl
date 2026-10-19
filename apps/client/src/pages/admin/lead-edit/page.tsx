@@ -4,22 +4,21 @@ import {
   AdminPageHeader,
   AdminPageTitle,
 } from "@/components/admin-page";
-import { useTranslation } from "react-i18next";
 import { LeadEdit } from "./lead-edit";
 
 export const AdminLeadEditPage = () => {
-  const { t } = useTranslation();
-
   return (
     <AdminPage
       breadcrumbs={[
-        { label: t("nav.leads"), href: "/admin/leads" },
-        { label: t("leadForm.editTitle") },
+        { label: "Leads", href: "/admin/leads" },
+        { label: "Edit lead" },
       ]}
     >
       <AdminPageHeader>
-        <AdminPageTitle>{t("leadForm.editTitle")}</AdminPageTitle>
-        <AdminPageDescription>{t("leadForm.description")}</AdminPageDescription>
+        <AdminPageTitle>Edit lead</AdminPageTitle>
+        <AdminPageDescription>
+          Owner details and where to reach them.
+        </AdminPageDescription>
       </AdminPageHeader>
       <LeadEdit />
     </AdminPage>

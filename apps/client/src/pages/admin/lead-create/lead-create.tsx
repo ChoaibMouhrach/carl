@@ -4,12 +4,10 @@ import { invalidateLeadData } from "@/lib/invalidate";
 import { Button } from "@repo/ui/components/ui/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { LeadForm, type LeadFormValues } from "../leads/lead-form";
 
 export const LeadCreate = () => {
-  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -17,7 +15,7 @@ export const LeadCreate = () => {
     mutationFn: (values: LeadFormValues) => api.lead.create(values),
     onError,
     onSuccess: async ({ lead }) => {
-      toast.success(t("adminLeads.created"));
+      toast.success("Lead created.");
       await invalidateLeadData(queryClient);
       await navigate({
         to: "/admin/leads/$leadId",
@@ -33,7 +31,7 @@ export const LeadCreate = () => {
           render={<Link search={{ page: 1 }} to="/admin/leads" />}
           variant="outline"
         >
-          {t("leadForm.cancel")}
+          Cancel
         </Button>
       }
       isPending={create.isPending}

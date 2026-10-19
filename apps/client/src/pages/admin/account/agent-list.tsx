@@ -11,7 +11,6 @@ import {
   CardHeader,
 } from "@repo/ui/components/ui/card";
 import { BotIcon, CalendarIcon } from "lucide-react";
-import { useTranslation } from "react-i18next";
 
 interface AgentListProps {
   agents?: Agent[];
@@ -26,17 +25,13 @@ export const AgentList = ({
   onRevoke,
   revokingClientId,
 }: AgentListProps) => {
-  const { t } = useTranslation();
-
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-medium">
-        {t("settings.agents.connectedTitle")}
-      </h3>
+      <h3 className="text-sm font-medium">Connected agents</h3>
       {!agents ? (
         <CardGridSkeleton count={2} />
       ) : agents.length === 0 ? (
-        <p className="text-muted-foreground">{t("settings.agents.empty")}</p>
+        <p className="text-muted-foreground">No agents connected yet.</p>
       ) : (
         <CardGrid>
           {agents.map((agent) => (
@@ -44,22 +39,20 @@ export const AgentList = ({
               <CardHeader>
                 <CardIdentity
                   avatar={<BotIcon />}
-                  description={
-                    agent.userEmail ?? t("settings.agents.unknownUser")
-                  }
+                  description={agent.userEmail ?? "Unknown"}
                   title={agent.name}
                 />
                 <CardAction>
                   <RowActions
-                    cancelLabel={t("settings.agents.cancel")}
-                    deleteDescription={t("settings.agents.revokeDescription")}
-                    deleteLabel={t("settings.agents.revoke")}
-                    deleteTitle={t("settings.agents.revokeTitle")}
+                    cancelLabel="Cancel"
+                    deleteDescription="The agent is signed out right away and has to sign in again to come back."
+                    deleteLabel="Remove agent"
+                    deleteTitle="Remove this agent?"
                     isDeleting={
                       isRevoking && revokingClientId === agent.clientId
                     }
                     isDisabled={isRevoking}
-                    menuLabel={t("settings.agents.menu")}
+                    menuLabel="Agent actions"
                     onDelete={() => onRevoke(agent.clientId)}
                   />
                 </CardAction>
@@ -69,7 +62,7 @@ export const AgentList = ({
                   facts={[
                     {
                       icon: CalendarIcon,
-                      label: t("settings.agents.connectedAt"),
+                      label: "Connected",
                       value: formatDate(agent.connectedAt),
                     },
                   ]}

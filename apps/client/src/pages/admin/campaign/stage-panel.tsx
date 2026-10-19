@@ -1,4 +1,5 @@
 import type { ScrapeRun, StageCount } from "@/api/campaign";
+import { leadStatusLabels } from "@/lib/campaign";
 import { formatNumber } from "@/lib/format";
 import { leadStatuses } from "@/lib/campaign";
 import {
@@ -24,7 +25,6 @@ import {
 import { Progress } from "@repo/ui/components/ui/progress";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { PlayIcon, RefreshCwIcon } from "lucide-react";
-import { useTranslation } from "react-i18next";
 
 const FIRST_STAGE = 1;
 
@@ -43,28 +43,23 @@ export const StagePanel = ({
   scrapeRun,
   stage,
 }: StagePanelProps) => {
-  const { t } = useTranslation();
   const canStart = stage.stage === FIRST_STAGE;
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>
-          {t("adminCampaign.stageTitle", { number: stage.stage })}
-        </CardTitle>
+        <CardTitle>{`Stage ${stage.stage}`}</CardTitle>
         <CardDescription>
           {canStart && !canRun
-            ? t("adminCampaign.inactiveHint")
-            : t("adminCampaign.stageDescription")}
+            ? "Activate the campaign to run its stages."
+            : "Run this stage for every lead that is ready for it."}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
             <div>
-              <div className="text-sm text-muted-foreground">
-                {t("adminCampaign.ready")}
-              </div>
+              <div className="text-sm text-muted-foreground">Ready to run</div>
               <div className="text-2xl font-semibold tabular-nums">
                 {formatNumber(stage.ready)}
               </div>
@@ -72,7 +67,7 @@ export const StagePanel = ({
             {leadStatuses.map((status) => (
               <div key={status}>
                 <div className="text-sm text-muted-foreground">
-                  {t(`adminCampaign.leadStatus.${status}`)}
+                  {leadStatusLabels[status]}
                 </div>
                 <div className="text-2xl font-semibold tabular-nums">
                   {formatNumber(stage[status])}
@@ -81,7 +76,7 @@ export const StagePanel = ({
             ))}
           </div>
           <Progress
-            aria-label={t("adminCampaign.completedLabel")}
+            aria-label="Completed"
             value={stage.total === 0 ? 0 : (stage.done / stage.total) * 100}
           />
           {canStart && (
@@ -91,7 +86,7 @@ export const StagePanel = ({
                 onClick={() => onRun(false)}
               >
                 {isRunning ? <Spinner /> : <PlayIcon />}
-                {t("adminCampaign.runScrape")}
+                Run scrape
               </Button>
               <AlertDialog>
                 <AlertDialogTrigger
@@ -100,26 +95,27 @@ export const StagePanel = ({
                   }
                 >
                   <RefreshCwIcon />
-                  {t("adminCampaign.replaceScrape")}
+                  Replace leads and scrape
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>
-                      {t("adminCampaign.replaceTitle")}
+                      Replace leads and scrape?
                     </AlertDialogTitle>
                     <AlertDialogDescription>
-                      {t("adminCampaign.replaceDescription")}
+                      Leads from earlier scrapes that are still at stage 1 and
+                      are not found again by this run are removed from the
+                      campaign. Leads that moved past stage 1 are kept. Nothing
+                      is removed if the run has any failures.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>
-                      {t("adminCampaign.cancel")}
-                    </AlertDialogCancel>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={() => onRun(true)}
                       variant="destructive"
                     >
-                      {t("adminCampaign.replaceConfirm")}
+                      Replace and scrape
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -135,24 +131,24 @@ export const StagePanel = ({
                           : "secondary"
                     }
                   >
-                    {t(`adminCampaign.scrapeStatus.${scrapeRun.status}`)}
+                    {
+                      {
+                        queued: "Queued",
+                        running: "Running",
+                        completed: "Completed",
+                        failed: "Failed",
+                      }[scrapeRun.status]
+                    }
                   </Badge>
                   {scrapeRun.summary && (
                     <span className="text-sm text-muted-foreground">
-                      {t("adminCampaign.scrapeSummary", {
-                        discovered: formatNumber(scrapeRun.summary.discovered),
-                        created: formatNumber(
-                          scrapeRun.summary.communitiesCreated,
-                        ),
-                        attached: formatNumber(scrapeRun.summary.leadsAttached),
-                        removed: formatNumber(
-                          scrapeRun.summary.leadsRemoved ?? 0,
-                        ),
-                        filtered: formatNumber(
-                          scrapeRun.summary.filteredOut ?? 0,
-                        ),
-                        failed: formatNumber(scrapeRun.summary.failures.length),
-                      })}
+                      {`${formatNumber(scrapeRun.summary.discovered)} found · ${formatNumber(
+                        scrapeRun.summary.communitiesCreated,
+                      )} new communities · ${formatNumber(scrapeRun.summary.leadsAttached)} leads added · ${formatNumber(
+                        scrapeRun.summary.leadsRemoved ?? 0,
+                      )} removed · ${formatNumber(
+                        scrapeRun.summary.filteredOut ?? 0,
+                      )} filtered out · ${formatNumber(scrapeRun.summary.failures.length)} failed`}
                     </span>
                   )}
                   {scrapeRun.error && (

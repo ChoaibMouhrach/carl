@@ -13,7 +13,6 @@ import {
   TableRow,
 } from "@repo/ui/components/ui/table";
 import { useNavigate } from "@tanstack/react-router";
-import { useTranslation } from "react-i18next";
 import { LeadStatusBadge } from "./lead-status-badge";
 
 interface CampaignLeadTableProps {
@@ -27,7 +26,6 @@ export const CampaignLeadTable = ({
   selection,
   selectionLocked,
 }: CampaignLeadTableProps) => {
-  const { t } = useTranslation();
   const navigate = useNavigate();
 
   return (
@@ -39,26 +37,26 @@ export const CampaignLeadTable = ({
               checked={selection.allSelected}
               disabled={selectionLocked}
               indeterminate={selection.someSelected}
-              label={t("selection.selectAll")}
+              label="Select all"
               onChange={selection.toggleAll}
             />
           </TableHead>
-          <TableHead>{t("adminCampaign.lead")}</TableHead>
-          <TableHead>{t("adminCampaign.community")}</TableHead>
-          <TableHead>{t("adminCampaign.keyword")}</TableHead>
-          <TableHead>{t("adminCampaign.email")}</TableHead>
-          <TableHead>{t("adminCampaign.linkedin")}</TableHead>
-          <TableHead>{t("adminCampaign.website")}</TableHead>
-          <TableHead>{t("adminCampaign.members")}</TableHead>
-          <TableHead>{t("adminCampaign.stageColumn")}</TableHead>
-          <TableHead>{t("adminCampaign.statusColumn")}</TableHead>
-          <TableHead>{t("adminCampaign.updatedColumn")}</TableHead>
+          <TableHead>Lead</TableHead>
+          <TableHead>Community</TableHead>
+          <TableHead>Keyword</TableHead>
+          <TableHead>Email</TableHead>
+          <TableHead>LinkedIn</TableHead>
+          <TableHead>Website</TableHead>
+          <TableHead>Members</TableHead>
+          <TableHead>Stage</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>Updated</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {leads.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={11}>{t("adminCampaign.emptyLeads")}</TableCell>
+            <TableCell colSpan={11}>No leads match these filters.</TableCell>
           </TableRow>
         ) : (
           leads.map((lead) => (
@@ -98,9 +96,7 @@ export const CampaignLeadTable = ({
               </TableCell>
               <TableCell>{formatNumber(lead.memberCount)}</TableCell>
               <TableCell>
-                <Badge variant="outline">
-                  {t("adminCampaign.stage", { number: lead.stage })}
-                </Badge>
+                <Badge variant="outline">{`Stage ${lead.stage}`}</Badge>
               </TableCell>
               <TableCell>
                 <LeadStatusBadge status={lead.status} />

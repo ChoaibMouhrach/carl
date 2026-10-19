@@ -16,7 +16,6 @@ import { Button } from "@repo/ui/components/ui/button";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { Link } from "@tanstack/react-router";
 import { PencilIcon, Trash2Icon } from "lucide-react";
-import { useTranslation } from "react-i18next";
 
 type Lead = Awaited<ReturnType<typeof api.lead.show>>["lead"];
 
@@ -31,8 +30,6 @@ export const LeadHeader = ({
   lead,
   onRemove,
 }: LeadHeaderProps) => {
-  const { t } = useTranslation();
-
   return (
     <header className="flex flex-wrap items-start justify-between gap-4">
       <div className="flex min-w-0 flex-col gap-2">
@@ -52,26 +49,27 @@ export const LeadHeader = ({
           variant="outline"
         >
           <PencilIcon />
-          {t("adminLeads.edit")}
+          Edit
         </Button>
         <AlertDialog>
           <AlertDialogTrigger
             render={<Button disabled={isRemovePending} variant="outline" />}
           >
             {isRemovePending ? <Spinner /> : <Trash2Icon />}
-            {t("adminLeads.delete")}
+            Delete
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>{t("adminLeads.deleteTitle")}</AlertDialogTitle>
+              <AlertDialogTitle>Delete this lead?</AlertDialogTitle>
               <AlertDialogDescription>
-                {t("adminLeads.deleteDescription")}
+                This permanently deletes the lead and all of their communities.
+                This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>{t("adminLeads.cancel")}</AlertDialogCancel>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={onRemove} variant="destructive">
-                {t("adminLeads.delete")}
+                Delete
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

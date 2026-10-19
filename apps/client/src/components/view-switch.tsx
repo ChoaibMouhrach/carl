@@ -5,7 +5,6 @@ import {
   ToggleGroupItem,
 } from "@repo/ui/components/ui/toggle-group";
 import { LayoutGridIcon, Rows3Icon } from "lucide-react";
-import { useTranslation } from "react-i18next";
 
 interface ViewSwitchProps {
   onChange: (view: View) => void;
@@ -13,14 +12,13 @@ interface ViewSwitchProps {
 }
 
 export const ViewSwitch = ({ onChange, view }: ViewSwitchProps) => {
-  const { t } = useTranslation();
   const isMobile = useIsMobile();
 
   if (isMobile) return null;
 
   return (
     <ToggleGroup
-      aria-label={t("view.label")}
+      aria-label="View"
       onValueChange={(next) => {
         const selected = views.find((item) => item === next.at(0));
         if (selected) onChange(selected);
@@ -29,10 +27,10 @@ export const ViewSwitch = ({ onChange, view }: ViewSwitchProps) => {
       value={[view]}
       variant="outline"
     >
-      <ToggleGroupItem aria-label={t("view.table")} value="table">
+      <ToggleGroupItem aria-label="Table view" value="table">
         <Rows3Icon />
       </ToggleGroupItem>
-      <ToggleGroupItem aria-label={t("view.cards")} value="cards">
+      <ToggleGroupItem aria-label="Card view" value="cards">
         <LayoutGridIcon />
       </ToggleGroupItem>
     </ToggleGroup>
