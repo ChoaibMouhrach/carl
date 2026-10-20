@@ -1,5 +1,10 @@
 import z from "zod";
 import {
+  maxFilterQuestions,
+  questionRoles,
+  unknownBehaviours,
+} from "@repo/constants/filter";
+import {
   campaignStatuses,
   maxKeywords,
   leadStatuses,
@@ -101,3 +106,31 @@ export const campaignLeadQuerySchema = z
 export const scrapeQuerySchema = z
   .object({ replace: z.enum(["true", "false"]).optional() })
   .optional();
+
+export const campaignLeadParamSchema = z.object({
+  campaignId: z.coerce.number().int().positive().max(2_147_483_647),
+  leadId: z.coerce.number().int().positive().max(2_147_483_647),
+});
+
+export const saveFilterSchema = z.object({
+  context: z.string().trim().max(4000).nullable(),
+  questions: z
+    .array(
+      z.object({
+        label: z.string().trim().min(1).max(255),
+        guidance: z.string().trim().max(2000),
+        role: z.enum(questionRoles),
+        onUnknown: z.enum(unknownBehaviours),
+        enabled: z.boolean(),
+      }),
+    )
+    .max(maxFilterQuestions),
+});
+
+export const previewFilterSchema = z.object({
+  leadId: z.number().int().positive().max(2_147_483_647),
+});
+
+export const promptFilterSchema = saveFilterSchema.extend({
+  leadId: z.number().int().positive().max(2_147_483_647).optional(),
+});

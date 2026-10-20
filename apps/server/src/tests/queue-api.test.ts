@@ -102,13 +102,19 @@ test("the overview lists every queue with its live counts", async () => {
 
     expect(overview.queues.map((queue) => queue.name).toSorted()).toEqual([
       "email",
+      "filter",
       "maintenance",
       "scrape",
     ]);
     const failed = Object.fromEntries(
       overview.queues.map((queue) => [queue.name, queue.counts.failed]),
     );
-    expect(failed).toEqual({ email: 2, maintenance: 0, scrape: 0 });
+    expect(failed).toEqual({
+      email: 2,
+      filter: 0,
+      maintenance: 0,
+      scrape: 0,
+    });
   });
 });
 

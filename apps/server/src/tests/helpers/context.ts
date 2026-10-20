@@ -12,6 +12,7 @@ import {
   type ListFailedInput,
   type ListFailedResult,
   type MaintenanceJob,
+  type FilterJob,
   type ScrapeJob,
   type QueueConsumer,
   type QueueJobCounts,
@@ -19,6 +20,11 @@ import {
   type ScheduleJobOptions,
 } from "@server/lib/base-queue";
 import { BaseCache } from "@server/lib/base-cache";
+import {
+  BaseLeadClassifier,
+  type ClassifierInput,
+  type ClassifierOutput,
+} from "@server/lib/base-lead-classifier";
 import { BaseEventBus } from "@server/lib/base-event-bus";
 import type {
   LiveEventListener,
@@ -197,6 +203,7 @@ export class TestQueueHub extends BaseQueueHub {
   public email: TestQueue<EmailJob>;
   public maintenance: TestQueue<MaintenanceJob>;
   public scrape: TestQueue<ScrapeJob>;
+  public filter: TestQueue<FilterJob>;
 
   public constructor(init: { mailer: BaseMailer }) {
     super();
@@ -211,6 +218,9 @@ export class TestQueueHub extends BaseQueueHub {
     this.scrape = new TestQueue<ScrapeJob>({
       process: async () => {},
     });
+    this.filter = new TestQueue<FilterJob>({
+      process: async () => {},
+    });
   }
 
   public override queues(): RegisteredQueue[] {
@@ -218,10 +228,54 @@ export class TestQueueHub extends BaseQueueHub {
       { name: "email", queue: this.email },
       { name: "maintenance", queue: this.maintenance },
       { name: "scrape", queue: this.scrape },
+      { name: "filter", queue: this.filter },
     ];
   }
 
   public override async close(): Promise<void> {}
+}
+
+export class FakeLeadClassifier extends BaseLeadClassifier {
+  public configured = true;
+  public provider = "fake";
+  public model = "fake";
+  public calls: ClassifierInput[] = [];
+  public error: Error | null = null;
+  public inFlight = 0;
+  public peakInFlight = 0;
+  public delayMs = 0;
+  /** Decides the answers; by default every requirement and evidence question is a yes quoting the first line of the facts and every competitor or disqualifier question is a no */
+  public answer: (input: ClassifierInput) => ClassifierOutput = (input) => ({
+    answers: input.questions.map((question) =>
+      question.role === "competitor" || question.role === "disqualifier"
+        ? { questionId: question.questionId, answer: "no", evidence: null }
+        : {
+            questionId: question.questionId,
+            answer: "yes",
+            evidence: input.facts.split("\n")[0] ?? null,
+          },
+    ),
+    summary: "Looks like a fit.",
+    model: "fake",
+  });
+
+  public override async classify(input: ClassifierInput) {
+    this.calls.push(input);
+    this.inFlight += 1;
+    this.peakInFlight = Math.max(this.peakInFlight, this.inFlight);
+
+    try {
+      if (this.delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, this.delayMs));
+      }
+
+      if (this.error) throw this.error;
+
+      return this.answer(input);
+    } finally {
+      this.inFlight -= 1;
+    }
+  }
 }
 
 export class TestCache extends BaseCache {
@@ -304,7 +358,12 @@ export const createContext = (
   mailer: BaseMailer = new TestMailer(),
   rateLimiter: BaseRateLimiter = new TestRateLimiter(),
   skoolScraper: BaseSkoolScraper = new CustomSkoolScraper(),
-): Context & { eventBus: TestEventBus; cache: TestCache } => {
+  leadClassifier: FakeLeadClassifier = new FakeLeadClassifier(),
+): Context & {
+  eventBus: TestEventBus;
+  cache: TestCache;
+  leadClassifier: FakeLeadClassifier;
+} => {
   const queueHub = new TestQueueHub({ mailer });
 
   return {
@@ -319,6 +378,7 @@ export const createContext = (
     rateLimiter,
     repositories: new Repositories({ dbConnection: { db, pool } }),
     skoolScraper,
+    leadClassifier,
     eventStreamHeartbeatMs: 50,
     discoveryCriteria: DEFAULT_SKOOL_SEARCHES,
   };

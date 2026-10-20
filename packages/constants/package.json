@@ -6,6 +6,7 @@
     "./auth": "./src/auth.ts",
     "./errors": "./src/errors.ts",
     "./campaign": "./src/campaign.ts",
-    "./events": "./src/events.ts"
+    "./events": "./src/events.ts",
+    "./filter": "./src/filter.ts"
   }
 }

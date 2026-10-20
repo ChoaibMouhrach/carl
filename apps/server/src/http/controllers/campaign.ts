@@ -4,7 +4,11 @@ import type { AppContext } from "@server/app";
 import { adminMiddleware } from "../middlewares/auth";
 import {
   campaignIdParamSchema,
+  campaignLeadParamSchema,
   campaignLeadQuerySchema,
+  previewFilterSchema,
+  promptFilterSchema,
+  saveFilterSchema,
   campaignQuerySchema,
   createCampaignSchema,
   scrapeQuerySchema,
@@ -134,6 +138,113 @@ export const campaignController = new Hono<AppContext>()
       });
 
       return context.json(result, 202);
+    },
+  )
+
+  .get(
+    "/:campaignId/filter",
+    describeRoute({ tags: ["campaign"] }),
+    validator("param", campaignIdParamSchema),
+    async (context) => {
+      const { campaignId } = context.req.valid("param");
+
+      const result = await context.get("services").filter.show({ campaignId });
+
+      return context.json(result);
+    },
+  )
+
+  .put(
+    "/:campaignId/filter",
+    describeRoute({ tags: ["campaign"] }),
+    validator("param", campaignIdParamSchema),
+    validator("json", saveFilterSchema),
+    async (context) => {
+      const { campaignId } = context.req.valid("param");
+      const body = context.req.valid("json");
+
+      const result = await context
+        .get("services")
+        .filter.save({ campaignId }, body);
+
+      return context.json(result);
+    },
+  )
+
+  .post(
+    "/:campaignId/filter/preview",
+    describeRoute({ tags: ["campaign"] }),
+    validator("param", campaignIdParamSchema),
+    validator("json", previewFilterSchema),
+    async (context) => {
+      const { campaignId } = context.req.valid("param");
+      const { leadId } = context.req.valid("json");
+
+      const result = await context
+        .get("services")
+        .filter.preview({ campaignId, leadId });
+
+      return context.json(result);
+    },
+  )
+
+  .post(
+    "/:campaignId/filter/prompt",
+    describeRoute({ tags: ["campaign"] }),
+    validator("param", campaignIdParamSchema),
+    validator("json", promptFilterSchema),
+    async (context) => {
+      const { campaignId } = context.req.valid("param");
+      const { leadId, ...settings } = context.req.valid("json");
+
+      const result = await context
+        .get("services")
+        .filter.prompt({ campaignId }, { ...settings, leadId });
+
+      return context.json(result);
+    },
+  )
+
+  .post(
+    "/:campaignId/filter/run",
+    describeRoute({ tags: ["campaign"] }),
+    validator("param", campaignIdParamSchema),
+    async (context) => {
+      const { campaignId } = context.req.valid("param");
+
+      const result = await context.get("services").filter.start({ campaignId });
+
+      return context.json(result, 202);
+    },
+  )
+
+  .post(
+    "/:campaignId/filter/reapply",
+    describeRoute({ tags: ["campaign"] }),
+    validator("param", campaignIdParamSchema),
+    async (context) => {
+      const { campaignId } = context.req.valid("param");
+
+      const result = await context
+        .get("services")
+        .filter.reapply({ campaignId });
+
+      return context.json(result);
+    },
+  )
+
+  .get(
+    "/:campaignId/leads/:leadId/assessment",
+    describeRoute({ tags: ["campaign"] }),
+    validator("param", campaignLeadParamSchema),
+    async (context) => {
+      const { campaignId, leadId } = context.req.valid("param");
+
+      const result = await context
+        .get("services")
+        .filter.showAssessment({ campaignId, leadId });
+
+      return context.json(result);
     },
   )
 

@@ -10,6 +10,12 @@ import {
   unique,
 } from "drizzle-orm/pg-core";
 import type {
+  AnswerValue,
+  AssessmentVerdict,
+  QuestionRole,
+  UnknownBehaviour,
+} from "@repo/constants/filter";
+import type {
   CampaignStatus,
   LeadStatus,
   SkoolPriceFilter,
@@ -49,8 +55,64 @@ export const campaignsTable = pgTable("campaigns", {
   minMembers: integer(),
   maxMembers: integer(),
 
+  // -- stage 2 (ai filter) settings
+  /** What the campaign is trying to do, given to the AI as background for judging fit */
+  filterContext: text(),
+
   ...timestamps(),
 });
+
+export const campaignFilterQuestionsTable = pgTable(
+  "campaign_filter_questions",
+  {
+    questionId: id(),
+    campaignId: integer()
+      .notNull()
+      .references(() => campaignsTable.campaignId, { onDelete: "cascade" }),
+    position: integer().notNull(),
+    label: text().notNull(),
+    guidance: text().notNull().default(""),
+    role: text().$type<QuestionRole>().notNull(),
+    onUnknown: text().$type<UnknownBehaviour>().notNull().default("review"),
+    enabled: boolean().notNull().default(true),
+
+    ...timestamps(),
+  },
+  (table) => [index().on(table.campaignId, table.position)],
+);
+
+export type AssessmentAnswer = {
+  questionId: number;
+  /** Kept as asked, so an assessment stays readable after the questions change */
+  label: string;
+  role: QuestionRole;
+  answer: AnswerValue;
+  evidence: string | null;
+};
+
+export const leadAssessmentsTable = pgTable(
+  "lead_assessments",
+  {
+    leadAssessmentId: id(),
+    campaignId: integer()
+      .notNull()
+      .references(() => campaignsTable.campaignId, { onDelete: "cascade" }),
+    leadId: integer()
+      .notNull()
+      .references(() => leadsTable.leadId, { onDelete: "cascade" }),
+    verdict: text().$type<AssessmentVerdict>().notNull(),
+    summary: text().notNull(),
+    answers: jsonb().$type<AssessmentAnswer[]>().notNull(),
+    model: text().notNull(),
+
+    ...timestamps(),
+  },
+  (table) => [unique().on(table.campaignId, table.leadId)],
+);
+
+export type CampaignFilterQuestion =
+  (typeof campaignFilterQuestionsTable)["$inferSelect"];
+export type LeadAssessment = (typeof leadAssessmentsTable)["$inferSelect"];
 
 export const campaignLeadsTable = pgTable(
   "campaign_leads",

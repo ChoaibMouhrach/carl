@@ -6,6 +6,8 @@ export type EmailJob = SendEmailProps<EmailSender>;
 
 export type ScrapeJob = { scrapeRunId: number };
 
+export type FilterJob = { campaignId: number };
+
 export type MaintenanceJob = { type: "check-queue-backlog" };
 
 export type QueueConsumer<Input> = (input: Input) => Promise<void>;
@@ -79,6 +81,7 @@ export abstract class BaseQueueHub {
   public abstract email: BaseQueue<EmailJob>;
   public abstract maintenance: BaseQueue<MaintenanceJob>;
   public abstract scrape: BaseQueue<ScrapeJob>;
+  public abstract filter: BaseQueue<FilterJob>;
 
   public abstract queues(): RegisteredQueue[];
 

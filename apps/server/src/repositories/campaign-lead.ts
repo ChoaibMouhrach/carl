@@ -1,4 +1,14 @@
-import { and, desc, eq, exists, ilike, inArray, or, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  exists,
+  ilike,
+  inArray,
+  notExists,
+  or,
+  sql,
+} from "drizzle-orm";
 import type { LeadStatus, StageNumber } from "@repo/constants/campaign";
 import { DEFAULT_RECORD_LIMIT } from "@server/config/constants";
 import { BaseRepository } from "@server/lib/base-repository";
@@ -6,6 +16,7 @@ import { containsPattern } from "@server/lib/utils";
 import {
   campaignLeadsTable,
   communitiesTable,
+  leadAssessmentsTable,
   leadsTable,
 } from "@server/infrastructure/database/schemas";
 
@@ -67,6 +78,140 @@ export class CampaignLeadRepository extends BaseRepository {
       );
 
     return rows.map((row) => row.leadId);
+  }
+
+  /** Moves leads that finished a stage onto the next one, waiting to be run */
+  public async advanceDone(where: {
+    campaignId: number;
+    from: StageNumber;
+    to: StageNumber;
+  }) {
+    const table = CampaignLeadRepository.table;
+
+    const moved = await this.db
+      .update(table)
+      .set({ stage: where.to, status: "pending", failureReason: null })
+      .where(
+        and(
+          eq(table.campaignId, where.campaignId),
+          eq(table.stage, where.from),
+          eq(table.status, "done"),
+        ),
+      )
+      .returning({ id: table.campaignLeadId });
+
+    return moved.length;
+  }
+
+  /** Puts leads back in the queue when they failed at a stage without ever getting an answer */
+  public async requeueUnanswered(where: {
+    campaignId: number;
+    stage: StageNumber;
+  }) {
+    const table = CampaignLeadRepository.table;
+
+    const requeued = await this.db
+      .update(table)
+      .set({ status: "pending", failureReason: null })
+      .where(
+        and(
+          eq(table.campaignId, where.campaignId),
+          eq(table.stage, where.stage),
+          eq(table.status, "failed"),
+          notExists(
+            this.db
+              .select({ one: sql`1` })
+              .from(leadAssessmentsTable)
+              .where(
+                and(
+                  eq(leadAssessmentsTable.campaignId, table.campaignId),
+                  eq(leadAssessmentsTable.leadId, table.leadId),
+                ),
+              ),
+          ),
+        ),
+      )
+      .returning({ id: table.campaignLeadId });
+
+    return requeued.length;
+  }
+
+  public async countAtStageWithStatus(where: {
+    campaignId: number;
+    stage: StageNumber;
+    status: LeadStatus;
+  }) {
+    const table = CampaignLeadRepository.table;
+    const [row] = await this.db
+      .select({ count: sql`COUNT(*)`.mapWith(Number) })
+      .from(table)
+      .where(
+        and(
+          eq(table.campaignId, where.campaignId),
+          eq(table.stage, where.stage),
+          eq(table.status, where.status),
+        ),
+      );
+
+    return row?.count ?? 0;
+  }
+
+  public async listLeadIdsAtStageWithStatus(where: {
+    campaignId: number;
+    stage: StageNumber;
+    status: LeadStatus;
+  }) {
+    const table = CampaignLeadRepository.table;
+    const rows = await this.db
+      .select({ leadId: table.leadId })
+      .from(table)
+      .where(
+        and(
+          eq(table.campaignId, where.campaignId),
+          eq(table.stage, where.stage),
+          eq(table.status, where.status),
+        ),
+      )
+      .orderBy(table.campaignLeadId);
+
+    return rows.map((row) => row.leadId);
+  }
+
+  public async setStatus(
+    where: { campaignId: number; leadId: number },
+    input: { status: LeadStatus; failureReason: string | null },
+  ) {
+    const table = CampaignLeadRepository.table;
+
+    await this.db
+      .update(table)
+      .set(input)
+      .where(
+        and(
+          eq(table.campaignId, where.campaignId),
+          eq(table.leadId, where.leadId),
+        ),
+      );
+  }
+
+  /** Moves a lead that already finished a stage to its new outcome, leaving queued and running leads alone */
+  public async setFinishedStatus(
+    where: { campaignId: number; leadId: number; stage: StageNumber },
+    input: { status: LeadStatus; failureReason: string | null },
+  ) {
+    const table = CampaignLeadRepository.table;
+
+    await this.db
+      .update(table)
+      .set(input)
+      .where(
+        and(
+          eq(table.campaignId, where.campaignId),
+          eq(table.leadId, where.leadId),
+          eq(table.stage, where.stage),
+          inArray(table.status, ["done", "failed"]),
+        ),
+      );
   }
 
   public async removeByLeadIds(where: {
@@ -182,10 +327,18 @@ export class CampaignLeadRepository extends BaseRepository {
           status: table.status,
           failureReason: table.failureReason,
           keyword: table.keyword,
+          verdict: leadAssessmentsTable.verdict,
           updatedAt: table.updatedAt,
         })
         .from(table)
         .innerJoin(leadsTable, eq(leadsTable.leadId, table.leadId))
+        .leftJoin(
+          leadAssessmentsTable,
+          and(
+            eq(leadAssessmentsTable.campaignId, table.campaignId),
+            eq(leadAssessmentsTable.leadId, table.leadId),
+          ),
+        )
         .where(where)
         .orderBy(desc(table.updatedAt), desc(table.campaignLeadId))
         .limit(limit)

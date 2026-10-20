@@ -30,6 +30,7 @@ export const createAdminClient = async (context: Context, email: string) => {
     ...admin,
     get: (path: string) => request("GET", path),
     post: (path: string, body?: object) => request("POST", path, { body }),
+    put: (path: string, body?: object) => request("PUT", path, { body }),
     patch: (path: string, body?: object) => request("PATCH", path, { body }),
     delete: (path: string) => request("DELETE", path),
   };

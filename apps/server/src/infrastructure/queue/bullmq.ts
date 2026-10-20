@@ -7,6 +7,7 @@ import {
   BaseQueueHub,
   type AddJobOptions,
   type EmailJob,
+  type FilterJob,
   type ListFailedInput,
   type ListFailedResult,
   type MaintenanceJob,
@@ -27,6 +28,10 @@ const maintenanceConcurrency = 1;
 const scrapeQueueName = "scrape";
 const scrapeJobName = "run";
 const scrapeConcurrency = 1;
+
+const filterQueueName = "filter";
+const filterJobName = "run";
+const filterConcurrency = 1;
 
 const FAILED_JOB_RETENTION_SECONDS = 60 * 60 * 24 * 7;
 const FAILED_JOB_RETENTION_COUNT = 5_000;
@@ -276,10 +281,22 @@ export class ScrapeQueue extends BullQueue<ScrapeJob> {
   }
 }
 
+export class FilterQueue extends BullQueue<FilterJob> {
+  public constructor(init: MaintenanceQueueInit) {
+    super({
+      ...init,
+      concurrency: filterConcurrency,
+      jobName: filterJobName,
+      name: filterQueueName,
+    });
+  }
+}
+
 export class QueueHub extends BaseQueueHub {
   public email: EmailQueue;
   public maintenance: MaintenanceQueue;
   public scrape: ScrapeQueue;
+  public filter: FilterQueue;
 
   public constructor(init: EmailQueueInit) {
     super();
@@ -294,6 +311,11 @@ export class QueueHub extends BaseQueueHub {
       logger: init.logger,
       redisUrl: init.redisUrl,
     });
+    this.filter = new FilterQueue({
+      errorMonitor: init.errorMonitor,
+      logger: init.logger,
+      redisUrl: init.redisUrl,
+    });
   }
 
   public override queues(): RegisteredQueue[] {
@@ -301,6 +323,7 @@ export class QueueHub extends BaseQueueHub {
       { name: emailQueueName, queue: this.email },
       { name: maintenanceQueueName, queue: this.maintenance },
       { name: scrapeQueueName, queue: this.scrape },
+      { name: filterQueueName, queue: this.filter },
     ];
   }
 
@@ -308,5 +331,6 @@ export class QueueHub extends BaseQueueHub {
     await this.email.close();
     await this.maintenance.close();
     await this.scrape.close();
+    await this.filter.close();
   }
 }

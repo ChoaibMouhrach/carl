@@ -15,6 +15,10 @@ import type { BaseEventBus } from "./lib/base-event-bus";
 import { RedisEventBus } from "./infrastructure/event-bus/redis";
 import type { BaseQueueHub } from "./lib/base-queue";
 import { QueueHub } from "./infrastructure/queue/bullmq";
+import type { BaseLeadClassifier } from "./lib/base-lead-classifier";
+import { LlmLeadClassifier } from "./infrastructure/ai/llm-classifier";
+import { createLlm } from "./infrastructure/llm";
+import { ScriptedLeadClassifier } from "./infrastructure/ai/scripted";
 import type { BaseCache } from "./lib/base-cache";
 import { RedisCache } from "./infrastructure/cache/redis";
 import type { BaseRateLimiter } from "./lib/base-rate-limiter";
@@ -102,6 +106,10 @@ export const initContext = async () => {
       })
     : customScraper;
 
+  const leadClassifier: BaseLeadClassifier = env.SKOOL_SCRIPTING
+    ? new ScriptedLeadClassifier({ redisUrl: env.REDIS_CONNECTION_STRING })
+    : new LlmLeadClassifier({ llm: createLlm(env) });
+
   const auth = createAuth({ db: dbConnection.db, env, queueHub });
 
   return {
@@ -116,6 +124,7 @@ export const initContext = async () => {
     auth,
     errorMonitor,
     skoolScraper,
+    leadClassifier,
     eventStreamHeartbeatMs: EVENT_STREAM_HEARTBEAT_MS,
     discoveryCriteria: DEFAULT_SKOOL_SEARCHES,
   };
