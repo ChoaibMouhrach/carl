@@ -42,7 +42,7 @@ const verdictReasons: Record<
 const ERROR_REASON_LENGTH = 300;
 
 const PLACEHOLDER_FACTS =
-  "(The owner's profile and communities are written out here when the AI is asked about a real lead. Pick a lead to see them.)";
+  "(The owner's profile and communities are written out here when the AI is asked about a real lead.)";
 
 export class FilterService extends BaseService {
   public async show(input: { campaignId: number }) {

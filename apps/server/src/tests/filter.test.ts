@@ -992,7 +992,7 @@ test("a signal question is stored with its role and an unknown role is refused w
     });
     const refused = await admin.put(`${path}/filter`, {
       context: null,
-      questions: [question({ label: "Bogus", role: "bonus" })],
+      questions: [{ ...question({ label: "Bogus" }), role: "bonus" }],
     });
 
     expect([saved.status, refused.status]).toEqual([200, 400]);
