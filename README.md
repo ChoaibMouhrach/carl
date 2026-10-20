@@ -16,6 +16,7 @@ pipeline, organised into campaigns.
 - [Getting started](#getting-started)
 - [Environment variables](#environment-variables)
 - [Live updates](#live-updates)
+- [AI filter (stage 2)](#ai-filter-stage-2)
 - [MCP for AI agents](#mcp-for-ai-agents)
 - [Observability](#observability)
 - [Scripts](#scripts)
@@ -246,6 +247,42 @@ Events travel over Redis pub/sub (`infrastructure/event-bus/redis.ts`, behind
 `BaseEventBus`), so a change made on one server instance — or by the queue
 worker — reaches the browsers connected to any other. Publishing is best
 effort: if Redis fails, the request that caused the change still succeeds.
+
+## AI filter (stage 2)
+
+Each campaign has its own AI filter. Open a campaign, go to its Stage 2 tab and
+choose **AI filter settings**: there you describe what the campaign is trying to do (who you are, what you offer,
+what a good lead looks like) and the
+questions the AI answers about every lead. A question has a role: a
+**requirement** must be yes, a **disqualifier** removes the lead on yes, a
+**competitor** question marks competitors on yes, and an **evidence** question
+checks the answers are backed by the lead's data. A **signal** never changes the
+verdict; the assessment shows how many signals were yes as a priority. For each question you also say
+whether an answer the AI cannot give sends the lead to review or disqualifies it.
+**Try it** runs the saved questions on one lead and shows the answers without
+keeping them. **Re-apply rules** (on the Stage 2 tab) recomputes every verdict from
+the answers already stored, matching questions by their text, so changing a role
+costs nothing; leads missing an answer to a newly added question are skipped until
+the AI is run again.
+
+**Run AI filter** moves every lead that finished stage 1 to stage 2 and queues
+one classification per lead (`filter` queue, four at a time). The AI only sees
+what we scraped: the owner's profile and their communities, written out as plain
+text. Every yes must come with a quote that really appears in that text, otherwise
+it counts as unknown. Plain rules in `lib/assessment.ts` turn the answers into a
+verdict, in this order: competitor, disqualified, needs review, qualified. Only
+qualified leads are done at stage 2; the others are marked failed with the verdict
+as the reason and keep their assessment, which opens from the verdict badge in the
+campaign's lead list. A lead the AI could not be asked about is failed with the
+error and tried again by the next run.
+
+The model is a strategy. `LlmLeadClassifier` asks a `BaseLlm` for a structured
+answer; the implementation is `AiSdkLlm`, which uses the Vercel AI SDK with its
+OpenAI provider (`OPENAI_API_KEY`, `AI_FILTER_MODEL`). Without a key a disabled
+strategy refuses to answer. Moving to a native OpenAI or Anthropic SDK later means
+adding another `BaseLlm` and selecting it in `infrastructure/llm/index.ts`; nothing
+else changes. For e2e tests a scripted classifier replaces the whole thing when
+`SKOOL_SCRIPTING` is on.
 
 ## MCP for AI agents
 
