@@ -84,6 +84,7 @@ A key missing from `.env.ci` fails CI at env-parse time before any test runs; a 
 - Do not override the theme or visual styling of shadcn components with `className`. Use their default appearance and documented variants or size props only.
 - `className` is allowed only on non-shadcn layout wrappers; it must not be used to restyle a shadcn primitive.
 - Anything that scrolls uses the shadcn `ScrollArea` from `@repo/ui/components/ui/scroll-area` (add `<ScrollBar orientation="horizontal" />` for sideways scrolling). Never use `overflow-auto`, `overflow-scroll`, `overflow-x-auto` or `overflow-y-auto` for a scrolling region. `ScrollArea` is the one shadcn primitive that may take a `className`, and only to size it (`h-*`, `max-h-*`, `min-h-0`, `flex-1`). Plain `overflow-hidden` for clipping is fine.
+- Every button has a tooltip: wrap it with the shadcn `Tooltip` from `@repo/ui/components/ui/tooltip` and say in one short line what it does (for a disabled button, why it is disabled). Icon-only buttons need one most of all, since it is their only label. This covers `Button`, dropdown triggers and row-action triggers alike; the tooltip uses its default appearance with no `className`.
 
 **API layer** (`src/api/`)
 
