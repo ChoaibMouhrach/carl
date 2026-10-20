@@ -15,6 +15,8 @@ import {
   listLeadsByUsernamePrefix,
   listOAuthTokens,
   listFilterQuestions,
+  saveFilterQuestions,
+  sampleFilterQuestions,
   listLeadAssessments,
   scriptLeadAssessment,
   unscriptLeadAssessment,
@@ -80,6 +82,10 @@ interface Seed {
   listFilterQuestions: (
     campaignId: number,
   ) => ReturnType<typeof listFilterQuestions>;
+  saveFilterQuestions: (
+    campaignId: number,
+    questions?: typeof sampleFilterQuestions,
+  ) => Promise<void>;
   listLeadAssessments: (
     campaignId: number,
   ) => ReturnType<typeof listLeadAssessments>;
@@ -154,6 +160,8 @@ export const test = base.extend<{ seed: Seed; resetRateLimits: void }>({
         listLeadsByUsernamePrefix(config, prefix),
       listScrapeRuns: (campaignId) => listScrapeRuns(config, campaignId),
       listOAuthTokens: (email) => listOAuthTokens(config, email),
+      saveFilterQuestions: (campaignId, questions = sampleFilterQuestions) =>
+        saveFilterQuestions(config, { campaignId, questions }),
       listFilterQuestions: (campaignId) =>
         listFilterQuestions(config, campaignId),
       listLeadAssessments: (campaignId) =>

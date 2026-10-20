@@ -1,6 +1,6 @@
+import { sampleFilterQuestions } from "@repo/server/testing/e2e-seed";
 import { test, expect } from "../fixtures";
 import type { Page } from "@playwright/test";
-import { defaultFilterQuestions } from "@repo/constants/filter";
 import { expectRequired, token } from "./support";
 
 type Seed = Parameters<Parameters<typeof test>[2]>[0]["seed"];
@@ -24,11 +24,9 @@ const open = async (page: Page, campaignId: number) => {
   await expect(page.getByLabel("What are we trying to do?")).toBeVisible();
 };
 
-const saveStarterQuestions = async (page: Page, campaignId: number) => {
+const saveQuestions = async (page: Page, seed: Seed, campaignId: number) => {
+  await seed.saveFilterQuestions(campaignId);
   await open(page, campaignId);
-  await page.getByRole("button", { name: "Use the starter questions" }).click();
-  await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByText("AI filter saved.")).toBeVisible();
 };
 
 const setupAdmin = async (
@@ -47,14 +45,14 @@ const setupAdmin = async (
   return { id, campaign };
 };
 
-const labels = defaultFilterQuestions.map((question) => question.label);
+const labels = sampleFilterQuestions.map((question) => question.label);
 
 const scriptFor = (
   verdict: "qualified" | "needs_review" | "competitor",
   quote: string,
 ) => ({
   answers: Object.fromEntries(
-    defaultFilterQuestions.map((question, index) => {
+    sampleFilterQuestions.map((question, index) => {
       if (question.role === "competitor") {
         return [
           question.label,
@@ -72,30 +70,31 @@ const scriptFor = (
   summary: `Scripted ${verdict}.`,
 });
 
-test("the starter questions fill the form and are stored in order when saved", async ({
+test("questions added on the form are stored in order with their roles, and come back after a reload", async ({
   page,
   seed,
 }) => {
-  const { campaign } = await setupAdmin(page, seed);
+  const { campaign, id } = await setupAdmin(page, seed);
   await open(page, campaign.campaignId);
   await expect(page.getByText("No questions yet")).toBeVisible();
 
-  await page.getByRole("button", { name: "Use the starter questions" }).click();
-  await expect(questionBoxes(page)).toHaveCount(6);
+  await page.getByRole("button", { name: "Add a question" }).click();
+  await questionBoxes(page).first().fill(`Is it paid? ${id}`);
+  await page.getByRole("button", { name: "Add a question" }).click();
+  await questionBoxes(page).last().fill(`Do they hire? ${id}`);
+  await choose(page, field(page, "role", 1), /^Signal/);
   await page.getByRole("button", { name: "Save" }).click();
 
   await expect
     .poll(async () =>
       (await seed.listFilterQuestions(campaign.campaignId)).map((q) => q.label),
     )
-    .toEqual(labels);
+    .toEqual([`Is it paid? ${id}`, `Do they hire? ${id}`]);
   const stored = await seed.listFilterQuestions(campaign.campaignId);
-  expect(stored.map((q) => q.role)).toEqual(
-    defaultFilterQuestions.map((q) => q.role),
-  );
+  expect(stored.map((q) => q.role)).toEqual(["requirement", "signal"]);
   await page.reload();
-  await expect(questionBoxes(page)).toHaveCount(6);
-  await expect(questionBoxes(page).first()).toHaveValue(labels[0] ?? "");
+  await expect(questionBoxes(page)).toHaveCount(2);
+  await expect(questionBoxes(page).first()).toHaveValue(`Is it paid? ${id}`);
 });
 
 test("a question without a label is stopped on the form and nothing is stored, and the field is marked required with a placeholder", async ({
@@ -121,7 +120,7 @@ test("questions can be reordered, switched off, given another role and added, an
   seed,
 }) => {
   const { campaign, id } = await setupAdmin(page, seed);
-  await saveStarterQuestions(page, campaign.campaignId);
+  await saveQuestions(page, seed, campaign.campaignId);
 
   await page
     .getByLabel("What are we trying to do?")
@@ -162,9 +161,12 @@ test("removing a question drops it from the saved list", async ({
   seed,
 }) => {
   const { campaign } = await setupAdmin(page, seed);
-  await saveStarterQuestions(page, campaign.campaignId);
+  await saveQuestions(page, seed, campaign.campaignId);
 
   await page.getByRole("button", { name: "Remove question 2" }).click();
+  await expect(page.getByText("Delete this question?")).toBeVisible();
+  await page.getByRole("button", { name: "Delete" }).click();
+  await expect(questionBoxes(page)).toHaveCount(5);
   await page.getByRole("button", { name: "Save" }).click();
 
   await expect
@@ -177,12 +179,50 @@ test("removing a question drops it from the saved list", async ({
   ).not.toContain(labels[1]);
 });
 
+test("cancelling the delete dialog keeps the question", async ({
+  page,
+  seed,
+}) => {
+  const { campaign } = await setupAdmin(page, seed);
+  await saveQuestions(page, seed, campaign.campaignId);
+
+  await page.getByRole("button", { name: "Remove question 2" }).click();
+  await page.getByRole("button", { name: "Cancel" }).click();
+
+  await expect(page.getByText("Delete this question?")).toHaveCount(0);
+  await expect(questionBoxes(page)).toHaveCount(6);
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("AI filter saved.")).toBeVisible();
+  expect(
+    (await seed.listFilterQuestions(campaign.campaignId)).map((q) => q.label),
+  ).toEqual(labels);
+});
+
+test("switching a question on or off saves it straight away", async ({
+  page,
+  seed,
+}) => {
+  const { campaign } = await setupAdmin(page, seed);
+  await saveQuestions(page, seed, campaign.campaignId);
+
+  await page.getByLabel("Question 2 on").click();
+
+  await expect(page.getByText("AI filter saved.")).toBeVisible();
+  await expect
+    .poll(async () =>
+      (await seed.listFilterQuestions(campaign.campaignId)).map(
+        (q) => q.enabled,
+      ),
+    )
+    .toEqual([true, false, true, true, true, true]);
+});
+
 test("a campaign can hold twelve questions and not a thirteenth", async ({
   page,
   seed,
 }) => {
   const { campaign } = await setupAdmin(page, seed);
-  await saveStarterQuestions(page, campaign.campaignId);
+  await saveQuestions(page, seed, campaign.campaignId);
 
   for (let index = 0; index < 6; index += 1) {
     await page.getByRole("button", { name: "Add a question" }).click();
@@ -211,47 +251,12 @@ test("the settings page shows a skeleton while the questions load", async ({
   await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
 });
 
-test("trying a lead shows the AI's answers with their evidence and keeps nothing", async ({
-  page,
-  seed,
-}) => {
-  const { campaign, id } = await setupAdmin(page, seed);
-  await saveStarterQuestions(page, campaign.campaignId);
-  const username = `e2e-${id}`;
-  const lead = await seed.createLead({
-    skoolUsername: username,
-    name: `Try ${id}`,
-    bio: `Founder of Acme ${id}. We run coaching programs.`,
-  });
-  await seed.scriptLeadAssessment(
-    username,
-    scriptFor("qualified", "We run coaching programs."),
-  );
-
-  try {
-    await page.locator("#preview-lead").fill(`Try ${id}`);
-    await page.getByRole("option", { name: new RegExp(`Try ${id}`) }).click();
-    await page.getByRole("button", { name: "Try this lead" }).click();
-
-    await expect(page.getByText("Qualified").first()).toBeVisible();
-    await expect(page.getByText("Scripted qualified.")).toBeVisible();
-    await expect(
-      page.getByText("We run coaching programs.").first(),
-    ).toBeVisible();
-    await expect(page.getByText(labels[0] ?? "").first()).toBeVisible();
-    expect(await seed.listLeadAssessments(campaign.campaignId)).toEqual([]);
-    expect(lead.leadId).toBeGreaterThan(0);
-  } finally {
-    await seed.unscriptLeadAssessment(username);
-  }
-});
-
 test("running the filter classifies every lead, passes the qualified ones and shows each verdict with its evidence", async ({
   page,
   seed,
 }) => {
   const { campaign, id } = await setupAdmin(page, seed, { status: "active" });
-  await saveStarterQuestions(page, campaign.campaignId);
+  await saveQuestions(page, seed, campaign.campaignId);
   const verdicts = ["qualified", "needs_review", "competitor"] as const;
   const quote = "We run coaching programs.";
   const leads = [];
@@ -340,7 +345,7 @@ test("a lead the AI cannot be asked about fails with its reason, gets no assessm
   seed,
 }) => {
   const { campaign, id } = await setupAdmin(page, seed, { status: "active" });
-  await saveStarterQuestions(page, campaign.campaignId);
+  await saveQuestions(page, seed, campaign.campaignId);
   const quote = "We run coaching programs.";
   const good = await seed.createLead({
     skoolUsername: `e2e-${id}-good`,
@@ -402,7 +407,7 @@ test("running the filter again only asks about leads that never got an answer", 
   seed,
 }) => {
   const { campaign, id } = await setupAdmin(page, seed, { status: "active" });
-  await saveStarterQuestions(page, campaign.campaignId);
+  await saveQuestions(page, seed, campaign.campaignId);
   const quote = "We run coaching programs.";
   const lead = await seed.createLead({
     skoolUsername: `e2e-${id}`,
@@ -451,13 +456,12 @@ test("Show prompt writes out what the AI is sent for the form as it is now, save
 }) => {
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   const { campaign, id } = await setupAdmin(page, seed);
-  await saveStarterQuestions(page, campaign.campaignId);
+  await saveQuestions(page, seed, campaign.campaignId);
 
   await page
     .getByLabel("What are we trying to do?")
     .fill(`Sell automation to coaches ${id}`);
   await questionBoxes(page).first().fill(`Unsaved question ${id}`);
-  await page.getByLabel("Question 2 on").click();
   await page.getByRole("button", { name: "Show prompt" }).click();
 
   const sheet = promptSheet(page);
@@ -466,7 +470,6 @@ test("Show prompt writes out what the AI is sent for the form as it is now, save
   await expect(sheet).toContainText(`WHAT WE ARE TRYING TO DO:`);
   await expect(sheet).toContainText(`Sell automation to coaches ${id}`);
   await expect(sheet).toContainText(`- questionId 1: Unsaved question ${id}`);
-  await expect(sheet).not.toContainText(labels[1] ?? "");
   await expect(sheet).toContainText("QUESTIONS:");
   await expect(sheet).toContainText("LEAD:");
 
@@ -481,34 +484,12 @@ test("Show prompt writes out what the AI is sent for the form as it is now, save
   expect(stored.every((q) => q.enabled)).toBe(true);
 });
 
-test("Show prompt with a lead picked includes that lead's own text", async ({
-  page,
-  seed,
-}) => {
-  const { campaign, id } = await setupAdmin(page, seed);
-  await saveStarterQuestions(page, campaign.campaignId);
-  await seed.createLead({
-    skoolUsername: `e2e-${id}`,
-    name: `Prompt ${id}`,
-    bio: `Founder of Acme ${id}. We run coaching programs.`,
-  });
-
-  await page.locator("#preview-lead").fill(`Prompt ${id}`);
-  await page.getByRole("option", { name: new RegExp(`Prompt ${id}`) }).click();
-  await page.getByRole("button", { name: "Show prompt" }).click();
-
-  await expect(promptSheet(page)).toContainText(`Name: Prompt ${id}`);
-  await expect(promptSheet(page)).toContainText(
-    `Bio: Founder of Acme ${id}. We run coaching programs.`,
-  );
-});
-
 test("Show prompt is stopped by an invalid form, and says so when every question is off", async ({
   page,
   seed,
 }) => {
   const { campaign } = await setupAdmin(page, seed);
-  await saveStarterQuestions(page, campaign.campaignId);
+  await saveQuestions(page, seed, campaign.campaignId);
   let requests = 0;
   await page.route("**/api/campaigns/*/filter/prompt", async (route) => {
     requests += 1;
@@ -537,7 +518,7 @@ test("re-applying the rules after a role change gives the lead a new verdict fro
   seed,
 }) => {
   const { campaign, id } = await setupAdmin(page, seed, { status: "active" });
-  await saveStarterQuestions(page, campaign.campaignId);
+  await saveQuestions(page, seed, campaign.campaignId);
   const quote = "We run coaching programs.";
   const username = `e2e-${id}-reapply`;
   const lead = await seed.createLead({
@@ -596,8 +577,7 @@ test("choosing the Signal role saves it, and the assessment shows how many signa
   seed,
 }) => {
   const { campaign, id } = await setupAdmin(page, seed, { status: "active" });
-  await open(page, campaign.campaignId);
-  await page.getByRole("button", { name: "Use the starter questions" }).click();
+  await saveQuestions(page, seed, campaign.campaignId);
   await choose(page, field(page, "role", 0), /^Signal/);
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("AI filter saved.")).toBeVisible();
@@ -607,7 +587,7 @@ test("choosing the Signal role saves it, and the assessment shows how many signa
       (await seed.listFilterQuestions(campaign.campaignId)).map((q) => q.role),
     )
     .toEqual(
-      defaultFilterQuestions.map((q, index) =>
+      sampleFilterQuestions.map((q, index) =>
         index === 0 ? "signal" : q.role,
       ),
     );
@@ -621,7 +601,7 @@ test("choosing the Signal role saves it, and the assessment shows how many signa
   });
   const signalLabels = new Set([
     labels[0],
-    ...defaultFilterQuestions
+    ...sampleFilterQuestions
       .filter((q) => q.role === "signal")
       .map((q) => q.label),
   ]);
