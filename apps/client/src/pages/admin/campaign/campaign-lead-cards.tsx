@@ -26,16 +26,20 @@ import {
   UsersIcon,
 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
+import { Button } from "@repo/ui/components/ui/button";
 import { LeadStatusBadge } from "./lead-status-badge";
+import { VerdictBadge } from "./verdict-badge";
 
 interface CampaignLeadCardsProps {
   leads: CampaignLead[];
+  onOpenAssessment: (leadId: number) => void;
   selection: Selection;
   selectionLocked?: boolean;
 }
 
 export const CampaignLeadCards = ({
   leads,
+  onOpenAssessment,
   selection,
   selectionLocked,
 }: CampaignLeadCardsProps) => {
@@ -81,8 +85,19 @@ export const CampaignLeadCards = ({
             <CardContent>
               <div className="space-y-4">
                 <Separator />
-                <div>
+                <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline">{`Stage ${lead.stage}`}</Badge>
+                  {lead.verdict && (
+                    <span onClick={(event) => event.stopPropagation()}>
+                      <Button
+                        onClick={() => onOpenAssessment(lead.leadId)}
+                        size="sm"
+                        variant="ghost"
+                      >
+                        <VerdictBadge verdict={lead.verdict} />
+                      </Button>
+                    </span>
+                  )}
                 </div>
                 <CardFacts
                   facts={[

@@ -11,6 +11,10 @@ export type UpdateCampaignInput = InferRequestType<
   (typeof http.api.campaigns)[":campaignId"]["$patch"]
 >["json"];
 
+export type SaveFilterInput = InferRequestType<
+  (typeof http.api.campaigns)[":campaignId"]["filter"]["$put"]
+>["json"];
+
 export class CampaignApi extends BaseApi {
   public list(query?: {
     page?: number;
@@ -114,6 +118,71 @@ export class CampaignApi extends BaseApi {
       }),
     );
   }
+
+  public filter(where: { campaignId: number }) {
+    return this.call(() =>
+      http.api.campaigns[":campaignId"].filter.$get({
+        param: { campaignId: where.campaignId.toString() },
+      }),
+    );
+  }
+
+  public saveFilter(where: { campaignId: number }, input: SaveFilterInput) {
+    return this.call(() =>
+      http.api.campaigns[":campaignId"].filter.$put({
+        param: { campaignId: where.campaignId.toString() },
+        json: input,
+      }),
+    );
+  }
+
+  public previewFilter(where: { campaignId: number; leadId: number }) {
+    return this.call(() =>
+      http.api.campaigns[":campaignId"].filter.preview.$post({
+        param: { campaignId: where.campaignId.toString() },
+        json: { leadId: where.leadId },
+      }),
+    );
+  }
+
+  public promptFilter(
+    where: { campaignId: number },
+    input: SaveFilterInput & { leadId?: number },
+  ) {
+    return this.call(() =>
+      http.api.campaigns[":campaignId"].filter.prompt.$post({
+        param: { campaignId: where.campaignId.toString() },
+        json: input,
+      }),
+    );
+  }
+
+  public runFilter(where: { campaignId: number }) {
+    return this.call(() =>
+      http.api.campaigns[":campaignId"].filter.run.$post({
+        param: { campaignId: where.campaignId.toString() },
+      }),
+    );
+  }
+
+  public reapplyFilter(where: { campaignId: number }) {
+    return this.call(() =>
+      http.api.campaigns[":campaignId"].filter.reapply.$post({
+        param: { campaignId: where.campaignId.toString() },
+      }),
+    );
+  }
+
+  public assessment(where: { campaignId: number; leadId: number }) {
+    return this.call(() =>
+      http.api.campaigns[":campaignId"].leads[":leadId"].assessment.$get({
+        param: {
+          campaignId: where.campaignId.toString(),
+          leadId: where.leadId.toString(),
+        },
+      }),
+    );
+  }
 }
 
 type ShowResult = Awaited<ReturnType<CampaignApi["show"]>>;
@@ -127,3 +196,10 @@ export type StageCount = CampaignDetail["stages"][number];
 export type CampaignLead = Awaited<
   ReturnType<CampaignApi["leads"]>
 >["leads"][number];
+
+export type FilterSettings = Awaited<ReturnType<CampaignApi["filter"]>>;
+export type FilterPreview = Awaited<ReturnType<CampaignApi["previewFilter"]>>;
+export type LeadAssessment = Awaited<
+  ReturnType<CampaignApi["assessment"]>
+>["assessment"];
+export type FilterPrompt = Awaited<ReturnType<CampaignApi["promptFilter"]>>;

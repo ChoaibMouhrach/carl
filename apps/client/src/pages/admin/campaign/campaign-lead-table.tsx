@@ -13,16 +13,20 @@ import {
   TableRow,
 } from "@repo/ui/components/ui/table";
 import { useNavigate } from "@tanstack/react-router";
+import { Button } from "@repo/ui/components/ui/button";
 import { LeadStatusBadge } from "./lead-status-badge";
+import { VerdictBadge } from "./verdict-badge";
 
 interface CampaignLeadTableProps {
   leads: CampaignLead[];
+  onOpenAssessment: (leadId: number) => void;
   selection: Selection;
   selectionLocked?: boolean;
 }
 
 export const CampaignLeadTable = ({
   leads,
+  onOpenAssessment,
   selection,
   selectionLocked,
 }: CampaignLeadTableProps) => {
@@ -50,13 +54,14 @@ export const CampaignLeadTable = ({
           <TableHead>Members</TableHead>
           <TableHead>Stage</TableHead>
           <TableHead>Status</TableHead>
+          <TableHead>AI verdict</TableHead>
           <TableHead>Updated</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {leads.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={11}>No leads match these filters.</TableCell>
+            <TableCell colSpan={12}>No leads match these filters.</TableCell>
           </TableRow>
         ) : (
           leads.map((lead) => (
@@ -100,6 +105,19 @@ export const CampaignLeadTable = ({
               </TableCell>
               <TableCell>
                 <LeadStatusBadge status={lead.status} />
+              </TableCell>
+              <TableCell onClick={(event) => event.stopPropagation()}>
+                {lead.verdict ? (
+                  <Button
+                    onClick={() => onOpenAssessment(lead.leadId)}
+                    size="sm"
+                    variant="ghost"
+                  >
+                    <VerdictBadge verdict={lead.verdict} />
+                  </Button>
+                ) : (
+                  "—"
+                )}
               </TableCell>
               <TableCell>{formatDate(lead.updatedAt)}</TableCell>
             </TableRow>

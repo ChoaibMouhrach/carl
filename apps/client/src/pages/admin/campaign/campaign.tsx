@@ -22,6 +22,7 @@ import { ScrollArea, ScrollBar } from "@repo/ui/components/ui/scroll-area";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeftIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -30,6 +31,7 @@ import { CampaignLeadCards } from "./campaign-lead-cards";
 import { CampaignLeadFilters } from "./campaign-lead-filters";
 import { CampaignLeadTable } from "./campaign-lead-table";
 import { PipelineOverview } from "./pipeline-overview";
+import { AssessmentSheet } from "./assessment-sheet";
 import { StagePanel } from "./stage-panel";
 
 const allStages = "all";
@@ -71,6 +73,43 @@ export const Campaign = () => {
     onError,
     onSuccess: async () => {
       toast.success("Campaign status updated.");
+      await invalidateCampaignData(queryClient);
+    },
+  });
+
+  const [assessmentLeadId, setAssessmentLeadId] = useState<number>();
+
+  const assessment = useQuery({
+    queryKey: [
+      "admin",
+      "campaigns",
+      campaignId,
+      "assessment",
+      assessmentLeadId,
+    ],
+    queryFn: () =>
+      api.campaign.assessment({ campaignId, leadId: assessmentLeadId ?? 0 }),
+    enabled: assessmentLeadId !== undefined,
+    placeholderData: (previousData) => previousData,
+  });
+
+  const startFilter = useMutation({
+    mutationFn: () => api.campaign.runFilter({ campaignId }),
+    onError,
+    onSuccess: async () => {
+      toast.success("AI filter started.");
+      selection.clear();
+      await invalidateCampaignData(queryClient);
+    },
+  });
+
+  const reapplyFilter = useMutation({
+    mutationFn: () => api.campaign.reapplyFilter({ campaignId }),
+    onError,
+    onSuccess: async (result) => {
+      toast.success(
+        `Rules applied: ${result.changed} changed, ${result.skipped} need a new AI run.`,
+      );
       await invalidateCampaignData(queryClient);
     },
   });
@@ -180,7 +219,15 @@ export const Campaign = () => {
       </ScrollArea>
       {selectedStage && (
         <StagePanel
+          campaignId={campaignId}
           canRun={campaign.data.campaign.status === "active"}
+          isFiltering={
+            startFilter.isPending ||
+            (stages.find((item) => item.stage === 2)?.running ?? 0) > 0
+          }
+          onReapplyFilter={() => reapplyFilter.mutate()}
+          isReapplying={reapplyFilter.isPending}
+          onRunFilter={() => startFilter.mutate()}
           isRunning={startScrape.isPending || isScraping}
           onRun={(replace) => startScrape.mutate(replace)}
           scrapeRun={campaign.data.scrapeRuns.at(0)}
@@ -227,12 +274,14 @@ export const Campaign = () => {
             ) : view === "cards" ? (
               <CampaignLeadCards
                 leads={leads.data.leads}
+                onOpenAssessment={setAssessmentLeadId}
                 selection={selection}
                 selectionLocked={isScraping}
               />
             ) : (
               <CampaignLeadTable
                 leads={leads.data.leads}
+                onOpenAssessment={setAssessmentLeadId}
                 selection={selection}
                 selectionLocked={isScraping}
               />
@@ -247,6 +296,17 @@ export const Campaign = () => {
           </div>
         </CardContent>
       </Card>
+      <AssessmentSheet
+        assessment={assessment.data?.assessment}
+        isError={assessment.isError}
+        isOpen={assessmentLeadId !== undefined}
+        isPending={assessment.isPending}
+        leadName={
+          leads.data?.leads.find((lead) => lead.leadId === assessmentLeadId)
+            ?.name
+        }
+        onClose={() => setAssessmentLeadId(undefined)}
+      />
     </div>
   );
 };

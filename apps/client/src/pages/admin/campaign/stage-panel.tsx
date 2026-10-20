@@ -24,12 +24,25 @@ import {
 } from "@repo/ui/components/ui/card";
 import { Progress } from "@repo/ui/components/ui/progress";
 import { Spinner } from "@repo/ui/components/ui/spinner";
-import { PlayIcon, RefreshCwIcon } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import {
+  ListChecksIcon,
+  PlayIcon,
+  RefreshCwIcon,
+  SettingsIcon,
+  SparklesIcon,
+} from "lucide-react";
 
 const FIRST_STAGE = 1;
+const FILTER_STAGE = 2;
 
 interface StagePanelProps {
+  campaignId: number;
   canRun: boolean;
+  isFiltering: boolean;
+  isReapplying: boolean;
+  onReapplyFilter: () => void;
+  onRunFilter: () => void;
   isRunning: boolean;
   onRun: (replace: boolean) => void;
   scrapeRun?: ScrapeRun;
@@ -37,22 +50,30 @@ interface StagePanelProps {
 }
 
 export const StagePanel = ({
+  campaignId,
   canRun,
+  isFiltering,
+  isReapplying,
+  onReapplyFilter,
+  onRunFilter,
   isRunning,
   onRun,
   scrapeRun,
   stage,
 }: StagePanelProps) => {
   const canStart = stage.stage === FIRST_STAGE;
+  const isFilterStage = stage.stage === FILTER_STAGE;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>{`Stage ${stage.stage}`}</CardTitle>
         <CardDescription>
-          {canStart && !canRun
+          {(canStart || isFilterStage) && !canRun
             ? "Activate the campaign to run its stages."
-            : "Run this stage for every lead that is ready for it."}
+            : isFilterStage
+              ? "The AI answers your questions about every lead that finished stage 1."
+              : "Run this stage for every lead that is ready for it."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -79,6 +100,34 @@ export const StagePanel = ({
             aria-label="Completed"
             value={stage.total === 0 ? 0 : (stage.done / stage.total) * 100}
           />
+          {isFilterStage && (
+            <div className="flex flex-wrap items-center gap-3">
+              <Button disabled={!canRun || isFiltering} onClick={onRunFilter}>
+                {isFiltering ? <Spinner /> : <SparklesIcon />}
+                Run AI filter
+              </Button>
+              <Button
+                disabled={isFiltering || isReapplying}
+                onClick={onReapplyFilter}
+                variant="outline"
+              >
+                {isReapplying ? <Spinner /> : <ListChecksIcon />}
+                Re-apply rules
+              </Button>
+              <Button
+                render={
+                  <Link
+                    params={{ campaignId }}
+                    to="/admin/campaigns/$campaignId/filter"
+                  />
+                }
+                variant="outline"
+              >
+                <SettingsIcon />
+                AI filter settings
+              </Button>
+            </div>
+          )}
           {canStart && (
             <div className="flex flex-wrap items-center gap-3">
               <Button

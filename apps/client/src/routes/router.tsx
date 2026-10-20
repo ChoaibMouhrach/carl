@@ -16,6 +16,7 @@ import { adminCampaignsRoute } from "./admin/campaigns";
 import { adminCampaignRoute } from "./admin/campaign";
 import { adminCampaignCreateRoute } from "./admin/campaign-create";
 import { adminCampaignEditRoute } from "./admin/campaign-edit";
+import { adminCampaignFilterRoute } from "./admin/campaign-filter";
 import { adminCommunitiesRoute } from "./admin/communities";
 import { adminCommunityCreateRoute } from "./admin/community-create";
 import { adminCommunityEditRoute } from "./admin/community-edit";
@@ -31,6 +32,7 @@ export const routeTree = rootRoute.addChildren([
     adminCampaignCreateRoute,
     adminCampaignRoute,
     adminCampaignEditRoute,
+    adminCampaignFilterRoute,
     adminLeadsRoute,
     adminLeadRoute,
     adminLeadCreateRoute,
