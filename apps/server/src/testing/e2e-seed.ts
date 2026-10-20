@@ -4,8 +4,10 @@ import IORedis from "ioredis";
 import { initDB, type DB } from "../infrastructure/database/client";
 import {
   accountTable,
+  campaignFilterQuestionsTable,
   campaignLeadsTable,
   campaignsTable,
+  leadAssessmentsTable,
   communitiesTable,
   leadsTable,
   oauthAccessTokenTable,
@@ -20,6 +22,11 @@ import {
   type LeadInsert,
   type ScrapeRun,
 } from "../infrastructure/database/schemas";
+import {
+  clearLeadScript,
+  writeLeadScript,
+  type LeadScript,
+} from "../infrastructure/ai/script";
 import {
   clearSkoolScript,
   writeSkoolScript,
@@ -553,6 +560,7 @@ export interface CampaignLeadRow {
   leadId: number;
   stage: number;
   status: string;
+  failureReason: string | null;
   keyword: string | null;
 }
 
@@ -567,6 +575,7 @@ export const listCampaignLeads = async (
         leadId: leadsTable.leadId,
         stage: campaignLeadsTable.stage,
         status: campaignLeadsTable.status,
+        failureReason: campaignLeadsTable.failureReason,
         keyword: campaignLeadsTable.keyword,
       })
       .from(campaignLeadsTable)
@@ -646,6 +655,58 @@ export const ageSessions = async (
       .set({ createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) })
       .where(eq(sessionTable.userId, userId));
   });
+
+export const listFilterQuestions = async (
+  config: SeedConfig,
+  campaignId: number,
+) =>
+  withDb(config, async (db) =>
+    db
+      .select()
+      .from(campaignFilterQuestionsTable)
+      .where(eq(campaignFilterQuestionsTable.campaignId, campaignId))
+      .orderBy(asc(campaignFilterQuestionsTable.position)),
+  );
+
+export const listLeadAssessments = async (
+  config: SeedConfig,
+  campaignId: number,
+) =>
+  withDb(config, async (db) =>
+    db
+      .select()
+      .from(leadAssessmentsTable)
+      .where(eq(leadAssessmentsTable.campaignId, campaignId))
+      .orderBy(asc(leadAssessmentsTable.leadId)),
+  );
+
+export const scriptLeadAssessment = async (
+  config: SeedConfig,
+  input: { username: string; script: LeadScript },
+): Promise<void> => {
+  const redis = new IORedis(config.redisUrl);
+
+  try {
+    await writeLeadScript(redis, input.username, input.script);
+  } finally {
+    await redis.quit();
+  }
+};
+
+export const unscriptLeadAssessment = async (
+  config: SeedConfig,
+  username: string,
+): Promise<void> => {
+  const redis = new IORedis(config.redisUrl);
+
+  try {
+    await clearLeadScript(redis, username);
+  } finally {
+    await redis.quit();
+  }
+};
+
+export type { LeadScript } from "../infrastructure/ai/script";
 
 export const scriptSkool = async (
   config: SeedConfig,

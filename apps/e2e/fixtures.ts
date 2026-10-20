@@ -14,6 +14,11 @@ import {
   listCommunitiesByLeadId,
   listLeadsByUsernamePrefix,
   listOAuthTokens,
+  listFilterQuestions,
+  listLeadAssessments,
+  scriptLeadAssessment,
+  unscriptLeadAssessment,
+  type LeadScript,
   expireOAuthTokens,
   ageSessions,
   banUser,
@@ -72,6 +77,14 @@ interface Seed {
   ) => ReturnType<typeof listLeadsByUsernamePrefix>;
   listScrapeRuns: (campaignId: number) => ReturnType<typeof listScrapeRuns>;
   listOAuthTokens: (email: string) => ReturnType<typeof listOAuthTokens>;
+  listFilterQuestions: (
+    campaignId: number,
+  ) => ReturnType<typeof listFilterQuestions>;
+  listLeadAssessments: (
+    campaignId: number,
+  ) => ReturnType<typeof listLeadAssessments>;
+  scriptLeadAssessment: (username: string, script: LeadScript) => Promise<void>;
+  unscriptLeadAssessment: (username: string) => Promise<void>;
   expireOAuthTokens: (email: string) => Promise<void>;
   ageSessions: (email: string) => Promise<void>;
   banUser: (email: string) => Promise<void>;
@@ -141,6 +154,14 @@ export const test = base.extend<{ seed: Seed; resetRateLimits: void }>({
         listLeadsByUsernamePrefix(config, prefix),
       listScrapeRuns: (campaignId) => listScrapeRuns(config, campaignId),
       listOAuthTokens: (email) => listOAuthTokens(config, email),
+      listFilterQuestions: (campaignId) =>
+        listFilterQuestions(config, campaignId),
+      listLeadAssessments: (campaignId) =>
+        listLeadAssessments(config, campaignId),
+      scriptLeadAssessment: (username, script) =>
+        scriptLeadAssessment(config, { username, script }),
+      unscriptLeadAssessment: (username) =>
+        unscriptLeadAssessment(config, username),
       expireOAuthTokens: (email) => expireOAuthTokens(config, email),
       ageSessions: (email) => ageSessions(config, email),
       banUser: (email) => banUser(config, email),
