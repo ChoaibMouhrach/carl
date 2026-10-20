@@ -259,8 +259,7 @@ questions the AI answers about every lead. A question has a role: a
 checks the answers are backed by the lead's data. A **signal** never changes the
 verdict; the assessment shows how many signals were yes as a priority. For each question you also say
 whether an answer the AI cannot give sends the lead to review or disqualifies it.
-**Try it** runs the saved questions on one lead and shows the answers without
-keeping them. **Re-apply rules** (on the Stage 2 tab) recomputes every verdict from
+**Show prompt** writes out exactly what the AI is sent. **Re-apply rules** (on the Stage 2 tab) recomputes every verdict from
 the answers already stored, matching questions by their text, so changing a role
 costs nothing; leads missing an answer to a newly added question are skipped until
 the AI is run again.
