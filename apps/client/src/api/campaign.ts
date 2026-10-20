@@ -136,19 +136,7 @@ export class CampaignApi extends BaseApi {
     );
   }
 
-  public previewFilter(where: { campaignId: number; leadId: number }) {
-    return this.call(() =>
-      http.api.campaigns[":campaignId"].filter.preview.$post({
-        param: { campaignId: where.campaignId.toString() },
-        json: { leadId: where.leadId },
-      }),
-    );
-  }
-
-  public promptFilter(
-    where: { campaignId: number },
-    input: SaveFilterInput & { leadId?: number },
-  ) {
+  public promptFilter(where: { campaignId: number }, input: SaveFilterInput) {
     return this.call(() =>
       http.api.campaigns[":campaignId"].filter.prompt.$post({
         param: { campaignId: where.campaignId.toString() },
@@ -198,7 +186,6 @@ export type CampaignLead = Awaited<
 >["leads"][number];
 
 export type FilterSettings = Awaited<ReturnType<CampaignApi["filter"]>>;
-export type FilterPreview = Awaited<ReturnType<CampaignApi["previewFilter"]>>;
 export type LeadAssessment = Awaited<
   ReturnType<CampaignApi["assessment"]>
 >["assessment"];
