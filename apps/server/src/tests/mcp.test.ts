@@ -55,17 +55,24 @@ test("an expired token is refused", async () => {
 });
 
 const readTools = [
+  "get_assessment",
   "get_community",
+  "get_filter",
   "get_owner",
+  "list_campaign_leads",
   "list_campaigns",
   "list_leads",
   "list_saved_communities",
   "search_communities",
+  "show_filter_prompt",
 ];
 const writeTools = [
   "create_campaign",
   "create_community",
   "create_lead",
+  "reapply_filter",
+  "run_filter",
+  "save_filter",
   "update_campaign",
   "update_community",
   "update_lead",

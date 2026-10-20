@@ -11,7 +11,7 @@ import {
   oauthApplicationTable,
   scrapeRunsTable,
 } from "@server/infrastructure/database/schemas";
-import { createContext, TestMailer } from "./context";
+import { createContext, FakeLeadClassifier, TestMailer } from "./context";
 import { createAuthenticatedApp, withTestDatabase } from "./http";
 import { FakeSkoolScraper, group, owner, paidMonthly } from "./skool";
 
@@ -116,6 +116,7 @@ export const setup = async (
   db: Parameters<Parameters<typeof withTestDatabase>[0]>[0]["db"],
   pool: Parameters<Parameters<typeof withTestDatabase>[0]>[0]["pool"],
   scraper = createScraper(),
+  classifier = new FakeLeadClassifier(),
 ) => {
   const context = createContext(
     db,
@@ -124,6 +125,7 @@ export const setup = async (
     new TestMailer(),
     undefined,
     scraper,
+    classifier,
   );
   const admin = await createAuthenticatedApp({
     context,
@@ -132,7 +134,7 @@ export const setup = async (
   });
   const token = await issueToken(db, admin.user.userId, "admin");
 
-  return { context, admin, token, scraper };
+  return { context, admin, token, scraper, classifier };
 };
 
 type App = Awaited<ReturnType<typeof createAuthenticatedApp>>["app"];
