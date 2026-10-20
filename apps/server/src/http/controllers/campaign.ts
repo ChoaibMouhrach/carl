@@ -6,8 +6,6 @@ import {
   campaignIdParamSchema,
   campaignLeadParamSchema,
   campaignLeadQuerySchema,
-  previewFilterSchema,
-  promptFilterSchema,
   saveFilterSchema,
   campaignQuerySchema,
   createCampaignSchema,
@@ -172,34 +170,17 @@ export const campaignController = new Hono<AppContext>()
   )
 
   .post(
-    "/:campaignId/filter/preview",
-    describeRoute({ tags: ["campaign"] }),
-    validator("param", campaignIdParamSchema),
-    validator("json", previewFilterSchema),
-    async (context) => {
-      const { campaignId } = context.req.valid("param");
-      const { leadId } = context.req.valid("json");
-
-      const result = await context
-        .get("services")
-        .filter.preview({ campaignId, leadId });
-
-      return context.json(result);
-    },
-  )
-
-  .post(
     "/:campaignId/filter/prompt",
     describeRoute({ tags: ["campaign"] }),
     validator("param", campaignIdParamSchema),
-    validator("json", promptFilterSchema),
+    validator("json", saveFilterSchema),
     async (context) => {
       const { campaignId } = context.req.valid("param");
-      const { leadId, ...settings } = context.req.valid("json");
+      const settings = context.req.valid("json");
 
       const result = await context
         .get("services")
-        .filter.prompt({ campaignId }, { ...settings, leadId });
+        .filter.prompt({ campaignId }, settings);
 
       return context.json(result);
     },

@@ -1,10 +1,8 @@
 import { expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import z from "zod";
-import {
-  defaultFilterQuestions,
-  type FilterQuestionInput,
-} from "@repo/constants/filter";
+import type { FilterQuestionInput } from "@repo/constants/filter";
+import { sampleFilterQuestions } from "@server/testing/filter-questions";
 import { initENV } from "@server/config/env";
 import {
   campaignFilterQuestionsTable,
@@ -49,7 +47,7 @@ const setup = async ({ db, pool }: Database, leadCount = 3) => {
   });
   await context.repositories.campaignFilter.replaceQuestions({
     campaignId: campaign.campaignId,
-    questions: defaultFilterQuestions,
+    questions: sampleFilterQuestions,
   });
   const leads = [];
   for (let index = 0; index < leadCount; index += 1) {
@@ -347,91 +345,14 @@ test("the settings of an unknown campaign are a 404 and only admins can read or 
       run.status,
     ]).toEqual([404, 404, 403, 403]);
     expect(await database.db.$count(campaignFilterQuestionsTable)).toBe(
-      defaultFilterQuestions.length,
+      sampleFilterQuestions.length,
     );
-  });
-});
-
-// ---- trying a lead ----
-
-test("trying a lead shows the answers, the verdict and the evidence checked against the lead's own text, and keeps nothing", async () => {
-  await withTestDatabase(async (database) => {
-    const { admin, path, classifier, leads } = await setup(database);
-    classifier.answer = (input) => ({
-      answers: input.questions.map((q, index) => ({
-        questionId: q.questionId,
-        answer: "yes",
-        evidence:
-          index === 0
-            ? "Coach number 0"
-            : "a quote that is nowhere in the text",
-      })),
-      summary: "Mixed.",
-      model: "fake",
-    });
-
-    const response = await admin.post(`${path}/filter/preview`, {
-      leadId: leads[0]?.leadId,
-    });
-    const body = z
-      .object({
-        verdict: z.string(),
-        summary: z.string(),
-        answers: z.array(
-          z.object({
-            label: z.string(),
-            answer: z.string(),
-            evidence: z.string().nullable(),
-          }),
-        ),
-      })
-      .parse(await response.json());
-
-    expect(response.status).toBe(200);
-    expect(body.answers[0]).toMatchObject({
-      answer: "yes",
-      evidence: "Coach number 0",
-    });
-    // Every other yes quoted something that is not in the facts, so it counts as unknown
-    expect(
-      body.answers
-        .slice(1)
-        .every(
-          (answer) => answer.answer === "unknown" && answer.evidence === null,
-        ),
-    ).toBe(true);
-    expect(body.verdict).toBe("needs_review");
-    expect(classifier.calls[0]?.facts).toContain("Coach number 0");
-    expect(await database.db.$count(leadAssessmentsTable)).toBe(0);
-  });
-});
-
-test("trying a lead that does not exist, or a campaign with no questions, is refused", async () => {
-  await withTestDatabase(async (database) => {
-    const { admin, path, context, campaign, leads } = await setup(database);
-
-    const missingLead = await admin.post(`${path}/filter/preview`, {
-      leadId: 999_999,
-    });
-    await context.repositories.campaignFilter.replaceQuestions({
-      campaignId: campaign.campaignId,
-      questions: [question({ enabled: false })],
-    });
-    const noQuestions = await admin.post(`${path}/filter/preview`, {
-      leadId: leads[0]?.leadId,
-    });
-    const badBody = await admin.post(`${path}/filter/preview`, { leadId: "x" });
-
-    expect([missingLead.status, noQuestions.status, badBody.status]).toEqual([
-      404, 400, 400,
-    ]);
   });
 });
 
 test("only the questions that are switched on are asked", async () => {
   await withTestDatabase(async (database) => {
-    const { admin, path, context, campaign, leads, classifier } =
-      await setup(database);
+    const { context, campaign, services, classifier } = await setup(database);
     await context.repositories.campaignFilter.replaceQuestions({
       campaignId: campaign.campaignId,
       questions: [
@@ -440,7 +361,7 @@ test("only the questions that are switched on are asked", async () => {
       ],
     });
 
-    await admin.post(`${path}/filter/preview`, { leadId: leads[0]?.leadId });
+    await runAll(services, campaign.campaignId);
 
     expect(classifier.calls[0]?.questions.map((q) => q.label)).toEqual(["On"]);
   });
@@ -501,7 +422,7 @@ test("a campaign that is not active, has no questions, has nobody waiting or has
     const noQuestions = await statusOf();
     await context.repositories.campaignFilter.replaceQuestions({
       campaignId: campaign.campaignId,
-      questions: defaultFilterQuestions,
+      questions: sampleFilterQuestions,
     });
     await database.db.update(campaignLeadsTable).set({ status: "failed" });
     const nobody = await statusOf();
@@ -590,7 +511,7 @@ test("an assessment keeps each question as it was asked, so changing the questio
 
     const [row] = await database.db.select().from(leadAssessmentsTable);
     expect(row?.answers.map((answer) => answer.label)).toEqual(
-      defaultFilterQuestions.map((q) => q.label),
+      sampleFilterQuestions.map((q) => q.label),
     );
     const response = await admin.get(
       `${path}/leads/${leads[0]?.leadId}/assessment`,
@@ -806,27 +727,10 @@ test("the prompt shows the context, only the questions that are on and the instr
   });
 });
 
-test("with a lead picked the prompt carries that lead's own text", async () => {
+test("the prompt is the same text the AI is sent up to the lead, apart from the question numbers", async () => {
   await withTestDatabase(async (database) => {
-    const { admin, path, leads } = await setup(database);
-
-    const response = await admin.post(`${path}/filter/prompt`, {
-      context: null,
-      questions: [question()],
-      leadId: leads[0]?.leadId,
-    });
-    const body = promptBody.parse(await response.json());
-
-    expect(body.prompt).toContain("OWNER\nName: Lead 0");
-    expect(body.prompt).toContain("Bio: Coach number 0");
-    expect(body.prompt).toContain("COMMUNITY: Club 0");
-    expect(body.prompt).not.toContain("WHAT WE ARE TRYING TO DO");
-  });
-});
-
-test("the prompt is the same text the AI is sent, apart from the question numbers", async () => {
-  await withTestDatabase(async (database) => {
-    const { admin, path, leads, classifier } = await setup(database);
+    const { admin, path, services, campaign, classifier } =
+      await setup(database);
     const saved = await admin.get(`${path}/filter`);
     const settings = z
       .object({
@@ -842,28 +746,23 @@ test("the prompt is the same text the AI is sent, apart from the question number
         ),
       })
       .parse(await saved.json());
-    await admin.post(`${path}/filter/preview`, { leadId: leads[0]?.leadId });
+    await runAll(services, campaign.campaignId);
 
     const shown = promptBody.parse(
-      await (
-        await admin.post(`${path}/filter/prompt`, {
-          ...settings,
-          leadId: leads[0]?.leadId,
-        })
-      ).json(),
+      await (await admin.post(`${path}/filter/prompt`, settings)).json(),
     );
 
     const sent = buildClassifierPrompt(
       classifier.calls[0] ?? { context: null, questions: [], facts: "" },
     );
-    const numbers = (text: string) =>
-      text.replace(/questionId \d+/g, "questionId N");
-    expect(numbers(shown.prompt)).toBe(numbers(sent));
+    const beforeLead = (text: string) =>
+      text.replace(/questionId \d+/g, "questionId N").split("\n\nLEAD:")[0];
+    expect(beforeLead(shown.prompt)).toBe(beforeLead(sent));
     expect(shown.system).toBe(classifierInstructions);
   });
 });
 
-test("a prompt cannot be shown with every question off, for an unknown lead or an unknown campaign, or by a member", async () => {
+test("a prompt cannot be shown with every question off, for an unknown campaign, or by a member", async () => {
   await withTestDatabase(async (database) => {
     const { admin, path, context } = await setup(database);
     const member = await createAuthenticatedApp({
@@ -875,11 +774,6 @@ test("a prompt cannot be shown with every question off, for an unknown lead or a
       context: null,
       questions: [question({ enabled: false })],
     });
-    const noLead = await admin.post(`${path}/filter/prompt`, {
-      context: null,
-      questions: [question()],
-      leadId: 999_999,
-    });
     const noCampaign = await admin.post("/api/campaigns/999999/filter/prompt", {
       context: null,
       questions: [question()],
@@ -890,12 +784,9 @@ test("a prompt cannot be shown with every question off, for an unknown lead or a
       body: JSON.stringify({ context: null, questions: [question()] }),
     });
 
-    expect([
-      none.status,
-      noLead.status,
-      noCampaign.status,
-      refused.status,
-    ]).toEqual([400, 404, 404, 403]);
+    expect([none.status, noCampaign.status, refused.status]).toEqual([
+      400, 404, 403,
+    ]);
   });
 });
 
@@ -931,7 +822,7 @@ test("re-applying the rules gives each lead a new verdict from its stored answer
 
     await admin.put(`${path}/filter`, {
       context: null,
-      questions: defaultFilterQuestions.map((q) =>
+      questions: sampleFilterQuestions.map((q) =>
         q.label === "Is this a commercial business?"
           ? { ...q, role: "disqualifier" }
           : q,
@@ -965,7 +856,7 @@ test("re-applying the rules gives each lead a new verdict from its stored answer
 
     await admin.put(`${path}/filter`, {
       context: null,
-      questions: defaultFilterQuestions,
+      questions: sampleFilterQuestions,
     });
     const back = await admin.post(`${path}/filter/reapply`);
 
@@ -1009,7 +900,7 @@ test("turning a requirement into a signal lets a lead that failed it through", a
 
     await admin.put(`${path}/filter`, {
       context: null,
-      questions: defaultFilterQuestions.map((q) =>
+      questions: sampleFilterQuestions.map((q) =>
         q.label === "Is the owner a potential buyer?"
           ? { ...q, role: "signal" }
           : q,
@@ -1033,7 +924,7 @@ test("an assessment missing an answer to a question that was added since is skip
     await admin.put(`${path}/filter`, {
       context: null,
       questions: [
-        ...defaultFilterQuestions,
+        ...sampleFilterQuestions,
         question({ label: "A question the AI never saw" }),
       ],
     });
@@ -1042,7 +933,7 @@ test("an assessment missing an answer to a question that was added since is skip
     expect(await response.json()).toEqual({ total: 1, changed: 0, skipped: 1 });
     const [row] = await database.db.select().from(leadAssessmentsTable);
     expect(row?.verdict).toBe("qualified");
-    expect(row?.answers).toHaveLength(defaultFilterQuestions.length);
+    expect(row?.answers).toHaveLength(sampleFilterQuestions.length);
     expect(
       await rowOf(database.db, campaign.campaignId, leads[0]?.leadId ?? 0),
     ).toMatchObject({ status: "done" });
@@ -1169,7 +1060,7 @@ test("re-applying twice changes nothing the second time, keeps the stored eviden
     });
     await context.repositories.campaignFilter.replaceQuestions({
       campaignId: other.campaignId,
-      questions: defaultFilterQuestions,
+      questions: sampleFilterQuestions,
     });
     const [original] = await database.db
       .select()
@@ -1186,7 +1077,7 @@ test("re-applying twice changes nothing the second time, keeps the stored eviden
 
     await admin.put(`${path}/filter`, {
       context: null,
-      questions: defaultFilterQuestions.map((q) =>
+      questions: sampleFilterQuestions.map((q) =>
         q.role === "evidence" ? { ...q, role: "disqualifier" } : q,
       ),
     });
@@ -1241,7 +1132,7 @@ test("re-applying updates every assessment but moves only the leads that finishe
 
     await admin.put(`${path}/filter`, {
       context: null,
-      questions: defaultFilterQuestions.map((q) =>
+      questions: sampleFilterQuestions.map((q) =>
         q.role === "evidence" ? { ...q, role: "disqualifier" } : q,
       ),
     });
@@ -1278,7 +1169,7 @@ test("a question that is switched off or never answered while off does not stop 
     await admin.put(`${path}/filter`, {
       context: null,
       questions: [
-        ...defaultFilterQuestions.map((q) =>
+        ...sampleFilterQuestions.map((q) =>
           q.role === "signal" ? { ...q, enabled: false } : q,
         ),
         question({ label: "Added while off", enabled: false }),
@@ -1322,7 +1213,7 @@ test("changing what an unknown answer means turns a stored review into a disqual
 
     await admin.put(`${path}/filter`, {
       context: null,
-      questions: defaultFilterQuestions.map((q) =>
+      questions: sampleFilterQuestions.map((q) =>
         q.label === "Is this a commercial business?"
           ? { ...q, onUnknown: "disqualify" }
           : q,

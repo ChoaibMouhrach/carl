@@ -126,11 +126,3 @@ export const saveFilterSchema = z.object({
     )
     .max(maxFilterQuestions),
 });
-
-export const previewFilterSchema = z.object({
-  leadId: z.number().int().positive().max(2_147_483_647),
-});
-
-export const promptFilterSchema = saveFilterSchema.extend({
-  leadId: z.number().int().positive().max(2_147_483_647).optional(),
-});

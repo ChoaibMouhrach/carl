@@ -71,25 +71,12 @@ export class FilterService extends BaseService {
     return await this.show(input);
   }
 
-  /** Asks the AI about one lead with the saved questions and shows the outcome without keeping it */
-  public async preview(input: { campaignId: number; leadId: number }) {
-    const campaign = await this.findCampaign(input.campaignId);
-    const questions = await this.enabledQuestions(input.campaignId);
-
-    return await this.assess({
-      context: campaign.filterContext,
-      questions,
-      leadId: input.leadId,
-    });
-  }
-
   /** Writes out the message the AI would get for these questions, so they can be read before anything is paid for */
   public async prompt(
     input: { campaignId: number },
     body: {
       context: string | null;
       questions: FilterQuestionInput[];
-      leadId?: number;
     },
   ) {
     await this.findCampaign(input.campaignId);
@@ -100,22 +87,6 @@ export class FilterService extends BaseService {
       throw new BadRequestError({
         message: "Switch on at least one question to see the prompt.",
       });
-    }
-
-    let facts = PLACEHOLDER_FACTS;
-
-    if (body.leadId !== undefined) {
-      const { lead, community } = this.context.repositories;
-      const found = await lead.findByLeadId({ leadId: body.leadId });
-
-      if (!found) {
-        throw new NotFoundError({ message: "Lead not found." });
-      }
-
-      facts = leadFactsText(
-        found,
-        await community.findAllByLeadId({ leadId: body.leadId }),
-      );
     }
 
     return {
@@ -132,7 +103,7 @@ export class FilterService extends BaseService {
           guidance: question.guidance,
           role: question.role,
         })),
-        facts,
+        facts: PLACEHOLDER_FACTS,
       }),
     };
   }

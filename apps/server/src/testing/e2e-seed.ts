@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, like } from "drizzle-orm";
 import { hashPassword, makeSignature, signJWT } from "better-auth/crypto";
 import IORedis from "ioredis";
+import type { FilterQuestionInput } from "@repo/constants/filter";
 import { initDB, type DB } from "../infrastructure/database/client";
 import {
   accountTable,
@@ -654,6 +655,22 @@ export const ageSessions = async (
       .update(sessionTable)
       .set({ createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) })
       .where(eq(sessionTable.userId, userId));
+  });
+
+export { sampleFilterQuestions } from "./filter-questions";
+
+export const saveFilterQuestions = async (
+  config: SeedConfig,
+  input: { campaignId: number; questions: FilterQuestionInput[] },
+) =>
+  withDb(config, async (db) => {
+    await db.insert(campaignFilterQuestionsTable).values(
+      input.questions.map((question, position) => ({
+        campaignId: input.campaignId,
+        position,
+        ...question,
+      })),
+    );
   });
 
 export const listFilterQuestions = async (
