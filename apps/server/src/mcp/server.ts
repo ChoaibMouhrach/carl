@@ -1,11 +1,17 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import z from "zod";
 import { DEFAULT_RECORD_LIMIT } from "@server/config/constants";
-import { skoolPriceFilters, skoolVisibilities } from "@repo/constants/campaign";
+import {
+  leadStatuses,
+  skoolPriceFilters,
+  skoolVisibilities,
+  stageNumbers,
+} from "@repo/constants/campaign";
 import type { Services } from "@server/services";
 import {
   agentCampaignFieldsSchema,
   createCampaignSchema,
+  saveFilterSchema,
 } from "@server/http/validations/campaign";
 import {
   createCommunitySchema,
@@ -243,6 +249,122 @@ export const createMcpServer = (services: Services) => {
           updateCommunitySchema.parse(fields),
         ),
       ),
+  );
+
+  server.registerTool(
+    "list_campaign_leads",
+    {
+      title: "List a campaign's leads",
+      description: `Lists the leads of one campaign, ${DEFAULT_RECORD_LIMIT} per page, with the stage each reached, its status, the reason it failed and its AI verdict (qualified, needs_review, disqualified or competitor) once the AI filter has judged it. Filter by stage and status; a lead that passed the AI filter is at stage 2 with status done.`,
+      inputSchema: {
+        campaignId: z.number().int().positive(),
+        ...listInput,
+        stage: z
+          .number()
+          .int()
+          .refine((value) => stageNumbers.some((stage) => stage === value))
+          .optional(),
+        status: z.enum(leadStatuses).optional(),
+      },
+      annotations: { ...readOnly, openWorldHint: false },
+    },
+    ({ campaignId, ...query }) =>
+      run(() => {
+        const stage = stageNumbers.find((item) => item === query.stage);
+
+        return services.campaign.listLeads({ campaignId }, { ...query, stage });
+      }),
+  );
+
+  server.registerTool(
+    "get_filter",
+    {
+      title: "Get a campaign's AI filter",
+      description:
+        "Reads a campaign's AI filter (stage 2): the context that says what the campaign is trying to do and the questions the AI answers about every lead. Each question has a role (requirement, disqualifier, competitor, evidence or signal), a rule for answers the AI cannot give, and an on/off switch.",
+      inputSchema: { campaignId: z.number().int().positive() },
+      annotations: { ...readOnly, openWorldHint: false },
+    },
+    ({ campaignId }) => run(() => services.filter.show({ campaignId })),
+  );
+
+  server.registerTool(
+    "save_filter",
+    {
+      title: "Save a campaign's AI filter",
+      description:
+        "Replaces a campaign's AI filter with the context and questions sent. The whole list is replaced, so send every question to keep. Roles: requirement (must be yes), disqualifier (yes removes the lead), competitor (yes marks a competitor), evidence (must be backed by the lead's data) and signal (never removes a lead, only counts towards a priority). Leads already judged keep their verdict until the rules are re-applied.",
+      inputSchema: {
+        campaignId: z.number().int().positive(),
+        ...saveFilterSchema.shape,
+      },
+      annotations: update,
+    },
+    ({ campaignId, ...settings }) =>
+      run(() =>
+        services.filter.save({ campaignId }, saveFilterSchema.parse(settings)),
+      ),
+  );
+
+  server.registerTool(
+    "show_filter_prompt",
+    {
+      title: "Show the AI filter prompt",
+      description:
+        "Writes out exactly what the AI is sent for the context and questions given (the instructions, the message and the answer format), without saving anything or calling the AI. The lead's own text is replaced by a placeholder.",
+      inputSchema: {
+        campaignId: z.number().int().positive(),
+        ...saveFilterSchema.shape,
+      },
+      annotations: { ...readOnly, openWorldHint: false },
+    },
+    ({ campaignId, ...settings }) =>
+      run(() =>
+        services.filter.prompt(
+          { campaignId },
+          saveFilterSchema.parse(settings),
+        ),
+      ),
+  );
+
+  server.registerTool(
+    "run_filter",
+    {
+      title: "Run the AI filter",
+      description:
+        "Runs the AI filter for a campaign: every lead that finished stage 1 moves to stage 2 and the AI answers the campaign's questions about each one, one paid request per lead. It runs in the background; read the results with list_campaign_leads and get_assessment. The campaign must already be active (agents cannot activate it) and have at least one question switched on. Leads that already have an answer are not asked again.",
+      inputSchema: { campaignId: z.number().int().positive() },
+      annotations: { ...create, openWorldHint: true },
+    },
+    ({ campaignId }) => run(() => services.filter.start({ campaignId })),
+  );
+
+  server.registerTool(
+    "reapply_filter",
+    {
+      title: "Re-apply the AI filter rules",
+      description:
+        "Recomputes every judged lead's verdict from the answers the AI already gave, using the campaign's current question roles and rules. It never calls the AI. Leads missing an answer to a question added since are skipped and counted; run the filter again for those.",
+      inputSchema: { campaignId: z.number().int().positive() },
+      annotations: { ...update, openWorldHint: false },
+    },
+    ({ campaignId }) => run(() => services.filter.reapply({ campaignId })),
+  );
+
+  server.registerTool(
+    "get_assessment",
+    {
+      title: "Get a lead's AI assessment",
+      description:
+        "Reads what the AI answered about one lead in a campaign: the verdict, a short summary and, for every question, the answer with the quote from the lead's own data that backs a yes.",
+      inputSchema: {
+        campaignId: z.number().int().positive(),
+        leadId: z.number().int().positive(),
+      },
+      annotations: { ...readOnly, openWorldHint: false },
+    },
+    ({ campaignId, leadId }) =>
+      run(() => services.filter.showAssessment({ campaignId, leadId })),
   );
 
   return server;
