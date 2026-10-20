@@ -304,8 +304,14 @@ limits), `get_community` (a community with its owner and the emails found in
 their bio) and `get_owner` (a profile and the communities they created). What
 they find is not saved. The data tools work on what is already in Carl:
 `list_campaigns`, `list_leads` and `list_saved_communities`, and `create_*` and
-`update_*` for campaigns, leads and communities. Agents can never delete, change
-a campaign's status or start a scrape: campaigns are always created as drafts.
+`update_*` for campaigns, leads and communities. Stage 2 can be driven end to
+end: `get_filter` and `save_filter` read and replace a campaign's AI filter,
+`show_filter_prompt` writes out what the AI would be sent, `run_filter` starts the
+AI filter (paid, one request per lead), `list_campaign_leads` and `get_assessment`
+read the verdicts and the evidence, and `reapply_filter` recomputes verdicts from
+the stored answers. Agents can never delete, change a campaign's status or start a
+scrape: campaigns are always created as drafts, so a person activates a campaign
+before `run_filter` will work.
 Skool answers are cached in Redis for an hour (`infrastructure/cache/redis.ts`,
 behind `BaseCache`), so repeating a question does not hit Skool again.
 
