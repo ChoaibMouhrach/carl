@@ -143,6 +143,22 @@ export const FilterForm = ({
               />
             </CardContent>
           </Card>
+
+          <div className="flex flex-wrap items-center justify-end gap-2 mt-6">
+            <Button
+              disabled={isPromptPending}
+              onClick={showPrompt}
+              type="button"
+              variant="outline"
+            >
+              {isPromptPending ? <Spinner /> : <FileTextIcon />}
+              Show prompt
+            </Button>
+            <Button disabled={isPending} type="submit">
+              {isPending && <Spinner />}
+              Save
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-6 lg:col-start-1 lg:row-start-1">
@@ -260,26 +276,11 @@ export const FilterForm = ({
             size="lg"
             type="button"
             variant="outline"
+            className="w-full"
           >
             <PlusIcon />
             Add a question
           </Button>
-
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button
-              disabled={isPromptPending}
-              onClick={showPrompt}
-              type="button"
-              variant="outline"
-            >
-              {isPromptPending ? <Spinner /> : <FileTextIcon />}
-              Show prompt
-            </Button>
-            <Button disabled={isPending} type="submit">
-              {isPending && <Spinner />}
-              Save
-            </Button>
-          </div>
         </div>
       </div>
 
