@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import IORedis from "ioredis";
 import { BadRequestError } from "@server/lib/errors";
 import {
@@ -36,6 +37,8 @@ export class ScriptedLeadClassifier extends BaseLeadClassifier {
     }
 
     const script = leadScriptSchema.parse(JSON.parse(raw));
+
+    if (script.delayMs) await sleep(script.delayMs);
 
     return {
       answers: input.questions.map((question) => {

@@ -14,6 +14,7 @@ export const leadScriptSchema = z.object({
     }),
   ),
   summary: z.string().optional(),
+  delayMs: z.number().int().min(0).max(30_000).optional(),
 });
 
 export type LeadScript = z.infer<typeof leadScriptSchema>;
