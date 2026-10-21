@@ -32,6 +32,43 @@ export const mapPool = async <Item, Result>(
   return results;
 };
 
+/**
+ * Runs the task at most once per interval: the first call runs at once and calls in
+ * between collapse into one trailing run, so a burst still ends on its latest state.
+ */
+export const createThrottle = (
+  task: () => Promise<void>,
+  intervalMs: number,
+) => {
+  let lastRun = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  const run = async () => {
+    timer = undefined;
+    lastRun = Date.now();
+    await task();
+  };
+
+  return {
+    call: () => {
+      if (timer) return;
+
+      const wait = Math.max(0, lastRun + intervalMs - Date.now());
+
+      if (wait === 0) {
+        void run();
+        return;
+      }
+
+      timer = setTimeout(() => void run(), wait);
+    },
+    stop: () => {
+      clearTimeout(timer);
+      timer = undefined;
+    },
+  };
+};
+
 const emailPattern = /[a-z0-9._%+-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/gi;
 
 export const extractEmails = (...texts: (string | null | undefined)[]) => {

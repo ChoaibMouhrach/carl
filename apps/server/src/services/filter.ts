@@ -24,11 +24,11 @@ import {
   classifierInstructions,
 } from "@server/lib/classifier-prompt";
 import { classifierAnswerSchema } from "@server/lib/classifier-schema";
-import { mapPool } from "@server/lib/utils";
+import { createThrottle, mapPool } from "@server/lib/utils";
 
 const SCRAPE_STAGE: StageNumber = 1;
 const FILTER_STAGE: StageNumber = 2;
-const CLASSIFY_CONCURRENCY = 4;
+const LIVE_UPDATE_INTERVAL_MS = 1_000;
 
 const verdictReasons: Record<
   Exclude<AssessmentVerdict, "qualified">,
@@ -176,40 +176,53 @@ export class FilterService extends BaseService {
 
     await this.context.eventBus.publish("campaigns.changed");
 
-    await mapPool(leadIds, CLASSIFY_CONCURRENCY, async (leadId) => {
-      const where = { campaignId: input.campaignId, leadId };
+    const liveUpdate = createThrottle(
+      () => this.context.eventBus.publish("campaigns.changed"),
+      LIVE_UPDATE_INTERVAL_MS,
+    );
 
-      await campaignLead.setStatus(where, {
-        status: "running",
-        failureReason: null,
-      });
+    await mapPool(
+      leadIds,
+      this.context.env.AI_FILTER_CONCURRENCY,
+      async (leadId) => {
+        const where = { campaignId: input.campaignId, leadId };
 
-      try {
-        const assessment = await this.assess({
-          context: campaign.filterContext,
-          questions,
-          leadId,
-        });
-
-        await leadAssessment.upsert({ ...where, ...assessment });
         await campaignLead.setStatus(where, {
-          status: assessment.verdict === "qualified" ? "done" : "failed",
-          failureReason:
-            assessment.verdict === "qualified"
-              ? null
-              : verdictReasons[assessment.verdict],
+          status: "running",
+          failureReason: null,
         });
-      } catch (error) {
-        await campaignLead.setStatus(where, {
-          status: "failed",
-          failureReason: (error instanceof Error
-            ? error.message
-            : String(error)
-          ).slice(0, ERROR_REASON_LENGTH),
-        });
-      }
-    });
+        liveUpdate.call();
 
+        try {
+          const assessment = await this.assess({
+            context: campaign.filterContext,
+            questions,
+            leadId,
+          });
+
+          await leadAssessment.upsert({ ...where, ...assessment });
+          await campaignLead.setStatus(where, {
+            status: assessment.verdict === "qualified" ? "done" : "failed",
+            failureReason:
+              assessment.verdict === "qualified"
+                ? null
+                : verdictReasons[assessment.verdict],
+          });
+        } catch (error) {
+          await campaignLead.setStatus(where, {
+            status: "failed",
+            failureReason: (error instanceof Error
+              ? error.message
+              : String(error)
+            ).slice(0, ERROR_REASON_LENGTH),
+          });
+        }
+
+        liveUpdate.call();
+      },
+    );
+
+    liveUpdate.stop();
     await this.context.eventBus.publish("campaigns.changed");
   }
 
