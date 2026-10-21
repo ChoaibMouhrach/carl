@@ -26,12 +26,16 @@ import { createAuthenticatedApp, withTestDatabase } from "./helpers/http";
 
 type Database = Parameters<Parameters<typeof withTestDatabase>[0]>[0];
 
-const setup = async ({ db, pool }: Database, leadCount = 3) => {
+const setup = async (
+  { db, pool }: Database,
+  leadCount = 3,
+  envOverride: Partial<ReturnType<typeof initENV>> = {},
+) => {
   const classifier = new FakeLeadClassifier();
   const context = createContext(
     db,
     pool,
-    initENV(),
+    { ...initENV(), ...envOverride },
     new TestMailer(),
     undefined,
     undefined,
@@ -559,17 +563,64 @@ test("a lead that already has an answer is not asked about again by a later run"
   });
 });
 
-test("leads are classified a few at a time and never more than four at once", async () => {
+test("leads are classified in parallel up to the configured limit and never more", async () => {
   await withTestDatabase(async (database) => {
-    const { services, campaign, classifier } = await setup(database, 10);
+    const { services, campaign, classifier } = await setup(database, 10, {
+      AI_FILTER_CONCURRENCY: 3,
+    });
     classifier.delayMs = 30;
     await services.filter.start({ campaignId: campaign.campaignId });
 
     await services.filter.runCampaign({ campaignId: campaign.campaignId });
 
     expect(classifier.calls).toHaveLength(10);
-    expect(classifier.peakInFlight).toBeGreaterThan(1);
-    expect(classifier.peakInFlight).toBeLessThanOrEqual(4);
+    expect(classifier.peakInFlight).toBe(3);
+    expect(await database.db.$count(leadAssessmentsTable)).toBe(10);
+  });
+});
+
+test("the default limit lets twelve leads run at once", async () => {
+  await withTestDatabase(async (database) => {
+    const { services, campaign, classifier } = await setup(database, 20);
+    classifier.delayMs = 30;
+    await services.filter.start({ campaignId: campaign.campaignId });
+
+    await services.filter.runCampaign({ campaignId: campaign.campaignId });
+
+    expect(classifier.calls).toHaveLength(20);
+    expect(classifier.peakInFlight).toBe(12);
+  });
+});
+
+test("the page is told about progress while a run is still going, not only at its start and end", async () => {
+  await withTestDatabase(async (database) => {
+    const { services, campaign, classifier, context } = await setup(
+      database,
+      3,
+      { AI_FILTER_CONCURRENCY: 1 },
+    );
+    classifier.delayMs = 700;
+    const announced: number[] = [];
+    const answer = classifier.answer;
+    classifier.answer = (input) => {
+      announced.push(context.eventBus.published.length);
+
+      return answer(input);
+    };
+    await services.filter.start({ campaignId: campaign.campaignId });
+    context.eventBus.published.length = 0;
+    announced.length = 0;
+
+    await services.filter.runCampaign({ campaignId: campaign.campaignId });
+
+    // By the third lead, the first two finishing has already been announced
+    expect(announced).toHaveLength(3);
+    expect(announced[2]).toBeGreaterThan(announced[0] ?? 0);
+    expect(
+      context.eventBus.published.every((type) => type === "campaigns.changed"),
+    ).toBe(true);
+    // Updates are spaced out, so a long run does not flood the page
+    expect(context.eventBus.published.length).toBeLessThan(10);
   });
 });
 

@@ -265,7 +265,7 @@ costs nothing; leads missing an answer to a newly added question are skipped unt
 the AI is run again.
 
 **Run AI filter** moves every lead that finished stage 1 to stage 2 and queues
-one classification per lead (`filter` queue, four at a time). The AI only sees
+one classification per lead (`filter` queue, `AI_FILTER_CONCURRENCY` at a time, 12 by default). The AI only sees
 what we scraped: the owner's profile and their communities, written out as plain
 text. Every yes must come with a quote that really appears in that text, otherwise
 it counts as unknown. Plain rules in `lib/assessment.ts` turn the answers into a

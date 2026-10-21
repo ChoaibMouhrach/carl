@@ -55,6 +55,8 @@ const baseSchema = z.object({
   // AI filter
   OPENAI_API_KEY: z.string().nonempty(),
   AI_FILTER_MODEL: z.string().nonempty().default("gpt-5-mini"),
+  // Leads sent to OpenAI at the same time; raise it with your usage tier
+  AI_FILTER_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(12),
 
   // Error monitoring (Sentry-compatible, e.g. Bugsink) — optional
   SENTRY_DSN: z.url().optional(),

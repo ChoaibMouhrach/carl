@@ -176,3 +176,33 @@ describe("the AI key", () => {
     expect(initENV().OPENAI_API_KEY).toBe("sk-test-key");
   });
 });
+
+describe("the AI filter concurrency", () => {
+  let original: string | undefined;
+
+  beforeEach(() => {
+    original = process.env["AI_FILTER_CONCURRENCY"];
+    process.env["OPENAI_API_KEY"] ??= "sk-test-key";
+  });
+
+  afterEach(() => {
+    if (original === undefined) delete process.env["AI_FILTER_CONCURRENCY"];
+    else process.env["AI_FILTER_CONCURRENCY"] = original;
+  });
+
+  test("defaults to twelve", () => {
+    delete process.env["AI_FILTER_CONCURRENCY"];
+
+    expect(initENV().AI_FILTER_CONCURRENCY).toBe(12);
+  });
+
+  test("reads a number and refuses zero, a fraction or more than 64", () => {
+    process.env["AI_FILTER_CONCURRENCY"] = "20";
+    expect(initENV().AI_FILTER_CONCURRENCY).toBe(20);
+
+    for (const bad of ["0", "1.5", "65", "many"]) {
+      process.env["AI_FILTER_CONCURRENCY"] = bad;
+      expect(() => initENV()).toThrow(/AI_FILTER_CONCURRENCY/);
+    }
+  });
+});
