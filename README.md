@@ -277,8 +277,8 @@ error and tried again by the next run.
 
 The model is a strategy. `LlmLeadClassifier` asks a `BaseLlm` for a structured
 answer; the implementation is `AiSdkLlm`, which uses the Vercel AI SDK with its
-OpenAI provider (`OPENAI_API_KEY`, `AI_FILTER_MODEL`). Without a key a disabled
-strategy refuses to answer. Moving to a native OpenAI or Anthropic SDK later means
+OpenAI provider (`OPENAI_API_KEY`, which is required and stops the server from
+starting when missing, and `AI_FILTER_MODEL`). Moving to a native OpenAI or Anthropic SDK later means
 adding another `BaseLlm` and selecting it in `infrastructure/llm/index.ts`; nothing
 else changes. For e2e tests a scripted classifier replaces the whole thing when
 `SKOOL_SCRIPTING` is on.
