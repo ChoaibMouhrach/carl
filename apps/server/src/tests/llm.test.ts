@@ -1,10 +1,8 @@
 import { expect, test } from "bun:test";
 import { MockLanguageModelV4 } from "ai/test";
-import z from "zod";
 import { initENV } from "@server/config/env";
 import { LlmLeadClassifier } from "@server/infrastructure/ai/llm-classifier";
 import { AiSdkLlm } from "@server/infrastructure/llm/ai-sdk";
-import { DisabledLlm } from "@server/infrastructure/llm/disabled";
 import { createLlm } from "@server/infrastructure/llm";
 import {
   BaseLlm,
@@ -41,7 +39,6 @@ const input: ClassifierInput = {
 class FakeLlm extends BaseLlm {
   public provider = "fake-provider";
   public model = "fake-model";
-  public configured = true;
   public requests: StructuredRequest<unknown>[] = [];
   public reply: unknown = { answers: [], summary: "" };
   public error: Error | null = null;
@@ -108,17 +105,14 @@ test("the classifier sends the shared instructions, the prompt and the answer sc
   });
 });
 
-test("the classifier reports the provider, model and readiness of its LLM and passes its failures on", async () => {
+test("the classifier reports the provider and model of its LLM and passes its failures on", async () => {
   const llm = new FakeLlm();
   const classifier = new LlmLeadClassifier({ llm });
 
-  expect([
-    classifier.provider,
-    classifier.model,
-    classifier.configured,
-  ]).toEqual(["fake-provider", "fake-model", true]);
-  llm.configured = false;
-  expect(classifier.configured).toBe(false);
+  expect([classifier.provider, classifier.model]).toEqual([
+    "fake-provider",
+    "fake-model",
+  ]);
 
   llm.error = new Error("The provider is down");
   await expect(classifier.classify(input)).rejects.toThrow(
@@ -161,11 +155,7 @@ test("the AI SDK strategy sends the instructions and the message with a JSON for
     summary: "A paid coaching business.",
   });
   expect(result.usage).toEqual({ inputTokens: 120, outputTokens: 40 });
-  expect([llm.provider, llm.model, llm.configured]).toEqual([
-    "mock",
-    "mock-model",
-    true,
-  ]);
+  expect([llm.provider, llm.model]).toEqual(["mock", "mock-model"]);
 
   const call = model.doGenerateCalls[0];
   expect(call?.prompt[0]).toMatchObject({
@@ -235,26 +225,11 @@ const envWith = (values: Record<string, string | undefined>) => ({
   ...values,
 });
 
-test("without a key the strategy is disabled and with one it is the Vercel AI SDK with the configured model", async () => {
-  const none = createLlm(envWith({ OPENAI_API_KEY: undefined }));
-  const keyed = createLlm(
+test("the strategy is the Vercel AI SDK with OpenAI and the configured model", () => {
+  const llm = createLlm(
     envWith({ OPENAI_API_KEY: "sk-openai", AI_FILTER_MODEL: "gpt-custom" }),
   );
 
-  expect(none).toBeInstanceOf(DisabledLlm);
-  expect([none.configured, none.provider]).toEqual([false, "openai"]);
-  expect(keyed).toBeInstanceOf(AiSdkLlm);
-  expect([keyed.configured, keyed.provider, keyed.model]).toEqual([
-    true,
-    "openai",
-    "gpt-custom",
-  ]);
-});
-
-test("a disabled LLM refuses to answer and says which key is missing", async () => {
-  const llm = new DisabledLlm({ provider: "openai", model: "m" });
-
-  await expect(
-    llm.generateStructured({ system: "s", prompt: "p", schema: z.object({}) }),
-  ).rejects.toThrow("Add OPENAI_API_KEY");
+  expect(llm).toBeInstanceOf(AiSdkLlm);
+  expect([llm.provider, llm.model]).toEqual(["openai", "gpt-custom"]);
 });

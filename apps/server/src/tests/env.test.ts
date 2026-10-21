@@ -149,3 +149,30 @@ describe("database and redis connection env", () => {
     expect(() => initENV()).toThrow(/POSTGRES_URL/);
   });
 });
+
+describe("the AI key", () => {
+  let original: string | undefined;
+
+  beforeEach(() => {
+    original = process.env["OPENAI_API_KEY"];
+  });
+
+  afterEach(() => {
+    if (original === undefined) delete process.env["OPENAI_API_KEY"];
+    else process.env["OPENAI_API_KEY"] = original;
+  });
+
+  test("is required: a missing or empty key stops the server from starting", () => {
+    delete process.env["OPENAI_API_KEY"];
+    expect(() => initENV()).toThrow(/OPENAI_API_KEY/);
+
+    process.env["OPENAI_API_KEY"] = "";
+    expect(() => initENV()).toThrow(/OPENAI_API_KEY/);
+  });
+
+  test("is passed through as given when it is set", () => {
+    process.env["OPENAI_API_KEY"] = "sk-test-key";
+
+    expect(initENV().OPENAI_API_KEY).toBe("sk-test-key");
+  });
+});

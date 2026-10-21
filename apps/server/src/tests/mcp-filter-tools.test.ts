@@ -458,26 +458,6 @@ test("running the filter on a campaign that is not active is refused and no lead
   });
 });
 
-test("running the filter with no AI set up is refused and no lead moves", async () => {
-  await withTestDatabase(async ({ db, pool }) => {
-    const session = await setup(db, pool);
-    const { campaign } = await seedCampaign(session);
-    session.classifier.configured = false;
-
-    const result = await call(session, "run_filter", {
-      campaignId: campaign.campaignId,
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result.text).toContain("OPENAI_API_KEY");
-    expect(
-      (await db.select().from(campaignLeadsTable)).every(
-        (row) => row.stage === 1,
-      ),
-    ).toBe(true);
-  });
-});
-
 test("a second run while leads are running is refused, and a lead already judged is not asked again", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const session = await setup(db, pool);

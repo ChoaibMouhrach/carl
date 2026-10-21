@@ -52,8 +52,8 @@ const baseSchema = z.object({
   // Lets e2e tests script what Skool returns; anything unscripted still reaches Skool
   SKOOL_SCRIPTING: z.stringbool().default(false),
 
-  // AI filter: without a key it cannot classify leads, everything else works
-  OPENAI_API_KEY: optional(z.string()),
+  // AI filter
+  OPENAI_API_KEY: z.string().nonempty(),
   AI_FILTER_MODEL: z.string().nonempty().default("gpt-5-mini"),
 
   // Error monitoring (Sentry-compatible, e.g. Bugsink) — optional

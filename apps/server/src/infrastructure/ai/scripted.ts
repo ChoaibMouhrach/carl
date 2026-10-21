@@ -13,7 +13,6 @@ interface ScriptedLeadClassifierInit {
 
 /** For e2e tests: answers come from a script, and a lead without one is an error instead of a paid request */
 export class ScriptedLeadClassifier extends BaseLeadClassifier {
-  public readonly configured = true;
   public readonly provider = "scripted";
   public readonly model = "scripted";
 

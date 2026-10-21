@@ -236,7 +236,6 @@ export class TestQueueHub extends BaseQueueHub {
 }
 
 export class FakeLeadClassifier extends BaseLeadClassifier {
-  public configured = true;
   public provider = "fake";
   public model = "fake";
   public calls: ClassifierInput[] = [];

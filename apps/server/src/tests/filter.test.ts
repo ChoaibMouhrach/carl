@@ -396,10 +396,9 @@ test("starting moves the leads that finished stage 1 to stage 2, queues one job 
   });
 });
 
-test("a campaign that is not active, has no questions, has nobody waiting or has no AI set up cannot start", async () => {
+test("a campaign that is not active, has no questions or has nobody waiting cannot start", async () => {
   await withTestDatabase(async (database) => {
-    const { admin, path, context, campaign, classifier } =
-      await setup(database);
+    const { admin, path, context, campaign } = await setup(database);
     const statusOf = async () =>
       (await admin.post(`${path}/filter/run`)).status;
 
@@ -412,9 +411,6 @@ test("a campaign that is not active, has no questions, has nobody waiting or has
       { campaignId: campaign.campaignId },
       { status: "active" },
     );
-    classifier.configured = false;
-    const unconfigured = await statusOf();
-    classifier.configured = true;
     await context.repositories.campaignFilter.replaceQuestions({
       campaignId: campaign.campaignId,
       questions: [],
@@ -428,9 +424,7 @@ test("a campaign that is not active, has no questions, has nobody waiting or has
     const nobody = await statusOf();
 
     // Every refusal came before any lead was moved, which the stages show
-    expect([paused, unconfigured, noQuestions, nobody]).toEqual([
-      400, 400, 400, 400,
-    ]);
+    expect([paused, noQuestions, nobody]).toEqual([400, 400, 400]);
     const rows = await database.db.select().from(campaignLeadsTable);
     expect(rows.every((row) => row.stage === 1)).toBe(true);
     expect(await database.db.$count(leadAssessmentsTable)).toBe(0);

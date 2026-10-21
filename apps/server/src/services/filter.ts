@@ -119,13 +119,6 @@ export class FilterService extends BaseService {
 
     await this.enabledQuestions(input.campaignId);
 
-    if (!this.context.leadClassifier.configured) {
-      throw new BadRequestError({
-        message:
-          "The AI filter is not set up. Add OPENAI_API_KEY to the server.",
-      });
-    }
-
     const { campaignLead } = this.context.repositories;
     const stage = { campaignId: input.campaignId, stage: FILTER_STAGE };
 

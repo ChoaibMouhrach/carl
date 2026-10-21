@@ -30,8 +30,6 @@ export interface ClassifierOutput {
 }
 
 export abstract class BaseLeadClassifier {
-  /** False when no AI provider is set up, so callers can refuse before queueing work */
-  public abstract readonly configured: boolean;
   public abstract readonly provider: string;
   public abstract readonly model: string;
 

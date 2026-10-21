@@ -24,10 +24,6 @@ export class LlmLeadClassifier extends BaseLeadClassifier {
     this.llm = init.llm;
   }
 
-  public get configured() {
-    return this.llm.configured;
-  }
-
   public get provider() {
     return this.llm.provider;
   }

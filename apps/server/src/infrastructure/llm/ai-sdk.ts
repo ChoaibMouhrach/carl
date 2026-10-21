@@ -16,7 +16,6 @@ interface AiSdkLlmInit {
 
 /** The Vercel AI SDK strategy */
 export class AiSdkLlm extends BaseLlm {
-  public readonly configured = true;
   public readonly model: string;
   public readonly provider: string;
 

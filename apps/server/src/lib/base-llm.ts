@@ -16,8 +16,6 @@ export interface StructuredResult<Output> {
 export abstract class BaseLlm {
   public abstract readonly provider: string;
   public abstract readonly model: string;
-  /** False for the disabled provider, so callers can refuse before queueing work */
-  public abstract readonly configured: boolean;
 
   public abstract generateStructured<Output>(
     request: StructuredRequest<Output>,
