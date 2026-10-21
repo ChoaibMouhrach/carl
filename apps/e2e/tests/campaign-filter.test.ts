@@ -321,6 +321,77 @@ test("running the filter classifies every lead, passes the qualified ones and sh
   }
 });
 
+test("the page shows a finished lead's verdict while another lead is still being asked about, without a reload", async ({
+  page,
+  seed,
+}) => {
+  const { campaign, id } = await setupAdmin(page, seed, { status: "active" });
+  await saveQuestions(page, seed, campaign.campaignId);
+  const quote = "We run coaching programs.";
+  const quick = {
+    username: `e2e-${id}-quick`,
+    name: `quick ${id}`,
+    delayMs: 0,
+  };
+  const slow = {
+    username: `e2e-${id}-slow`,
+    name: `slow ${id}`,
+    delayMs: 2_500,
+  };
+  const leads = [];
+  for (const entry of [quick, slow]) {
+    const lead = await seed.createLead({
+      skoolUsername: entry.username,
+      name: entry.name,
+      bio: `Founder. ${quote}`,
+    });
+    await seed.scriptLeadAssessment(entry.username, {
+      ...scriptFor("qualified", quote),
+      delayMs: entry.delayMs,
+    });
+    leads.push({ lead, entry });
+  }
+  await seed.attachCampaignLeads({
+    campaignId: campaign.campaignId,
+    leads: leads.map(({ lead }) => ({
+      leadId: lead.leadId,
+      stage: 1,
+      status: "done",
+    })),
+  });
+
+  try {
+    await page.goto(`/admin/campaigns/${campaign.campaignId}?stage=2`);
+    await page.getByRole("button", { name: "Run AI filter" }).click();
+
+    const row = (name: string) =>
+      page.getByRole("row").filter({ hasText: name });
+    await expect(
+      row(quick.name).getByRole("button", { name: "Qualified" }),
+    ).toBeVisible({ timeout: 2_000 });
+
+    const midRun = await seed.listCampaignLeads(campaign.campaignId);
+    expect(midRun.map((lead) => lead.status)).toEqual(["done", "running"]);
+    expect(await seed.listLeadAssessments(campaign.campaignId)).toHaveLength(1);
+    await expect(
+      row(slow.name).getByRole("button", { name: "Qualified" }),
+    ).toHaveCount(0);
+
+    await expect(
+      row(slow.name).getByRole("button", { name: "Qualified" }),
+    ).toBeVisible({ timeout: 20_000 });
+    const stored = await seed.listCampaignLeads(campaign.campaignId);
+    expect(stored.map((lead) => [lead.stage, lead.status])).toEqual([
+      [2, "done"],
+      [2, "done"],
+    ]);
+    expect(await seed.listLeadAssessments(campaign.campaignId)).toHaveLength(2);
+  } finally {
+    for (const { entry } of leads)
+      await seed.unscriptLeadAssessment(entry.username);
+  }
+});
+
 test("a campaign that is not active cannot run the filter", async ({
   page,
   seed,
