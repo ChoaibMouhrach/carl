@@ -624,6 +624,87 @@ test("the page is told about progress while a run is still going, not only at it
   });
 });
 
+test("the last announcement of a run comes after every lead has finished", async () => {
+  await withTestDatabase(async (database) => {
+    const { services, campaign, classifier, context } = await setup(
+      database,
+      4,
+      { AI_FILTER_CONCURRENCY: 2 },
+    );
+    classifier.delayMs = 40;
+    await services.filter.start({ campaignId: campaign.campaignId });
+    const runningAtAnnouncement: number[] = [];
+    const publish = context.eventBus.publish.bind(context.eventBus);
+    context.eventBus.publish = async (...types) => {
+      await publish(...types);
+      const running = await database.db.$count(
+        campaignLeadsTable,
+        eq(campaignLeadsTable.status, "running"),
+      );
+      runningAtAnnouncement.push(running);
+    };
+
+    await services.filter.runCampaign({ campaignId: campaign.campaignId });
+
+    expect(runningAtAnnouncement.length).toBeGreaterThan(1);
+    expect(runningAtAnnouncement.at(-1)).toBe(0);
+    expect(
+      await database.db.$count(
+        campaignLeadsTable,
+        eq(campaignLeadsTable.stage, 2),
+      ),
+    ).toBe(4);
+  });
+});
+
+test("an admin's event stream gets progress announcements while the run is still going", async () => {
+  await withTestDatabase(async (database) => {
+    const { services, campaign, classifier, context } = await setup(
+      database,
+      3,
+      { AI_FILTER_CONCURRENCY: 1 },
+    );
+    classifier.delayMs = 700;
+    const streamAdmin = await createAuthenticatedApp({
+      context,
+      email: "filter-stream@example.com",
+      role: "admin",
+    });
+    const response = await streamAdmin.app.request("/api/events", {
+      headers: { cookie: streamAdmin.cookie },
+    });
+    if (!response.body) throw new Error("The event stream has no body");
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    await services.filter.start({ campaignId: campaign.campaignId });
+
+    let finished = false;
+    const run = services.filter
+      .runCampaign({ campaignId: campaign.campaignId })
+      .then(() => {
+        finished = true;
+      });
+    let received = "";
+    let announcedBeforeEnd = 0;
+
+    while (announcedBeforeEnd < 3 && !finished) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      received += decoder.decode(chunk.value);
+      announcedBeforeEnd =
+        received.split("event: campaigns.changed").length - 1;
+    }
+    const sawBeforeEnd = !finished;
+
+    await reader.cancel();
+    await run;
+
+    expect(sawBeforeEnd).toBe(true);
+    expect(announcedBeforeEnd).toBeGreaterThanOrEqual(3);
+    expect(await database.db.$count(leadAssessmentsTable)).toBe(3);
+  });
+});
+
 test("leads at other stages are left alone by a run", async () => {
   await withTestDatabase(async (database) => {
     const { services, campaign, context, classifier } = await setup(
