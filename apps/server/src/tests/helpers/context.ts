@@ -12,6 +12,7 @@ import {
   type ListFailedInput,
   type ListFailedResult,
   type MaintenanceJob,
+  type EnrichJob,
   type FilterJob,
   type ScrapeJob,
   type QueueConsumer,
@@ -25,6 +26,11 @@ import {
   type ClassifierInput,
   type ClassifierOutput,
 } from "@server/lib/base-lead-classifier";
+import {
+  BaseWebSearch,
+  type WebSearchInput,
+  type WebSearchResult,
+} from "@server/lib/base-web-search";
 import { BaseEventBus } from "@server/lib/base-event-bus";
 import type {
   LiveEventListener,
@@ -204,6 +210,7 @@ export class TestQueueHub extends BaseQueueHub {
   public maintenance: TestQueue<MaintenanceJob>;
   public scrape: TestQueue<ScrapeJob>;
   public filter: TestQueue<FilterJob>;
+  public enrich: TestQueue<EnrichJob>;
 
   public constructor(init: { mailer: BaseMailer }) {
     super();
@@ -221,6 +228,9 @@ export class TestQueueHub extends BaseQueueHub {
     this.filter = new TestQueue<FilterJob>({
       process: async () => {},
     });
+    this.enrich = new TestQueue<EnrichJob>({
+      process: async () => {},
+    });
   }
 
   public override queues(): RegisteredQueue[] {
@@ -229,6 +239,7 @@ export class TestQueueHub extends BaseQueueHub {
       { name: "maintenance", queue: this.maintenance },
       { name: "scrape", queue: this.scrape },
       { name: "filter", queue: this.filter },
+      { name: "enrich", queue: this.enrich },
     ];
   }
 
@@ -291,6 +302,34 @@ export class TestCache extends BaseCache {
   }
 
   public async close() {}
+}
+
+export class FakeWebSearch extends BaseWebSearch {
+  public calls: WebSearchInput[] = [];
+  public error: Error | null = null;
+  public inFlight = 0;
+  public peakInFlight = 0;
+  public delayMs = 0;
+  /** Decides the results; by default nothing is found */
+  public answer: (input: WebSearchInput) => WebSearchResult[] = () => [];
+
+  public override async search(input: WebSearchInput) {
+    this.calls.push(input);
+    this.inFlight += 1;
+    this.peakInFlight = Math.max(this.peakInFlight, this.inFlight);
+
+    try {
+      if (this.delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, this.delayMs));
+      }
+
+      if (this.error) throw this.error;
+
+      return this.answer(input);
+    } finally {
+      this.inFlight -= 1;
+    }
+  }
 }
 
 export class TestEventBus extends BaseEventBus {
@@ -358,10 +397,12 @@ export const createContext = (
   rateLimiter: BaseRateLimiter = new TestRateLimiter(),
   skoolScraper: BaseSkoolScraper = new CustomSkoolScraper(),
   leadClassifier: FakeLeadClassifier = new FakeLeadClassifier(),
+  webSearch: FakeWebSearch = new FakeWebSearch(),
 ): Context & {
   eventBus: TestEventBus;
   cache: TestCache;
   leadClassifier: FakeLeadClassifier;
+  webSearch: FakeWebSearch;
 } => {
   const queueHub = new TestQueueHub({ mailer });
 
@@ -378,6 +419,7 @@ export const createContext = (
     repositories: new Repositories({ dbConnection: { db, pool } }),
     skoolScraper,
     leadClassifier,
+    webSearch,
     eventStreamHeartbeatMs: 50,
     discoveryCriteria: DEFAULT_SKOOL_SEARCHES,
   };

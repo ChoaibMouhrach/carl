@@ -7,6 +7,7 @@ import {
   BaseQueueHub,
   type AddJobOptions,
   type EmailJob,
+  type EnrichJob,
   type FilterJob,
   type ListFailedInput,
   type ListFailedResult,
@@ -32,6 +33,10 @@ const scrapeConcurrency = 1;
 const filterQueueName = "filter";
 const filterJobName = "run";
 const filterConcurrency = 1;
+
+const enrichQueueName = "enrich";
+const enrichJobName = "run";
+const enrichConcurrency = 1;
 
 const FAILED_JOB_RETENTION_SECONDS = 60 * 60 * 24 * 7;
 const FAILED_JOB_RETENTION_COUNT = 5_000;
@@ -292,11 +297,23 @@ export class FilterQueue extends BullQueue<FilterJob> {
   }
 }
 
+export class EnrichQueue extends BullQueue<EnrichJob> {
+  public constructor(init: MaintenanceQueueInit) {
+    super({
+      ...init,
+      concurrency: enrichConcurrency,
+      jobName: enrichJobName,
+      name: enrichQueueName,
+    });
+  }
+}
+
 export class QueueHub extends BaseQueueHub {
   public email: EmailQueue;
   public maintenance: MaintenanceQueue;
   public scrape: ScrapeQueue;
   public filter: FilterQueue;
+  public enrich: EnrichQueue;
 
   public constructor(init: EmailQueueInit) {
     super();
@@ -316,6 +333,11 @@ export class QueueHub extends BaseQueueHub {
       logger: init.logger,
       redisUrl: init.redisUrl,
     });
+    this.enrich = new EnrichQueue({
+      errorMonitor: init.errorMonitor,
+      logger: init.logger,
+      redisUrl: init.redisUrl,
+    });
   }
 
   public override queues(): RegisteredQueue[] {
@@ -324,6 +346,7 @@ export class QueueHub extends BaseQueueHub {
       { name: maintenanceQueueName, queue: this.maintenance },
       { name: scrapeQueueName, queue: this.scrape },
       { name: filterQueueName, queue: this.filter },
+      { name: enrichQueueName, queue: this.enrich },
     ];
   }
 

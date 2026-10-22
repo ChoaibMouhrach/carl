@@ -5,6 +5,8 @@ import {
   exists,
   ilike,
   inArray,
+  isNull,
+  ne,
   notExists,
   or,
   sql,
@@ -128,6 +130,55 @@ export class CampaignLeadRepository extends BaseRepository {
                   eq(leadAssessmentsTable.leadId, table.leadId),
                 ),
               ),
+          ),
+        ),
+      )
+      .returning({ id: table.campaignLeadId });
+
+    return requeued.length;
+  }
+
+  /** Puts leads back in the queue when a run died while they were being worked on */
+  public async requeueRunning(where: {
+    campaignId: number;
+    stage: StageNumber;
+  }) {
+    const table = CampaignLeadRepository.table;
+
+    const requeued = await this.db
+      .update(table)
+      .set({ status: "pending", failureReason: null })
+      .where(
+        and(
+          eq(table.campaignId, where.campaignId),
+          eq(table.stage, where.stage),
+          eq(table.status, "running"),
+        ),
+      )
+      .returning({ id: table.campaignLeadId });
+
+    return requeued.length;
+  }
+
+  /** Puts failed leads back in the queue, except those that failed for the given reason */
+  public async requeueFailedExcept(where: {
+    campaignId: number;
+    stage: StageNumber;
+    reason: string;
+  }) {
+    const table = CampaignLeadRepository.table;
+
+    const requeued = await this.db
+      .update(table)
+      .set({ status: "pending", failureReason: null })
+      .where(
+        and(
+          eq(table.campaignId, where.campaignId),
+          eq(table.stage, where.stage),
+          eq(table.status, "failed"),
+          or(
+            isNull(table.failureReason),
+            ne(table.failureReason, where.reason),
           ),
         ),
       )

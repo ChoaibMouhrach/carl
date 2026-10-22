@@ -9,6 +9,7 @@ import { CampaignService } from "./campaign";
 import { EventService } from "./event";
 import { McpService } from "./mcp";
 import { FilterService } from "./filter";
+import { EnrichService } from "./enrich";
 import { SkoolLookupService } from "./skool-lookup";
 
 interface ServicesConstructorParams {
@@ -27,6 +28,7 @@ export class Services {
   public skoolLookup;
   public mcp;
   public filter;
+  public enrich;
 
   public constructor({ context }: ServicesConstructorParams) {
     this.platformSetup = new PlatformSetupService({
@@ -52,5 +54,7 @@ export class Services {
     this.mcp = new McpService({ context });
 
     this.filter = new FilterService({ context });
+
+    this.enrich = new EnrichService({ context });
   }
 }

@@ -8,6 +8,8 @@ export type ScrapeJob = { scrapeRunId: number };
 
 export type FilterJob = { campaignId: number };
 
+export type EnrichJob = { campaignId: number };
+
 export type MaintenanceJob = { type: "check-queue-backlog" };
 
 export type QueueConsumer<Input> = (input: Input) => Promise<void>;
@@ -82,6 +84,7 @@ export abstract class BaseQueueHub {
   public abstract maintenance: BaseQueue<MaintenanceJob>;
   public abstract scrape: BaseQueue<ScrapeJob>;
   public abstract filter: BaseQueue<FilterJob>;
+  public abstract enrich: BaseQueue<EnrichJob>;
 
   public abstract queues(): RegisteredQueue[];
 
