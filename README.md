@@ -18,6 +18,7 @@ pipeline, organised into campaigns.
 - [Live updates](#live-updates)
 - [AI filter (stage 2)](#ai-filter-stage-2)
 - [Web search (stage 3)](#web-search-stage-3)
+- [Email finder (stage 4)](#email-finder-stage-4)
 - [MCP for AI agents](#mcp-for-ai-agents)
 - [Observability](#observability)
 - [Scripts](#scripts)
@@ -292,12 +293,40 @@ profile are looked up on [Tavily](https://tavily.com) (`enrich` queue,
 `ENRICH_CONCURRENCY` at a time, 5 by default). `POST /api/campaigns/:id/enrich/run`
 moves them to stage 3 and queues one job. For each lead it searches LinkedIn
 first (query: name, first community, "LinkedIn") and saves the first
-`linkedin.com/in/…` profile. When there is none it searches the web and saves the
-first result that is not a social site or Skool as the website. Leads that
+`linkedin.com/in/…` profile whose title or address contains the lead's first and
+last name. When there is none it searches the web and saves the first result that
+is not a social site or Skool and that names the lead or the whole community, as
+the website. Leads that
 already have either one are done without a search. A lead with nothing found
 fails with "Nothing found" and is not searched again; a lead whose search
 errored is retried on the next run. `TAVILY_API_KEY` is required and the server
 will not start without it.
+
+## Email finder (stage 4)
+
+Leads that finished stage 3 get a work email from
+[FullEnrich](https://fullenrich.com) (`find-email` queue). `POST
+/api/campaigns/:id/find-email/run` moves them to stage 4 and queues one job.
+FullEnrich has no SDK, so `FullEnrichEmailFinder` calls its REST API directly
+behind `BaseEmailFinder`. Leads go in batches of 100 (two batches at a time): one bulk enrichment per batch for
+`contact.work_emails`, polled every 5 seconds until it finishes. Each lead is sent
+once, with its LinkedIn URL, its first and last name and the domain of its
+website, whichever it has. Credits are only used when an email is found, and
+identical lookups in one run are sent once.
+
+- A lead that already has an email is done without a lookup.
+- Without a LinkedIn URL a lead needs a first and a last name ("No usable name")
+  and a website that is not a link-in-bio or social page ("No usable website").
+- A lead with no email found fails with "No email found" and is not looked up
+  again. A batch that errored (no credits, rate limit, timeout) is retried on the
+  next run, and re-running the same contacts within 3 months is free.
+- The Stage 4 tab has a "Find emails" button, and the lead list shows why a lead
+  failed under its status.
+- If a run dies (a crash or restart), leads left "running" are queued again by
+  the next start, here and for stages 2 and 3, unless a job for the campaign is
+  still queued or running.
+- The email is added to the lead's `emails`. `FULLENRICH_API_KEY` is required and
+  the server will not start without it.
 
 ## MCP for AI agents
 
