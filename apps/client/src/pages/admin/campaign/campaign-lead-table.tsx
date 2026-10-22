@@ -105,6 +105,11 @@ export const CampaignLeadTable = ({
               </TableCell>
               <TableCell>
                 <LeadStatusBadge status={lead.status} />
+                {lead.status === "failed" && lead.failureReason && (
+                  <div className="text-xs text-muted-foreground">
+                    {lead.failureReason}
+                  </div>
+                )}
               </TableCell>
               <TableCell onClick={(event) => event.stopPropagation()}>
                 {lead.verdict ? (

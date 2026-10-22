@@ -33,6 +33,7 @@ import {
 import { Link } from "@tanstack/react-router";
 import {
   ListChecksIcon,
+  MailSearchIcon,
   PlayIcon,
   RefreshCwIcon,
   SearchIcon,
@@ -43,15 +44,18 @@ import {
 const FIRST_STAGE = 1;
 const FILTER_STAGE = 2;
 const ENRICH_STAGE = 3;
+const FIND_EMAIL_STAGE = 4;
 
 interface StagePanelProps {
   campaignId: number;
   canRun: boolean;
   isEnriching: boolean;
+  isFindingEmail: boolean;
   isFiltering: boolean;
   isReapplying: boolean;
   onReapplyFilter: () => void;
   onRunEnrich: () => void;
+  onRunFindEmail: () => void;
   onRunFilter: () => void;
   isRunning: boolean;
   onRun: (replace: boolean) => void;
@@ -63,10 +67,12 @@ export const StagePanel = ({
   campaignId,
   canRun,
   isEnriching,
+  isFindingEmail,
   isFiltering,
   isReapplying,
   onReapplyFilter,
   onRunEnrich,
+  onRunFindEmail,
   onRunFilter,
   isRunning,
   onRun,
@@ -76,19 +82,23 @@ export const StagePanel = ({
   const canStart = stage.stage === FIRST_STAGE;
   const isFilterStage = stage.stage === FILTER_STAGE;
   const isEnrichStage = stage.stage === ENRICH_STAGE;
+  const isFindEmailStage = stage.stage === FIND_EMAIL_STAGE;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>{`Stage ${stage.stage}`}</CardTitle>
         <CardDescription>
-          {(canStart || isFilterStage || isEnrichStage) && !canRun
+          {(canStart || isFilterStage || isEnrichStage || isFindEmailStage) &&
+          !canRun
             ? "Activate the campaign to run its stages."
             : isFilterStage
               ? "The AI answers your questions about every lead that finished stage 1."
               : isEnrichStage
                 ? "Finds a LinkedIn profile, or else a website, for qualified leads that have neither."
-                : "Run this stage for every lead that is ready for it."}
+                : isFindEmailStage
+                  ? "Finds a work email on FullEnrich for leads that have a LinkedIn profile or a website."
+                  : "Run this stage for every lead that is ready for it."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -164,6 +174,32 @@ export const StagePanel = ({
                     {canRun
                       ? "Search Tavily for a LinkedIn profile or website for each qualified lead that has neither"
                       : "Activate the campaign to run the web search"}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          )}
+          {isFindEmailStage && (
+            <div className="flex flex-wrap items-center gap-3">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <span className="inline-flex">
+                        <Button
+                          disabled={!canRun || isFindingEmail}
+                          onClick={onRunFindEmail}
+                        >
+                          {isFindingEmail ? <Spinner /> : <MailSearchIcon />}
+                          Find emails
+                        </Button>
+                      </span>
+                    }
+                  />
+                  <TooltipContent>
+                    {canRun
+                      ? "Ask FullEnrich for a work email for each lead that has a LinkedIn profile or a website"
+                      : "Activate the campaign to find emails"}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

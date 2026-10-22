@@ -113,6 +113,16 @@ export const Campaign = () => {
     },
   });
 
+  const startFindEmail = useMutation({
+    mutationFn: () => api.campaign.runFindEmail({ campaignId }),
+    onError,
+    onSuccess: async () => {
+      toast.success("Email search started.");
+      selection.clear();
+      await invalidateCampaignData(queryClient);
+    },
+  });
+
   const reapplyFilter = useMutation({
     mutationFn: () => api.campaign.reapplyFilter({ campaignId }),
     onError,
@@ -239,7 +249,12 @@ export const Campaign = () => {
             startEnrich.isPending ||
             (stages.find((item) => item.stage === 3)?.running ?? 0) > 0
           }
+          isFindingEmail={
+            startFindEmail.isPending ||
+            (stages.find((item) => item.stage === 4)?.running ?? 0) > 0
+          }
           onRunEnrich={() => startEnrich.mutate()}
+          onRunFindEmail={() => startFindEmail.mutate()}
           onReapplyFilter={() => reapplyFilter.mutate()}
           isReapplying={reapplyFilter.isPending}
           onRunFilter={() => startFilter.mutate()}

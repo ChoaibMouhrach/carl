@@ -99,6 +99,11 @@ export const CampaignLeadCards = ({
                     </span>
                   )}
                 </div>
+                {lead.status === "failed" && lead.failureReason && (
+                  <p className="text-sm text-muted-foreground">
+                    {lead.failureReason}
+                  </p>
+                )}
                 <CardFacts
                   facts={[
                     {
