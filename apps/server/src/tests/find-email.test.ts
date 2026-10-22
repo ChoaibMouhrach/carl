@@ -537,6 +537,7 @@ test("the run is logged with the provider, the outcome counts and the reason for
           leads: 3,
           recovered: 0,
           emailFinder: "fake",
+          webhook: false,
         },
       },
       {
@@ -551,7 +552,19 @@ test("the run is logged with the provider, the outcome counts and the reason for
       {
         level: "info",
         message: {
-          message: "Email search finished.",
+          message: "Email batch updated.",
+          campaignId: campaign.campaignId,
+          batchId: expect.any(String),
+          state: "failed",
+          found: 0,
+          nothing: 0,
+          failed: 1,
+        },
+      },
+      {
+        level: "info",
+        message: {
+          message: "Email search handed to the provider.",
           campaignId: campaign.campaignId,
           outcomes: { skipped: 1, known: 1, error: 1 },
         },

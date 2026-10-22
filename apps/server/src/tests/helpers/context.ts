@@ -27,8 +27,12 @@ import {
   type ClassifierInput,
   type ClassifierOutput,
 } from "@server/lib/base-lead-classifier";
+import z from "zod";
+import { UnauthorizedError } from "@server/lib/errors";
 import {
   BaseEmailFinder,
+  type EmailBatchSnapshot,
+  type EmailBatchStart,
   type EmailLookup,
 } from "@server/lib/base-email-finder";
 import {
@@ -387,23 +391,36 @@ export class FakeWebSearch extends BaseWebSearch {
   }
 }
 
+export interface FakeBatchStart {
+  batchId: string;
+  lookups: EmailLookup[];
+  webhookUrl: string | null;
+}
+
 export class FakeEmailFinder extends BaseEmailFinder {
   public readonly provider = "fake";
 
   public calls: EmailLookup[][] = [];
+  public starts: FakeBatchStart[] = [];
+  public fetched: string[] = [];
   public error: Error | null = null;
   public inFlight = 0;
   public peakInFlight = 0;
   public delayMs = 0;
+  /** When true a batch is left waiting, as with a real provider, until a webhook or a fetch brings the answer */
+  public deferred = false;
+  /** What fetch answers for a batch, by provider id */
+  public snapshots = new Map<string, EmailBatchSnapshot>();
   /** Makes a call fail when it returns an error for the lookups it is given */
   public failWhen: (lookups: EmailLookup[]) => Error | null = () => null;
   /** Decides the email for each lookup; by default none is found */
   public answer: (lookup: EmailLookup) => string | null = () => null;
 
-  public override async find(lookups: EmailLookup[]) {
-    const failure = this.failWhen(lookups);
+  public override async start(input: FakeBatchStart): Promise<EmailBatchStart> {
+    const failure = this.failWhen(input.lookups);
 
-    this.calls.push(lookups);
+    this.calls.push(input.lookups);
+    this.starts.push(input);
     this.inFlight += 1;
     this.peakInFlight = Math.max(this.peakInFlight, this.inFlight);
 
@@ -415,15 +432,60 @@ export class FakeEmailFinder extends BaseEmailFinder {
       if (failure) throw failure;
       if (this.error) throw this.error;
 
-      return lookups.map((lookup) => ({
-        key: lookup.key,
-        email: this.answer(lookup),
-      }));
+      const providerId = `fake-${this.starts.length}`;
+
+      return {
+        providerId,
+        snapshot: this.deferred
+          ? null
+          : {
+              providerId,
+              batchId: input.batchId,
+              state: "finished",
+              reason: null,
+              results: input.lookups.map((lookup, ref) => ({
+                ref,
+                email: this.answer(lookup),
+              })),
+            },
+      };
     } finally {
       this.inFlight -= 1;
     }
   }
+
+  public override async fetch(providerId: string): Promise<EmailBatchSnapshot> {
+    this.fetched.push(providerId);
+
+    const snapshot = this.snapshots.get(providerId);
+
+    if (!snapshot) throw new Error(`No answer prepared for ${providerId}.`);
+
+    return snapshot;
+  }
+
+  /** The body is the snapshot as JSON and the signature must be "valid" */
+  public override readWebhook(input: {
+    rawBody: string;
+    signature: string | null;
+  }): EmailBatchSnapshot {
+    if (input.signature !== "valid") {
+      throw new UnauthorizedError({
+        message: "The webhook signature is not valid.",
+      });
+    }
+
+    return emailBatchSnapshotSchema.parse(JSON.parse(input.rawBody));
+  }
 }
+
+const emailBatchSnapshotSchema = z.object({
+  providerId: z.string().nullable(),
+  batchId: z.string().nullable(),
+  state: z.enum(["waiting", "finished", "failed"]),
+  reason: z.string().nullable(),
+  results: z.array(z.object({ ref: z.number(), email: z.string().nullable() })),
+});
 
 export class TestEventBus extends BaseEventBus {
   public published: LiveEventType[] = [];

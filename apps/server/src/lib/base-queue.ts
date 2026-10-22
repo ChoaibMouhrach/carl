@@ -12,7 +12,9 @@ export type EnrichJob = { campaignId: number };
 
 export type FindEmailJob = { campaignId: number };
 
-export type MaintenanceJob = { type: "check-queue-backlog" };
+export type MaintenanceJob =
+  | { type: "check-queue-backlog" }
+  | { type: "sweep-email-batches" };
 
 export type QueueConsumer<Input> = (input: Input) => Promise<void>;
 

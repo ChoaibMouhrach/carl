@@ -16,6 +16,8 @@ export abstract class BaseService {
     stage: StageNumber;
     queue: BaseQueue<{ campaignId: number }>;
     message: string;
+    /** Work that is still going without a job, such as a batch waiting for its webhook */
+    alsoBusy?: () => Promise<boolean>;
   }) {
     const { campaignLead } = this.context.repositories;
     const where = { campaignId: input.campaignId, stage: input.stage };
@@ -30,7 +32,9 @@ export abstract class BaseService {
       (job) => job.campaignId === input.campaignId,
     );
 
-    if (hasJob) throw new ConflictError({ message: input.message });
+    const busy = hasJob || (input.alsoBusy ? await input.alsoBusy() : false);
+
+    if (busy) throw new ConflictError({ message: input.message });
 
     const recovered = await campaignLead.requeueRunning(where);
 
