@@ -308,25 +308,48 @@ Leads that finished stage 3 get a work email from
 [FullEnrich](https://fullenrich.com) (`find-email` queue). `POST
 /api/campaigns/:id/find-email/run` moves them to stage 4 and queues one job.
 FullEnrich has no SDK, so `FullEnrichEmailFinder` calls its REST API directly
-behind `BaseEmailFinder`. Leads go in batches of 100 (two batches at a time): one bulk enrichment per batch for
-`contact.work_emails`, polled every 5 seconds until it finishes. Each lead is sent
-once, with its LinkedIn URL, its first and last name and the domain of its
-website, whichever it has. Credits are only used when an email is found, and
+behind `BaseEmailFinder`. Each lead is sent once, with its LinkedIn URL, its first
+and last name and the domain of its website, whichever it has, for
+`contact.work_emails`. Credits are only used when an email is found, and
 identical lookups in one run are sent once.
+
+**How the answer comes back.** The job only starts the batches (100 leads each,
+two at a time) and ends, leaving the leads "running" and one row per batch in
+`email_enrichments`. FullEnrich then calls back:
+
+- Each batch is started with `webhook_url` and `webhook_events.contact_finished`
+  set to `<VITE_API_URL>/api/webhooks/email-finder`. There is nothing to register
+  in the FullEnrich dashboard.
+- The route is public. It is not behind the rate limiter or a login and it is
+  trusted only through the `X-Signature-SHA1` header, an HMAC-SHA1 of the raw
+  body keyed with `FULLENRICH_API_KEY`. A bad or missing signature gets a 401 and
+  changes nothing.
+- A contact's webhook finishes that lead. The batch webhook finishes the rest: a
+  lead it has no email for fails with "No email found", and a batch FullEnrich gave
+  up on (no credits, rate limit, cancelled) fails its remaining leads with the
+  reason. The same webhook arriving twice changes nothing.
+- A maintenance job runs every 5 minutes and asks FullEnrich about batches that
+  have waited more than 5 minutes (at most 20 per run), so a lost webhook never
+  leaves leads stuck. A batch still waiting after a day, or one that was never
+  started, is failed.
+- `VITE_API_URL` must be a public address FullEnrich can reach, and `/api/webhooks`
+  must be routed to the server. When it is `localhost` or a private address no
+  webhook is sent and answers arrive through the sweep, up to 5 minutes later.
+
+Rules for each lead:
 
 - A lead that already has an email is done without a lookup.
 - Without a LinkedIn URL a lead needs a first and a last name ("No usable name")
   and a website that is not a link-in-bio or social page ("No usable website").
 - A lead with no email found fails with "No email found" and is not looked up
-  again. A batch that errored (no credits, rate limit, timeout) is retried on the
-  next run, and re-running the same contacts within 3 months is free.
+  again. A batch that errored is retried on the next run, and re-running the same
+  contacts within 3 months is free.
+- While a batch is waiting for its answer a new run is refused. If a run dies,
+  leads left "running" are queued again by the next start, here and for stages 2
+  and 3, unless a job or a waiting batch for the campaign still exists.
 - The Stage 4 tab has a "Find emails" button, and the lead list shows why a lead
-  failed under its status.
-- If a run dies (a crash or restart), leads left "running" are queued again by
-  the next start, here and for stages 2 and 3, unless a job for the campaign is
-  still queued or running.
-- The email is added to the lead's `emails`. `FULLENRICH_API_KEY` is required and
-  the server will not start without it.
+  failed under its status. The email is added to the lead's `emails`.
+  `FULLENRICH_API_KEY` is required and the server will not start without it.
 
 ## MCP for AI agents
 
