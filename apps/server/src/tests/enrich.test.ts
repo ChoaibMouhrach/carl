@@ -359,6 +359,67 @@ test("recovering leads left running only touches this campaign's web search stag
   });
 });
 
+test("when Tavily runs out of credits mid-run the finished leads stay done, the rest fail with the reason, and the next start only searches the rest", async () => {
+  await withTestDatabase(async (database) => {
+    const { services, campaign, leads, webSearch } = await setup(
+      database,
+      { leads: 4 },
+      { ENRICH_CONCURRENCY: 1 },
+    );
+    let served = 0;
+    webSearch.answer = () => {
+      if (served >= 2) throw new Error("432 Error: usage limit exceeded");
+      served += 1;
+
+      return found("https://www.linkedin.com/in/jane");
+    };
+    await services.enrich.start({ campaignId: campaign.campaignId });
+
+    await services.enrich.runCampaign({ campaignId: campaign.campaignId });
+
+    const statuses = [];
+    for (const lead of leads) {
+      const row = await rowOf(database.db, campaign.campaignId, lead.leadId);
+      statuses.push([row?.status, row?.failureReason]);
+    }
+    expect(statuses).toEqual([
+      ["done", null],
+      ["done", null],
+      ["failed", "432 Error: usage limit exceeded"],
+      ["failed", "432 Error: usage limit exceeded"],
+    ]);
+    for (const lead of leads.slice(2)) {
+      expect(await leadOf(database.db, lead.leadId)).toMatchObject({
+        linkedinUrl: null,
+        website: null,
+      });
+    }
+
+    webSearch.answer = () => found("https://www.linkedin.com/in/jane-again");
+    const callsBefore = webSearch.calls.length;
+    const restarted = await services.enrich.start({
+      campaignId: campaign.campaignId,
+    });
+    await services.enrich.runCampaign({ campaignId: campaign.campaignId });
+
+    expect(restarted).toEqual({ queued: 2 });
+    expect(
+      webSearch.calls.slice(callsBefore).map((call) => call.query),
+    ).toEqual(["Jane 2 Club 2 LinkedIn", "Jane 3 Club 3 LinkedIn"]);
+    for (const [index, lead] of leads.entries()) {
+      expect(
+        await rowOf(database.db, campaign.campaignId, lead.leadId),
+      ).toMatchObject({ status: "done", failureReason: null });
+      expect(await leadOf(database.db, lead.leadId)).toMatchObject({
+        linkedinUrl:
+          index < 2
+            ? "https://www.linkedin.com/in/jane"
+            : "https://www.linkedin.com/in/jane-again",
+      });
+    }
+  });
+});
+
 test("a lead with nothing found fails with the reason, is left unchanged and is not searched again on the next start", async () => {
   await withTestDatabase(async (database) => {
     const { services, campaign, leads, webSearch } = await setup(database, {
