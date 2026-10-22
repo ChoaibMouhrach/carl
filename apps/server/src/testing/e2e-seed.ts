@@ -29,6 +29,11 @@ import {
   type LeadScript,
 } from "../infrastructure/ai/script";
 import {
+  clearEmailFinderScript,
+  writeEmailFinderScript,
+  type EmailFinderScript,
+} from "../infrastructure/email-finder/script";
+import {
   clearWebSearchScript,
   writeWebSearchScript,
   type WebSearchScript,
@@ -459,6 +464,7 @@ export interface SeedCampaignLead {
   stage: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
   status: "pending" | "running" | "done" | "failed";
   keyword?: string;
+  failureReason?: string;
 }
 
 export const attachCampaignLeads = async (
@@ -473,6 +479,7 @@ export const attachCampaignLeads = async (
         stage: lead.stage,
         status: lead.status,
         keyword: lead.keyword ?? null,
+        failureReason: lead.failureReason ?? null,
       })),
     );
   });
@@ -785,3 +792,31 @@ export const unscriptSkool = async (
 };
 
 export type { SkoolScript } from "../infrastructure/skool/scripted/script";
+
+export const scriptEmailFinder = async (
+  config: SeedConfig,
+  input: { identity: string; script: EmailFinderScript },
+): Promise<void> => {
+  const redis = new IORedis(config.redisUrl);
+
+  try {
+    await writeEmailFinderScript(redis, input.identity, input.script);
+  } finally {
+    await redis.quit();
+  }
+};
+
+export const unscriptEmailFinder = async (
+  config: SeedConfig,
+  identity: string,
+): Promise<void> => {
+  const redis = new IORedis(config.redisUrl);
+
+  try {
+    await clearEmailFinderScript(redis, identity);
+  } finally {
+    await redis.quit();
+  }
+};
+
+export type { EmailFinderScript } from "../infrastructure/email-finder/script";

@@ -19,8 +19,11 @@ import {
   sampleFilterQuestions,
   listLeadAssessments,
   scriptLeadAssessment,
+  scriptEmailFinder,
   scriptWebSearch,
+  unscriptEmailFinder,
   unscriptWebSearch,
+  type EmailFinderScript,
   type WebSearchScript,
   unscriptLeadAssessment,
   type LeadScript,
@@ -96,6 +99,11 @@ interface Seed {
   unscriptLeadAssessment: (username: string) => Promise<void>;
   scriptWebSearch: (query: string, script: WebSearchScript) => Promise<void>;
   unscriptWebSearch: (query: string) => Promise<void>;
+  scriptEmailFinder: (
+    identity: string,
+    script: EmailFinderScript,
+  ) => Promise<void>;
+  unscriptEmailFinder: (identity: string) => Promise<void>;
   expireOAuthTokens: (email: string) => Promise<void>;
   ageSessions: (email: string) => Promise<void>;
   banUser: (email: string) => Promise<void>;
@@ -178,6 +186,9 @@ export const test = base.extend<{ seed: Seed; resetRateLimits: void }>({
       scriptWebSearch: (query, script) =>
         scriptWebSearch(config, { query, script }),
       unscriptWebSearch: (query) => unscriptWebSearch(config, query),
+      scriptEmailFinder: (identity, script) =>
+        scriptEmailFinder(config, { identity, script }),
+      unscriptEmailFinder: (identity) => unscriptEmailFinder(config, identity),
       expireOAuthTokens: (email) => expireOAuthTokens(config, email),
       ageSessions: (email) => ageSessions(config, email),
       banUser: (email) => banUser(config, email),
