@@ -20,6 +20,9 @@ import { LlmLeadClassifier } from "./infrastructure/ai/llm-classifier";
 import { createLlm } from "./infrastructure/llm";
 import { ScriptedLeadClassifier } from "./infrastructure/ai/scripted";
 import type { BaseWebSearch } from "./lib/base-web-search";
+import { FullEnrichEmailFinder } from "./infrastructure/email-finder/fullenrich";
+import { ScriptedEmailFinder } from "./infrastructure/email-finder/scripted";
+import type { BaseEmailFinder } from "./lib/base-email-finder";
 import { TavilyWebSearch } from "./infrastructure/search/tavily";
 import { ScriptedWebSearch } from "./infrastructure/search/scripted";
 import type { BaseCache } from "./lib/base-cache";
@@ -120,6 +123,10 @@ export const initContext = async () => {
     ? new ScriptedWebSearch({ redisUrl: env.REDIS_CONNECTION_STRING })
     : new TavilyWebSearch({ apiKey: env.TAVILY_API_KEY });
 
+  const emailFinder: BaseEmailFinder = env.SKOOL_SCRIPTING
+    ? new ScriptedEmailFinder({ redisUrl: env.REDIS_CONNECTION_STRING })
+    : new FullEnrichEmailFinder({ apiKey: env.FULLENRICH_API_KEY });
+
   const auth = createAuth({ db: dbConnection.db, env, queueHub });
 
   return {
@@ -136,6 +143,7 @@ export const initContext = async () => {
     skoolScraper,
     leadClassifier,
     webSearch,
+    emailFinder,
     eventStreamHeartbeatMs: EVENT_STREAM_HEARTBEAT_MS,
     discoveryCriteria: DEFAULT_SKOOL_SEARCHES,
   };

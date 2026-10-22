@@ -7,6 +7,10 @@ export const roles: [Role, ...Role[]] = ["admin", "user"];
 export const logLevels = ["debug", "info", "warn", "error", "silent"] as const;
 export type LogLevel = (typeof logLevels)[number];
 
+// FullEnrich takes 100 contacts per batch and works on 100 at a time, so more batches at once would only wait in its queue and add polling calls to its 60 per minute limit
+export const EMAIL_FINDER_BATCH_SIZE = 100;
+export const EMAIL_FINDER_BATCHES_AT_ONCE = 2;
+
 export const SETUP_KEY = "setup";
 
 export const DEFAULT_RECORD_LIMIT = 12;

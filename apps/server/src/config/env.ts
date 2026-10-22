@@ -68,6 +68,9 @@ const baseSchema = z.object({
     z.coerce.number().int().min(1).max(32).default(5),
   ),
 
+  // Email finder (stage 4)
+  FULLENRICH_API_KEY: z.string().nonempty(),
+
   // Error monitoring (Sentry-compatible, e.g. Bugsink) — optional
   SENTRY_DSN: z.url().optional(),
 });

@@ -283,3 +283,27 @@ describe("LOG_LEVEL", () => {
     expect(() => initENV()).toThrow(/LOG_LEVEL/);
   });
 });
+
+describe("FULLENRICH_API_KEY", () => {
+  let key: string | undefined;
+
+  beforeEach(() => {
+    key = process.env["FULLENRICH_API_KEY"];
+    process.env["OPENAI_API_KEY"] ??= "sk-test-key";
+    process.env["TAVILY_API_KEY"] ??= "tvly-test-key";
+    process.env["FULLENRICH_API_KEY"] ??= "fe-test-key";
+  });
+
+  afterEach(() => {
+    if (key === undefined) delete process.env["FULLENRICH_API_KEY"];
+    else process.env["FULLENRICH_API_KEY"] = key;
+  });
+
+  test("the key is required: a missing or empty key stops the server from starting", () => {
+    delete process.env["FULLENRICH_API_KEY"];
+    expect(() => initENV()).toThrow(/FULLENRICH_API_KEY/);
+
+    process.env["FULLENRICH_API_KEY"] = "";
+    expect(() => initENV()).toThrow(/FULLENRICH_API_KEY/);
+  });
+});
