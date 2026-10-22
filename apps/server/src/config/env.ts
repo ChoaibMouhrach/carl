@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { config } from "dotenv";
+import { logLevels } from "./constants";
 
 config({
   path: "../../.env",
@@ -14,6 +15,7 @@ const optional = <T extends z.ZodType>(type: T) =>
 const baseSchema = z.object({
   // APP
   NODE_ENV: z.enum(["development", "production", "test"]),
+  LOG_LEVEL: z.preprocess(emptyToUndefined, z.enum(logLevels).default("info")),
 
   // API
   API_PORT: z.coerce.number().int().positive(),
@@ -61,7 +63,10 @@ const baseSchema = z.object({
   // Web search (stage 3)
   TAVILY_API_KEY: z.string().nonempty(),
   // Leads searched on Tavily at the same time (1-32)
-  ENRICH_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(5),
+  ENRICH_CONCURRENCY: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().min(1).max(32).default(5),
+  ),
 
   // Error monitoring (Sentry-compatible, e.g. Bugsink) — optional
   SENTRY_DSN: z.url().optional(),

@@ -245,4 +245,41 @@ describe("the web search settings", () => {
       expect(() => initENV()).toThrow(/ENRICH_CONCURRENCY/);
     }
   });
+
+  test("an empty concurrency, as hosting platforms leave unset keys, falls back to 5", () => {
+    process.env["ENRICH_CONCURRENCY"] = "";
+
+    expect(initENV().ENRICH_CONCURRENCY).toBe(5);
+  });
+});
+
+describe("LOG_LEVEL", () => {
+  let level: string | undefined;
+
+  beforeEach(() => {
+    level = process.env["LOG_LEVEL"];
+    process.env["OPENAI_API_KEY"] ??= "sk-test-key";
+    process.env["TAVILY_API_KEY"] ??= "tvly-test-key";
+  });
+
+  afterEach(() => {
+    if (level === undefined) delete process.env["LOG_LEVEL"];
+    else process.env["LOG_LEVEL"] = level;
+  });
+
+  test("it is info when missing or empty and accepts only the known levels", () => {
+    delete process.env["LOG_LEVEL"];
+    expect(initENV().LOG_LEVEL).toBe("info");
+
+    process.env["LOG_LEVEL"] = "";
+    expect(initENV().LOG_LEVEL).toBe("info");
+
+    for (const good of ["debug", "info", "warn", "error", "silent"]) {
+      process.env["LOG_LEVEL"] = good;
+      expect(initENV().LOG_LEVEL).toBe(good);
+    }
+
+    process.env["LOG_LEVEL"] = "verbose";
+    expect(() => initENV()).toThrow(/LOG_LEVEL/);
+  });
 });

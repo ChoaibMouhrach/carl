@@ -47,11 +47,42 @@ import type { BaseSkoolScraper } from "@server/lib/base-skool-scraper";
 import { CustomSkoolScraper } from "@server/infrastructure/skool/custom";
 import { DEFAULT_SKOOL_SEARCHES } from "@server/config/constants";
 
+export interface LogRecord {
+  level: "debug" | "info" | "warn" | "error";
+  message: string | object;
+  error?: unknown;
+}
+
 export class TestLogger extends BaseLogger {
-  public entries: (string | object)[] = [];
+  public records: LogRecord[] = [];
+
+  public get entries() {
+    return this.records
+      .filter((record) => record.level === "info")
+      .map((record) => record.message);
+  }
+
+  public override async debug(message: string | object): Promise<void> {
+    this.records.push({ level: "debug", message });
+  }
 
   public override async info(message: string | object): Promise<void> {
-    this.entries.push(message);
+    this.records.push({ level: "info", message });
+  }
+
+  public override async warn(message: string | object): Promise<void> {
+    this.records.push({ level: "warn", message });
+  }
+
+  public override async error(
+    message: string | object,
+    error?: unknown,
+  ): Promise<void> {
+    this.records.push({ level: "error", message, error });
+  }
+
+  public override child(): BaseLogger {
+    return this;
   }
 }
 

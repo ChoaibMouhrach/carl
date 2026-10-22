@@ -1,5 +1,5 @@
 import { initDB } from "./infrastructure/database/client";
-import { PinoLogger } from "./infrastructure/logger/pino";
+import { createPinoLogger } from "./infrastructure/logger/pino";
 import { initENV } from "./config/env";
 import {
   DEFAULT_SKOOL_SEARCHES,
@@ -36,9 +36,12 @@ import { CustomSkoolScraper } from "./infrastructure/skool/custom";
 import { ScriptedSkoolScraper } from "./infrastructure/skool/scripted";
 
 export const initContext = async () => {
-  const logger: BaseLogger = new PinoLogger();
-
   const env = initENV();
+
+  const logger: BaseLogger = await createPinoLogger({
+    level: env.LOG_LEVEL,
+    pretty: env.IS_DEVELOPMENT,
+  });
 
   const errorMonitor: BaseErrorMonitor = env.SENTRY_DSN
     ? new SentryErrorMonitor({
