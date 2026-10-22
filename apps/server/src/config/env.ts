@@ -58,6 +58,11 @@ const baseSchema = z.object({
   // Leads sent to OpenAI at the same time; raise it with your usage tier
   AI_FILTER_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(12),
 
+  // Web search (stage 3)
+  TAVILY_API_KEY: z.string().nonempty(),
+  // Leads searched on Tavily at the same time (1-32)
+  ENRICH_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(5),
+
   // Error monitoring (Sentry-compatible, e.g. Bugsink) — optional
   SENTRY_DSN: z.url().optional(),
 });

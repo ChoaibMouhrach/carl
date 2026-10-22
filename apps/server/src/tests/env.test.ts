@@ -206,3 +206,43 @@ describe("the AI filter concurrency", () => {
     }
   });
 });
+
+describe("the web search settings", () => {
+  let key: string | undefined;
+  let concurrency: string | undefined;
+
+  beforeEach(() => {
+    key = process.env["TAVILY_API_KEY"];
+    concurrency = process.env["ENRICH_CONCURRENCY"];
+    process.env["OPENAI_API_KEY"] ??= "sk-test-key";
+    process.env["TAVILY_API_KEY"] ??= "tvly-test-key";
+  });
+
+  afterEach(() => {
+    if (key === undefined) delete process.env["TAVILY_API_KEY"];
+    else process.env["TAVILY_API_KEY"] = key;
+    if (concurrency === undefined) delete process.env["ENRICH_CONCURRENCY"];
+    else process.env["ENRICH_CONCURRENCY"] = concurrency;
+  });
+
+  test("the key is required: a missing or empty key stops the server from starting", () => {
+    delete process.env["TAVILY_API_KEY"];
+    expect(() => initENV()).toThrow(/TAVILY_API_KEY/);
+
+    process.env["TAVILY_API_KEY"] = "";
+    expect(() => initENV()).toThrow(/TAVILY_API_KEY/);
+  });
+
+  test("the concurrency is 5 by default and must be a whole number from 1 to 32", () => {
+    delete process.env["ENRICH_CONCURRENCY"];
+    expect(initENV().ENRICH_CONCURRENCY).toBe(5);
+
+    process.env["ENRICH_CONCURRENCY"] = "32";
+    expect(initENV().ENRICH_CONCURRENCY).toBe(32);
+
+    for (const bad of ["0", "33", "2.5", "many"]) {
+      process.env["ENRICH_CONCURRENCY"] = bad;
+      expect(() => initENV()).toThrow(/ENRICH_CONCURRENCY/);
+    }
+  });
+});

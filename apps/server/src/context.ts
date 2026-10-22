@@ -19,6 +19,9 @@ import type { BaseLeadClassifier } from "./lib/base-lead-classifier";
 import { LlmLeadClassifier } from "./infrastructure/ai/llm-classifier";
 import { createLlm } from "./infrastructure/llm";
 import { ScriptedLeadClassifier } from "./infrastructure/ai/scripted";
+import type { BaseWebSearch } from "./lib/base-web-search";
+import { TavilyWebSearch } from "./infrastructure/search/tavily";
+import { ScriptedWebSearch } from "./infrastructure/search/scripted";
 import type { BaseCache } from "./lib/base-cache";
 import { RedisCache } from "./infrastructure/cache/redis";
 import type { BaseRateLimiter } from "./lib/base-rate-limiter";
@@ -110,6 +113,10 @@ export const initContext = async () => {
     ? new ScriptedLeadClassifier({ redisUrl: env.REDIS_CONNECTION_STRING })
     : new LlmLeadClassifier({ llm: createLlm(env) });
 
+  const webSearch: BaseWebSearch = env.SKOOL_SCRIPTING
+    ? new ScriptedWebSearch({ redisUrl: env.REDIS_CONNECTION_STRING })
+    : new TavilyWebSearch({ apiKey: env.TAVILY_API_KEY });
+
   const auth = createAuth({ db: dbConnection.db, env, queueHub });
 
   return {
@@ -125,6 +132,7 @@ export const initContext = async () => {
     errorMonitor,
     skoolScraper,
     leadClassifier,
+    webSearch,
     eventStreamHeartbeatMs: EVENT_STREAM_HEARTBEAT_MS,
     discoveryCriteria: DEFAULT_SKOOL_SEARCHES,
   };
