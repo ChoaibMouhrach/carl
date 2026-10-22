@@ -198,6 +198,7 @@ All apps read a single root `.env`. Copy `.env.example` and fill it in.
 | `RATE_LIMIT_KEY_SECRET`                                                   | Secret used to hash rate-limit keys                                               |
 | `TRUST_PROXY`                                                             | `true` when running behind a reverse proxy (for client IPs)                       |
 | `QUEUE_CONCURRENCY`                                                       | Max concurrent background jobs                                                    |
+| `LOG_LEVEL`                                                               | Minimum log level: `debug`, `info`, `warn`, `error`, `silent` (default `info`)    |
 | `QUEUE_BACKLOG_THRESHOLD`                                                 | Waiting-jobs count that triggers a backlog alert (default 100)                    |
 | `RESEND_API_KEY` / `MAIL_DOMAIN` / `MAIL_RATE_LIMIT_PER_SECOND`           | Transactional email                                                               |
 
@@ -374,6 +375,34 @@ serve. A response body containing `"status":"degraded"` means only the mail
 provider is unreachable — the app still works, jobs just retry.
 
 `QUEUE_BACKLOG_THRESHOLD` tunes how many waiting jobs count as a backlog.
+
+### Logging
+
+The server logs with [pino](https://github.com/pinojs/pino) behind `BaseLogger`
+(`debug`, `info`, `warn`, `error`, `child`). In production every entry is one JSON
+line on stdout, so Docker, Dokploy or any log shipper can collect it:
+
+```json
+{
+  "level": "warn",
+  "time": "2026-10-22T13:20:45.395Z",
+  "service": "carl-server",
+  "hostname": "…",
+  "requestId": "…",
+  "method": "GET",
+  "path": "/api/campaigns",
+  "status": 401,
+  "durationMs": 3,
+  "msg": "Request completed."
+}
+```
+
+- `LOG_LEVEL` (`debug | info | warn | error | silent`, default `info`) sets the minimum level.
+- Every `/api/*` request is logged once when it ends: `info` below 400, `warn` for 4xx, `error` for 5xx. The path never includes the query string. A request id (a safe incoming `x-request-id`, else a new UUID) is logged and returned in the `x-request-id` response header.
+- Unexpected errors are logged with their stack under `err`, with the request id, before the `500` is returned.
+- Values under `password`, `token`, `secret`, `apiKey`, `authorization` and `cookie` (top level or one level down) are written as `[Redacted]`.
+- Failed jobs log at `warn` while they retry and at `error` once they are exhausted. `unhandledRejection` is logged; `uncaughtException` is logged and the process exits so the platform restarts it.
+- In development the output is pretty-printed (`pino-pretty`, a dev dependency).
 
 ### Scheduled maintenance
 
