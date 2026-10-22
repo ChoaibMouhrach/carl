@@ -19,7 +19,7 @@ export class RedisCache extends BaseCache {
     this.logger = init.logger;
     this.redis = new IORedis(init.redisUrl, { maxRetriesPerRequest: 1 });
     this.redis.on("error", (error) => {
-      void this.logger.info({ cacheError: error.message });
+      void this.logger.error({ message: "Cache connection error." }, error);
     });
   }
 
@@ -27,7 +27,11 @@ export class RedisCache extends BaseCache {
     try {
       return await this.redis.get(`${KEY_PREFIX}${key}`);
     } catch (error) {
-      void this.logger.info({ cacheReadFailed: key, error: String(error) });
+      void this.logger.warn({
+        message: "Cache read failed.",
+        key,
+        reason: String(error),
+      });
       return null;
     }
   }
@@ -36,7 +40,11 @@ export class RedisCache extends BaseCache {
     try {
       await this.redis.set(`${KEY_PREFIX}${key}`, value, "EX", ttlSeconds);
     } catch (error) {
-      void this.logger.info({ cacheWriteFailed: key, error: String(error) });
+      void this.logger.warn({
+        message: "Cache write failed.",
+        key,
+        reason: String(error),
+      });
     }
   }
 

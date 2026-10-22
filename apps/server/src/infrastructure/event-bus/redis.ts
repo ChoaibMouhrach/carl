@@ -34,7 +34,10 @@ export class RedisEventBus extends BaseEventBus {
 
     for (const connection of [this.publisher, this.subscriber]) {
       connection.on("error", (error) => {
-        void this.logger.info({ eventBusError: error.message });
+        void this.logger.error(
+          { message: "Event bus connection error." },
+          error,
+        );
       });
     }
 
@@ -48,16 +51,16 @@ export class RedisEventBus extends BaseEventBus {
         try {
           listener(type);
         } catch (error) {
-          void this.logger.info({
-            eventBusError:
-              error instanceof Error ? error.message : String(error),
-          });
+          void this.logger.error(
+            { message: "An event bus listener failed." },
+            error,
+          );
         }
       }
     });
 
     void this.subscriber.subscribe(CHANNEL).catch((error: Error) => {
-      void this.logger.info({ eventBusError: error.message });
+      void this.logger.error({ message: "Event bus subscribe failed." }, error);
     });
   }
 
@@ -78,9 +81,7 @@ export class RedisEventBus extends BaseEventBus {
         timeout,
       ]);
     } catch (error) {
-      await this.logger.info({
-        eventBusError: error instanceof Error ? error.message : String(error),
-      });
+      await this.logger.error({ message: "Event bus publish failed." }, error);
     } finally {
       clearTimeout(timer);
     }

@@ -137,7 +137,10 @@ export class McpService extends BaseService {
         durationMs: input.durationMs,
       });
     } catch (error) {
-      void this.context.logger.info({ mcpRequestNotRecorded: String(error) });
+      void this.context.logger.error(
+        { message: "An MCP request could not be recorded." },
+        error,
+      );
     }
   }
 }

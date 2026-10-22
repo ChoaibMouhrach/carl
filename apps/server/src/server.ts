@@ -32,10 +32,16 @@ export const initServer = async () => {
   });
 
   return {
+    logger: context.logger,
     serve: () => {
       const port = context.env.API_PORT;
 
-      context.logger.info(`The server is running on port ${port}`);
+      void context.logger.info({
+        message: "The server is running.",
+        port,
+        environment: context.env.NODE_ENV,
+        logLevel: context.env.LOG_LEVEL,
+      });
       const httpServer = Bun.serve({
         fetch: (request, server) =>
           app.fetch(request, {

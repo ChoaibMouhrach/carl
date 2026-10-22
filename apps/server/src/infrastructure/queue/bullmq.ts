@@ -42,6 +42,8 @@ const FAILED_JOB_RETENTION_SECONDS = 60 * 60 * 24 * 7;
 const FAILED_JOB_RETENTION_COUNT = 5_000;
 
 interface BullQueueInit {
+  attempts?: number;
+  backoffDelayMs?: number;
   concurrency: number;
   errorMonitor: BaseErrorMonitor;
   jobName: string;
@@ -50,7 +52,7 @@ interface BullQueueInit {
   redisUrl: string;
 }
 
-class BullQueue<Input> extends BaseQueue<Input> {
+export class BullQueue<Input> extends BaseQueue<Input> {
   private concurrency: number;
   private errorMonitor: BaseErrorMonitor;
   private jobName: string;
@@ -79,9 +81,9 @@ class BullQueue<Input> extends BaseQueue<Input> {
       {
         connection: this.queueConnection,
         defaultJobOptions: {
-          attempts: 5,
+          attempts: init.attempts ?? 5,
           backoff: {
-            delay: 1_000,
+            delay: init.backoffDelayMs ?? 1_000,
             type: "exponential",
           },
           removeOnComplete: 1_000,
@@ -134,14 +136,17 @@ class BullQueue<Input> extends BaseQueue<Input> {
     );
 
     this.worker.on("failed", (job, error) => {
-      void this.logger.info({
+      const attempts = job?.opts.attempts ?? 1;
+      const exhausted = job ? job.attemptsMade >= attempts : false;
+      const entry = {
+        message: exhausted ? "A job failed for good." : "A job failed.",
         attemptsMade: job?.attemptsMade,
-        error: error.message,
         jobId: job?.id,
         queue: this.name,
-      });
+      };
 
-      const attempts = job?.opts.attempts ?? 1;
+      if (exhausted) void this.logger.error(entry, error);
+      else void this.logger.warn({ ...entry, reason: error.message });
 
       if (job && job.attemptsMade >= attempts) {
         this.errorMonitor.captureException(error, {
@@ -158,10 +163,10 @@ class BullQueue<Input> extends BaseQueue<Input> {
     });
 
     this.worker.on("error", (error) => {
-      void this.logger.info({
-        error: error.message,
-        queue: this.name,
-      });
+      void this.logger.error(
+        { message: "A queue worker error.", queue: this.name },
+        error,
+      );
     });
     await this.worker.waitUntilReady();
   }

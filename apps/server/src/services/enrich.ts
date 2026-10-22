@@ -136,7 +136,7 @@ export class EnrichService extends BaseService {
           ).slice(0, ERROR_REASON_LENGTH);
 
           outcomes["error"] = (outcomes["error"] ?? 0) + 1;
-          await this.context.logger.info({
+          await this.context.logger.warn({
             message: "Web search failed for a lead.",
             campaignId: input.campaignId,
             leadId,

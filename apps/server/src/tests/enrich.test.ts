@@ -440,34 +440,47 @@ test("the run is logged with the search provider, what happened to each lead and
     };
     const logger = context.logger;
     if (!(logger instanceof TestLogger)) throw new Error("expected TestLogger");
+    logger.records.length = 0;
 
     await services.enrich.start({ campaignId: campaign.campaignId });
     await services.enrich.runCampaign({ campaignId: campaign.campaignId });
 
-    expect(logger.entries).toEqual([
+    expect(logger.records).toEqual([
       {
-        message: "Web search queued.",
-        campaignId: campaign.campaignId,
-        queued: 3,
-        webSearch: "fake",
+        level: "info",
+        message: {
+          message: "Web search queued.",
+          campaignId: campaign.campaignId,
+          queued: 3,
+          webSearch: "fake",
+        },
       },
       {
-        message: "Web search started.",
-        campaignId: campaign.campaignId,
-        leads: 3,
-        recovered: 0,
-        webSearch: "fake",
+        level: "info",
+        message: {
+          message: "Web search started.",
+          campaignId: campaign.campaignId,
+          leads: 3,
+          recovered: 0,
+          webSearch: "fake",
+        },
       },
       {
-        message: "Web search failed for a lead.",
-        campaignId: campaign.campaignId,
-        leadId: leads[0]?.leadId,
-        reason: "Tavily is down",
+        level: "warn",
+        message: {
+          message: "Web search failed for a lead.",
+          campaignId: campaign.campaignId,
+          leadId: leads[0]?.leadId,
+          reason: "Tavily is down",
+        },
       },
       {
-        message: "Web search finished.",
-        campaignId: campaign.campaignId,
-        outcomes: { error: 1, nothing: 1, linkedin: 1 },
+        level: "info",
+        message: {
+          message: "Web search finished.",
+          campaignId: campaign.campaignId,
+          outcomes: { error: 1, nothing: 1, linkedin: 1 },
+        },
       },
     ]);
   });

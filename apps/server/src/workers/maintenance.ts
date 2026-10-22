@@ -28,7 +28,8 @@ export class MaintenanceWorker extends BaseWorker {
         },
       );
 
-      void this.context.logger.info({
+      void this.context.logger.warn({
+        message: "A queue has a backlog.",
         signal: "queue_backlog",
         queue: entry.name,
         threshold,
