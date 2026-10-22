@@ -11,6 +11,7 @@ import { OAuthClientRepository } from "./oauth-client";
 import { McpRequestRepository } from "./mcp-request";
 import { CampaignFilterRepository } from "./campaign-filter";
 import { LeadAssessmentRepository } from "./lead-assessment";
+import { EmailEnrichmentRepository } from "./email-enrichment";
 
 interface RepositoriesConstructorProps {
   dbConnection: DBConnection;
@@ -32,6 +33,7 @@ export class Repositories {
   public mcpRequest;
   public campaignFilter;
   public leadAssessment;
+  public emailEnrichment;
 
   public constructor({ dbConnection }: RepositoriesConstructorProps) {
     this.pool = dbConnection.pool;
@@ -82,6 +84,10 @@ export class Repositories {
     });
 
     this.leadAssessment = new LeadAssessmentRepository({
+      db: dbConnection.db,
+    });
+
+    this.emailEnrichment = new EmailEnrichmentRepository({
       db: dbConnection.db,
     });
   }

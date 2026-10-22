@@ -140,6 +140,31 @@ export const campaignLeadsTable = pgTable(
   ],
 );
 
+export type EmailEnrichmentStatus = "waiting" | "finished" | "failed";
+
+/** A batch of leads handed to the email finder, waiting for its answer */
+export const emailEnrichmentsTable = pgTable(
+  "email_enrichments",
+  {
+    emailEnrichmentId: id(),
+    batchId: text().notNull().unique(),
+    providerId: text(),
+    campaignId: integer()
+      .notNull()
+      .references(() => campaignsTable.campaignId, { onDelete: "cascade" }),
+    /** The lead ids behind each lookup sent, by the position it was sent in */
+    groups: jsonb().$type<number[][]>().notNull(),
+    status: text().$type<EmailEnrichmentStatus>().notNull().default("waiting"),
+    failureReason: text(),
+    finishedAt: timestamp(),
+
+    ...timestamps(),
+  },
+  (table) => [index().on(table.status, table.createdAt)],
+);
+
+export type EmailEnrichment = (typeof emailEnrichmentsTable)["$inferSelect"];
+
 export const scrapeRunsTable = pgTable(
   "scrape_runs",
   {

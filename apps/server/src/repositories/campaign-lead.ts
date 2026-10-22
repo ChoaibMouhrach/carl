@@ -138,6 +138,28 @@ export class CampaignLeadRepository extends BaseRepository {
     return requeued.length;
   }
 
+  /** Finishes a lead only if it is still running, so a result that arrives twice is applied once */
+  public async finishRunning(
+    where: { campaignId: number; leadId: number; stage: StageNumber },
+    input: { status: LeadStatus; failureReason: string | null },
+  ) {
+    const table = CampaignLeadRepository.table;
+    const finished = await this.db
+      .update(table)
+      .set(input)
+      .where(
+        and(
+          eq(table.campaignId, where.campaignId),
+          eq(table.leadId, where.leadId),
+          eq(table.stage, where.stage),
+          eq(table.status, "running"),
+        ),
+      )
+      .returning({ id: table.campaignLeadId });
+
+    return finished.length > 0;
+  }
+
   /** Puts leads back in the queue when a run died while they were being worked on */
   public async requeueRunning(where: {
     campaignId: number;
