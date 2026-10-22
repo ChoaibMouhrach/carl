@@ -17,6 +17,7 @@ pipeline, organised into campaigns.
 - [Environment variables](#environment-variables)
 - [Live updates](#live-updates)
 - [AI filter (stage 2)](#ai-filter-stage-2)
+- [Web search (stage 3)](#web-search-stage-3)
 - [MCP for AI agents](#mcp-for-ai-agents)
 - [Observability](#observability)
 - [Scripts](#scripts)
@@ -282,6 +283,20 @@ starting when missing, and `AI_FILTER_MODEL`). Moving to a native OpenAI or Anth
 adding another `BaseLlm` and selecting it in `infrastructure/llm/index.ts`; nothing
 else changes. For e2e tests a scripted classifier replaces the whole thing when
 `SKOOL_SCRIPTING` is on.
+
+## Web search (stage 3)
+
+Qualified leads (done at stage 2) that have neither a website nor a LinkedIn
+profile are looked up on [Tavily](https://tavily.com) (`enrich` queue,
+`ENRICH_CONCURRENCY` at a time, 5 by default). `POST /api/campaigns/:id/enrich/run`
+moves them to stage 3 and queues one job. For each lead it searches LinkedIn
+first (query: name, first community, "LinkedIn") and saves the first
+`linkedin.com/in/…` profile. When there is none it searches the web and saves the
+first result that is not a social site or Skool as the website. Leads that
+already have either one are done without a search. A lead with nothing found
+fails with "Nothing found" and is not searched again; a lead whose search
+errored is retried on the next run. `TAVILY_API_KEY` is required and the server
+will not start without it.
 
 ## MCP for AI agents
 
