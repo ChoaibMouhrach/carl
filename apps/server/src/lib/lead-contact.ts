@@ -69,7 +69,6 @@ export const domainOf = (website: string) => {
 };
 
 export const buildLookup = (lead: {
-  key: string;
   name: string;
   website: string | null;
   linkedinUrl: string | null;
@@ -83,7 +82,6 @@ export const buildLookup = (lead: {
 
   return {
     lookup: {
-      key: lead.key,
       firstName: name?.firstName ?? null,
       lastName: name?.lastName ?? null,
       domain,

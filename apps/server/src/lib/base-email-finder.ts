@@ -1,19 +1,46 @@
 export interface EmailLookup {
-  key: string;
   firstName: string | null;
   lastName: string | null;
   domain: string | null;
   linkedinUrl: string | null;
 }
 
-export interface EmailLookupResult {
-  key: string;
+export interface EmailBatchResult {
+  /** The position of the lookup in the batch it was sent in */
+  ref: number;
   email: string | null;
+}
+
+export interface EmailBatchSnapshot {
+  providerId: string | null;
+  batchId: string | null;
+  /** waiting: results so far; finished: nothing more will come; failed: the provider gave up, with the reason */
+  state: "waiting" | "finished" | "failed";
+  reason: string | null;
+  results: EmailBatchResult[];
+}
+
+export interface EmailBatchStart {
+  providerId: string;
+  /** Set when the provider already has the answer */
+  snapshot: EmailBatchSnapshot | null;
 }
 
 export abstract class BaseEmailFinder {
   public abstract readonly provider: string;
 
-  /** Answers every lookup it is given, with a null email when none was found */
-  public abstract find(lookups: EmailLookup[]): Promise<EmailLookupResult[]>;
+  /** Starts a batch without waiting for it; the answer comes to the webhook or is fetched later */
+  public abstract start(input: {
+    batchId: string;
+    lookups: EmailLookup[];
+    webhookUrl: string | null;
+  }): Promise<EmailBatchStart>;
+
+  public abstract fetch(providerId: string): Promise<EmailBatchSnapshot>;
+
+  /** Checks the signature of a webhook and reads it; throws UnauthorizedError when it is not genuine */
+  public abstract readWebhook(input: {
+    rawBody: string;
+    signature: string | null;
+  }): EmailBatchSnapshot;
 }

@@ -1,15 +1,14 @@
-import { setTimeout as sleep } from "node:timers/promises";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import z from "zod";
 import {
   BaseEmailFinder,
+  type EmailBatchSnapshot,
+  type EmailBatchStart,
   type EmailLookup,
-  type EmailLookupResult,
 } from "@server/lib/base-email-finder";
+import { UnauthorizedError } from "@server/lib/errors";
 
 const BASE_URL = "https://app.fullenrich.com/api/v2";
-const POLL_INTERVAL_MS = 5_000;
-const POLL_TIMEOUT_MS = 15 * 60_000;
-const MAX_POLL_FAILURES = 5;
 const MAX_START_ATTEMPTS = 3;
 const RATE_LIMIT_WAIT_MS = 20_000;
 const FINISHED = "FINISHED";
@@ -18,6 +17,7 @@ const WAITING = ["CREATED", "IN_PROGRESS"];
 const startSchema = z.object({ enrichment_id: z.string() });
 
 const resultSchema = z.object({
+  id: z.string().nullish(),
   status: z.string(),
   data: z
     .array(
@@ -40,8 +40,6 @@ const errorSchema = z.object({ message: z.string() });
 interface FullEnrichEmailFinderInit {
   apiKey: string;
   fetch?: typeof fetch;
-  pollIntervalMs?: number;
-  pollTimeoutMs?: number;
   rateLimitWaitMs?: number;
 }
 
@@ -53,19 +51,22 @@ class FullEnrichError extends Error {
 
     this.status = status;
   }
-
-  public get retryable() {
-    return this.status === 429 || (this.status ?? 0) >= 500;
-  }
 }
+
+const describeStatus = (status: string) => {
+  if (status === "CREDITS_INSUFFICIENT")
+    return "FullEnrich has no credits left.";
+
+  if (status === "RATE_LIMIT") return "FullEnrich rate limit reached.";
+
+  return `FullEnrich stopped the enrichment (${status}).`;
+};
 
 export class FullEnrichEmailFinder extends BaseEmailFinder {
   public readonly provider = "fullenrich";
 
   private readonly apiKey: string;
   private readonly request: typeof fetch;
-  private readonly pollIntervalMs: number;
-  private readonly pollTimeoutMs: number;
   private readonly rateLimitWaitMs: number;
 
   public constructor(init: FullEnrichEmailFinderInit) {
@@ -73,44 +74,29 @@ export class FullEnrichEmailFinder extends BaseEmailFinder {
 
     this.apiKey = init.apiKey;
     this.request = init.fetch ?? fetch;
-    this.pollIntervalMs = init.pollIntervalMs ?? POLL_INTERVAL_MS;
-    this.pollTimeoutMs = init.pollTimeoutMs ?? POLL_TIMEOUT_MS;
     this.rateLimitWaitMs = init.rateLimitWaitMs ?? RATE_LIMIT_WAIT_MS;
   }
 
-  public override async find(
-    lookups: EmailLookup[],
-  ): Promise<EmailLookupResult[]> {
-    if (lookups.length === 0) return [];
-
-    const enrichmentId = await this.start(lookups);
-    const result = await this.waitForResult(enrichmentId);
-    const found = new Map<string, string>();
-
-    for (const [index, record] of (result.data ?? []).entries()) {
-      const position = Number(record.custom?.["ref"] ?? index);
-      const lookup = lookups[position];
-      const email = record.contact_info?.most_probable_work_email?.email;
-
-      if (lookup && email) found.set(lookup.key, email);
-    }
-
-    return lookups.map((lookup) => ({
-      key: lookup.key,
-      email: found.get(lookup.key) ?? null,
-    }));
-  }
-
-  private async start(lookups: EmailLookup[]) {
+  public override async start(input: {
+    batchId: string;
+    lookups: EmailLookup[];
+    webhookUrl: string | null;
+  }): Promise<EmailBatchStart> {
     const body = {
       name: `Carl ${new Date().toISOString()}`,
-      data: lookups.map((lookup, index) => ({
+      ...(input.webhookUrl
+        ? {
+            webhook_url: input.webhookUrl,
+            webhook_events: { contact_finished: input.webhookUrl },
+          }
+        : {}),
+      data: input.lookups.map((lookup, index) => ({
         first_name: lookup.firstName ?? undefined,
         last_name: lookup.lastName ?? undefined,
         domain: lookup.domain ?? undefined,
         linkedin_url: lookup.linkedinUrl ?? undefined,
         enrich_fields: ["contact.work_emails"],
-        custom: { ref: String(index) },
+        custom: { batch: input.batchId, ref: String(index) },
       })),
     };
 
@@ -122,61 +108,88 @@ export class FullEnrichEmailFinder extends BaseEmailFinder {
           body,
         );
 
-        return startSchema.parse(response).enrichment_id;
+        return {
+          providerId: startSchema.parse(response).enrichment_id,
+          snapshot: null,
+        };
       } catch (error) {
         const rateLimited =
           error instanceof FullEnrichError && error.status === 429;
 
         if (!rateLimited || attempt >= MAX_START_ATTEMPTS) throw error;
 
-        await sleep(this.rateLimitWaitMs);
-      }
-    }
-  }
-
-  private async waitForResult(enrichmentId: string) {
-    const deadline = Date.now() + this.pollTimeoutMs;
-    let failures = 0;
-
-    while (Date.now() < deadline) {
-      await sleep(this.pollIntervalMs);
-
-      try {
-        const response = await this.call(
-          "GET",
-          `/contact/enrich/bulk/${encodeURIComponent(enrichmentId)}`,
+        await new Promise((resolve) =>
+          setTimeout(resolve, this.rateLimitWaitMs),
         );
-        const result = resultSchema.parse(response);
-
-        failures = 0;
-
-        if (result.status === FINISHED) return result;
-
-        if (!WAITING.includes(result.status)) {
-          throw new FullEnrichError(this.describeStatus(result.status));
-        }
-      } catch (error) {
-        const fatal = error instanceof FullEnrichError && !error.retryable;
-
-        failures += 1;
-
-        if (fatal || failures >= MAX_POLL_FAILURES) throw error;
       }
     }
-
-    throw new FullEnrichError(
-      "FullEnrich took too long to answer. The same leads can be run again without being charged twice.",
-    );
   }
 
-  private describeStatus(status: string) {
-    if (status === "CREDITS_INSUFFICIENT") {
-      return "FullEnrich has no credits left.";
+  public override async fetch(providerId: string): Promise<EmailBatchSnapshot> {
+    const response = await this.call(
+      "GET",
+      `/contact/enrich/bulk/${encodeURIComponent(providerId)}`,
+    );
+
+    return this.toSnapshot(resultSchema.parse(response), providerId);
+  }
+
+  public override readWebhook(input: {
+    rawBody: string;
+    signature: string | null;
+  }): EmailBatchSnapshot {
+    const expected = createHmac("sha1", this.apiKey)
+      .update(input.rawBody, "utf8")
+      .digest("hex");
+    const given = Buffer.from(input.signature ?? "");
+    const wanted = Buffer.from(expected);
+
+    if (given.length !== wanted.length || !timingSafeEqual(given, wanted)) {
+      throw new UnauthorizedError({
+        message: "The webhook signature is not valid.",
+      });
     }
 
-    if (status === "RATE_LIMIT") return "FullEnrich rate limit reached.";
+    const parsed = resultSchema.safeParse(JSON.parse(input.rawBody));
 
-    return `FullEnrich stopped the enrichment (${status}).`;
+    if (!parsed.success) {
+      throw new FullEnrichError(
+        "The webhook payload is not in the expected shape.",
+      );
+    }
+
+    return this.toSnapshot(parsed.data, parsed.data.id ?? null);
+  }
+
+  private toSnapshot(
+    result: z.infer<typeof resultSchema>,
+    providerId: string | null,
+  ): EmailBatchSnapshot {
+    const records = result.data ?? [];
+    const batchId = records
+      .map((record) => record.custom?.["batch"])
+      .find((value) => typeof value === "string");
+    const state =
+      result.status === FINISHED
+        ? "finished"
+        : WAITING.includes(result.status)
+          ? "waiting"
+          : "failed";
+
+    return {
+      providerId,
+      batchId: typeof batchId === "string" ? batchId : null,
+      state,
+      reason: state === "failed" ? describeStatus(result.status) : null,
+      results: records.map((record, index) => {
+        const ref = Number(record.custom?.["ref"] ?? index);
+
+        return {
+          ref: Number.isInteger(ref) ? ref : index,
+          email: record.contact_info?.most_probable_work_email?.email ?? null,
+        };
+      }),
+    };
   }
 
   private async call(method: "GET" | "POST", path: string, body?: object) {

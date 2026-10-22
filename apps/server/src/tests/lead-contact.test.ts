@@ -69,7 +69,6 @@ describe("domainOf", () => {
 
 describe("buildLookup", () => {
   const lead = {
-    key: "k",
     name: "Jane Doe",
     website: null as string | null,
     linkedinUrl: null as string | null,
@@ -84,7 +83,6 @@ describe("buildLookup", () => {
       }),
     ).toEqual({
       lookup: {
-        key: "k",
         firstName: null,
         lastName: null,
         domain: null,
@@ -103,7 +101,6 @@ describe("buildLookup", () => {
     expect(buildLookup({ ...lead })).toEqual({ reason: NO_USABLE_WEBSITE });
     expect(buildLookup({ ...lead, website: "https://example.com" })).toEqual({
       lookup: {
-        key: "k",
         firstName: "Jane",
         lastName: "Doe",
         domain: "example.com",
