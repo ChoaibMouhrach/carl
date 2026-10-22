@@ -161,6 +161,14 @@ export class CampaignApi extends BaseApi {
     );
   }
 
+  public runEnrich(where: { campaignId: number }) {
+    return this.call(() =>
+      http.api.campaigns[":campaignId"].enrich.run.$post({
+        param: { campaignId: where.campaignId.toString() },
+      }),
+    );
+  }
+
   public assessment(where: { campaignId: number; leadId: number }) {
     return this.call(() =>
       http.api.campaigns[":campaignId"].leads[":leadId"].assessment.$get({

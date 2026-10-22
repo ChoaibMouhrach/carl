@@ -19,6 +19,9 @@ import {
   sampleFilterQuestions,
   listLeadAssessments,
   scriptLeadAssessment,
+  scriptWebSearch,
+  unscriptWebSearch,
+  type WebSearchScript,
   unscriptLeadAssessment,
   type LeadScript,
   expireOAuthTokens,
@@ -91,6 +94,8 @@ interface Seed {
   ) => ReturnType<typeof listLeadAssessments>;
   scriptLeadAssessment: (username: string, script: LeadScript) => Promise<void>;
   unscriptLeadAssessment: (username: string) => Promise<void>;
+  scriptWebSearch: (query: string, script: WebSearchScript) => Promise<void>;
+  unscriptWebSearch: (query: string) => Promise<void>;
   expireOAuthTokens: (email: string) => Promise<void>;
   ageSessions: (email: string) => Promise<void>;
   banUser: (email: string) => Promise<void>;
@@ -170,6 +175,9 @@ export const test = base.extend<{ seed: Seed; resetRateLimits: void }>({
         scriptLeadAssessment(config, { username, script }),
       unscriptLeadAssessment: (username) =>
         unscriptLeadAssessment(config, username),
+      scriptWebSearch: (query, script) =>
+        scriptWebSearch(config, { query, script }),
+      unscriptWebSearch: (query) => unscriptWebSearch(config, query),
       expireOAuthTokens: (email) => expireOAuthTokens(config, email),
       ageSessions: (email) => ageSessions(config, email),
       banUser: (email) => banUser(config, email),

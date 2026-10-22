@@ -29,6 +29,11 @@ import {
   type LeadScript,
 } from "../infrastructure/ai/script";
 import {
+  clearWebSearchScript,
+  writeWebSearchScript,
+  type WebSearchScript,
+} from "../infrastructure/search/script";
+import {
   clearSkoolScript,
   writeSkoolScript,
   type SkoolScript,
@@ -724,6 +729,34 @@ export const unscriptLeadAssessment = async (
 };
 
 export type { LeadScript } from "../infrastructure/ai/script";
+
+export const scriptWebSearch = async (
+  config: SeedConfig,
+  input: { query: string; script: WebSearchScript },
+): Promise<void> => {
+  const redis = new IORedis(config.redisUrl);
+
+  try {
+    await writeWebSearchScript(redis, input.query, input.script);
+  } finally {
+    await redis.quit();
+  }
+};
+
+export const unscriptWebSearch = async (
+  config: SeedConfig,
+  query: string,
+): Promise<void> => {
+  const redis = new IORedis(config.redisUrl);
+
+  try {
+    await clearWebSearchScript(redis, query);
+  } finally {
+    await redis.quit();
+  }
+};
+
+export type { WebSearchScript } from "../infrastructure/search/script";
 
 export const scriptSkool = async (
   config: SeedConfig,

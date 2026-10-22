@@ -103,6 +103,16 @@ export const Campaign = () => {
     },
   });
 
+  const startEnrich = useMutation({
+    mutationFn: () => api.campaign.runEnrich({ campaignId }),
+    onError,
+    onSuccess: async () => {
+      toast.success("Web search started.");
+      selection.clear();
+      await invalidateCampaignData(queryClient);
+    },
+  });
+
   const reapplyFilter = useMutation({
     mutationFn: () => api.campaign.reapplyFilter({ campaignId }),
     onError,
@@ -225,6 +235,11 @@ export const Campaign = () => {
             startFilter.isPending ||
             (stages.find((item) => item.stage === 2)?.running ?? 0) > 0
           }
+          isEnriching={
+            startEnrich.isPending ||
+            (stages.find((item) => item.stage === 3)?.running ?? 0) > 0
+          }
+          onRunEnrich={() => startEnrich.mutate()}
           onReapplyFilter={() => reapplyFilter.mutate()}
           isReapplying={reapplyFilter.isPending}
           onRunFilter={() => startFilter.mutate()}

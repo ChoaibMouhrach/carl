@@ -24,24 +24,34 @@ import {
 } from "@repo/ui/components/ui/card";
 import { Progress } from "@repo/ui/components/ui/progress";
 import { Spinner } from "@repo/ui/components/ui/spinner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@repo/ui/components/ui/tooltip";
 import { Link } from "@tanstack/react-router";
 import {
   ListChecksIcon,
   PlayIcon,
   RefreshCwIcon,
+  SearchIcon,
   SettingsIcon,
   SparklesIcon,
 } from "lucide-react";
 
 const FIRST_STAGE = 1;
 const FILTER_STAGE = 2;
+const ENRICH_STAGE = 3;
 
 interface StagePanelProps {
   campaignId: number;
   canRun: boolean;
+  isEnriching: boolean;
   isFiltering: boolean;
   isReapplying: boolean;
   onReapplyFilter: () => void;
+  onRunEnrich: () => void;
   onRunFilter: () => void;
   isRunning: boolean;
   onRun: (replace: boolean) => void;
@@ -52,9 +62,11 @@ interface StagePanelProps {
 export const StagePanel = ({
   campaignId,
   canRun,
+  isEnriching,
   isFiltering,
   isReapplying,
   onReapplyFilter,
+  onRunEnrich,
   onRunFilter,
   isRunning,
   onRun,
@@ -63,17 +75,20 @@ export const StagePanel = ({
 }: StagePanelProps) => {
   const canStart = stage.stage === FIRST_STAGE;
   const isFilterStage = stage.stage === FILTER_STAGE;
+  const isEnrichStage = stage.stage === ENRICH_STAGE;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>{`Stage ${stage.stage}`}</CardTitle>
         <CardDescription>
-          {(canStart || isFilterStage) && !canRun
+          {(canStart || isFilterStage || isEnrichStage) && !canRun
             ? "Activate the campaign to run its stages."
             : isFilterStage
               ? "The AI answers your questions about every lead that finished stage 1."
-              : "Run this stage for every lead that is ready for it."}
+              : isEnrichStage
+                ? "Finds a LinkedIn profile, or else a website, for qualified leads that have neither."
+                : "Run this stage for every lead that is ready for it."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -126,6 +141,32 @@ export const StagePanel = ({
                 <SettingsIcon />
                 AI filter settings
               </Button>
+            </div>
+          )}
+          {isEnrichStage && (
+            <div className="flex flex-wrap items-center gap-3">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <span className="inline-flex">
+                        <Button
+                          disabled={!canRun || isEnriching}
+                          onClick={onRunEnrich}
+                        >
+                          {isEnriching ? <Spinner /> : <SearchIcon />}
+                          Run web search
+                        </Button>
+                      </span>
+                    }
+                  />
+                  <TooltipContent>
+                    {canRun
+                      ? "Search Tavily for a LinkedIn profile or website for each qualified lead that has neither"
+                      : "Activate the campaign to run the web search"}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           )}
           {canStart && (
