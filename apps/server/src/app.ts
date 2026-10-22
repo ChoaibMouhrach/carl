@@ -15,6 +15,7 @@ import { controllers } from "./http/controllers";
 import { openAPIRouteHandler } from "hono-openapi";
 import { HTTPException } from "hono/http-exception";
 import { Scalar } from "@scalar/hono-api-reference";
+import { requestLogger } from "./http/middlewares/request-logger";
 import {
   anonymousRateLimit,
   authEmailRateLimit,
@@ -39,6 +40,8 @@ export const initApp = async (params: initAppParams) => {
 
       return next();
     })
+
+    .use("/api/*", requestLogger)
 
     .use(
       cors({
@@ -109,7 +112,15 @@ export const initApp = async (params: initAppParams) => {
 
       params.context.errorMonitor.captureException(error);
 
-      console.error(error);
+      void params.context.logger.error(
+        {
+          message: "Unhandled error.",
+          requestId: context.get("requestId"),
+          method: context.req.method,
+          path: context.req.path,
+        },
+        error,
+      );
 
       return context.json(
         {
@@ -164,6 +175,7 @@ export interface AppContext {
   Variables: {
     context: Context;
     services: Services;
+    requestId: string;
   };
 }
 
