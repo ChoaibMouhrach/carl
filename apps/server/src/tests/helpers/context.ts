@@ -48,7 +48,11 @@ import { CustomSkoolScraper } from "@server/infrastructure/skool/custom";
 import { DEFAULT_SKOOL_SEARCHES } from "@server/config/constants";
 
 export class TestLogger extends BaseLogger {
-  public override async info(_message: string | object): Promise<void> {}
+  public entries: (string | object)[] = [];
+
+  public override async info(message: string | object): Promise<void> {
+    this.entries.push(message);
+  }
 }
 
 export class TestMailer extends BaseMailer {
@@ -305,6 +309,8 @@ export class TestCache extends BaseCache {
 }
 
 export class FakeWebSearch extends BaseWebSearch {
+  public readonly provider = "fake";
+
   public calls: WebSearchInput[] = [];
   public error: Error | null = null;
   public inFlight = 0;

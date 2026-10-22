@@ -12,5 +12,7 @@ export interface WebSearchResult {
 }
 
 export abstract class BaseWebSearch {
+  public abstract readonly provider: string;
+
   public abstract search(input: WebSearchInput): Promise<WebSearchResult[]>;
 }

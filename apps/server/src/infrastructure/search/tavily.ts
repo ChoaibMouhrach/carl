@@ -16,6 +16,8 @@ interface TavilyWebSearchInit {
 }
 
 export class TavilyWebSearch extends BaseWebSearch {
+  public readonly provider = "tavily";
+
   private client: ReturnType<typeof tavily>;
 
   public constructor(init: TavilyWebSearchInit) {

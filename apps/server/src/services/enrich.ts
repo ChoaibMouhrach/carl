@@ -65,6 +65,12 @@ export class EnrichService extends BaseService {
 
     await this.context.queueHub.enrich.add({ campaignId: input.campaignId });
     await this.context.eventBus.publish("campaigns.changed");
+    await this.context.logger.info({
+      message: "Web search queued.",
+      campaignId: input.campaignId,
+      queued,
+      webSearch: this.context.webSearch.provider,
+    });
 
     return { queued };
   }
@@ -76,7 +82,7 @@ export class EnrichService extends BaseService {
 
     if (!found) return;
 
-    await campaignLead.requeueRunning({
+    const recovered = await campaignLead.requeueRunning({
       campaignId: input.campaignId,
       stage: ENRICH_STAGE,
     });
@@ -88,6 +94,15 @@ export class EnrichService extends BaseService {
     });
 
     await this.context.eventBus.publish("campaigns.changed");
+    await this.context.logger.info({
+      message: "Web search started.",
+      campaignId: input.campaignId,
+      leads: leadIds.length,
+      recovered,
+      webSearch: this.context.webSearch.provider,
+    });
+
+    const outcomes: Record<string, number> = {};
 
     const liveUpdate = createThrottle(
       () => this.context.eventBus.publish("campaigns.changed"),
@@ -107,19 +122,29 @@ export class EnrichService extends BaseService {
         liveUpdate.call();
 
         try {
-          const foundSomething = await this.enrich(leadId);
+          const outcome = await this.enrich(leadId);
+          const foundSomething = outcome !== "nothing";
 
+          outcomes[outcome] = (outcomes[outcome] ?? 0) + 1;
           await campaignLead.setStatus(where, {
             status: foundSomething ? "done" : "failed",
             failureReason: foundSomething ? null : NOTHING_FOUND,
           });
         } catch (error) {
+          const reason = (
+            error instanceof Error ? error.message : String(error)
+          ).slice(0, ERROR_REASON_LENGTH);
+
+          outcomes["error"] = (outcomes["error"] ?? 0) + 1;
+          await this.context.logger.info({
+            message: "Web search failed for a lead.",
+            campaignId: input.campaignId,
+            leadId,
+            reason,
+          });
           await campaignLead.setStatus(where, {
             status: "failed",
-            failureReason: (error instanceof Error
-              ? error.message
-              : String(error)
-            ).slice(0, ERROR_REASON_LENGTH),
+            failureReason: reason,
           });
         }
 
@@ -129,9 +154,14 @@ export class EnrichService extends BaseService {
 
     liveUpdate.stop();
     await this.context.eventBus.publish("campaigns.changed", "leads.changed");
+    await this.context.logger.info({
+      message: "Web search finished.",
+      campaignId: input.campaignId,
+      outcomes,
+    });
   }
 
-  /** Returns whether the lead ends up with a LinkedIn profile or a website */
+  /** Says how the lead ended up: it already had a link, a LinkedIn profile or a website was found, or nothing was */
   private async enrich(leadId: number) {
     const { lead, community } = this.context.repositories;
     const found = await lead.findByLeadId({ leadId });
@@ -140,7 +170,7 @@ export class EnrichService extends BaseService {
       throw new NotFoundError({ message: "Lead not found." });
     }
 
-    if (found.linkedinUrl || found.website) return true;
+    if (found.linkedinUrl || found.website) return "known";
 
     const communities = await community.findAllByLeadId({ leadId });
     const query = {
@@ -157,7 +187,7 @@ export class EnrichService extends BaseService {
     if (linkedinUrl) {
       await lead.update({ leadId }, { linkedinUrl });
 
-      return true;
+      return "linkedin";
     }
 
     const websiteResults = await this.context.webSearch.search({
@@ -166,11 +196,11 @@ export class EnrichService extends BaseService {
     });
     const website = pickWebsite(websiteResults, query);
 
-    if (!website) return false;
+    if (!website) return "nothing";
 
     await lead.update({ leadId }, { website });
 
-    return true;
+    return "website";
   }
 
   private async findCampaign(campaignId: number) {

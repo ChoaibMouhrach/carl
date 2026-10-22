@@ -13,6 +13,8 @@ interface ScriptedWebSearchInit {
 
 /** For e2e tests: results come from a script by exact query, and an unscripted query finds nothing instead of a paid search */
 export class ScriptedWebSearch extends BaseWebSearch {
+  public readonly provider = "scripted";
+
   private redis: IORedis;
 
   public constructor(init: ScriptedWebSearchInit) {

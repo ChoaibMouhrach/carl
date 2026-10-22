@@ -3,7 +3,10 @@ import { Services } from "@server/services";
 
 export class EnrichWorker extends BaseWorker {
   public override async run(): Promise<void> {
-    this.context.logger.info("The enrich worker is running.");
+    await this.context.logger.info({
+      message: "The enrich worker is running.",
+      webSearch: this.context.webSearch.provider,
+    });
 
     const services = new Services({ context: this.context });
 

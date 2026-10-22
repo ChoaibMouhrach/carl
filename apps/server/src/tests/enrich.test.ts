@@ -8,7 +8,12 @@ import {
 } from "@server/infrastructure/database/schemas";
 import { Services } from "@server/services";
 import { createAdminClient, seedCommunity, seedLead } from "./helpers/api";
-import { createContext, FakeWebSearch, TestMailer } from "./helpers/context";
+import {
+  createContext,
+  FakeWebSearch,
+  TestLogger,
+  TestMailer,
+} from "./helpers/context";
 import { createAuthenticatedApp, withTestDatabase } from "./helpers/http";
 
 type Database = Parameters<Parameters<typeof withTestDatabase>[0]>[0];
@@ -417,6 +422,54 @@ test("when Tavily runs out of credits mid-run the finished leads stay done, the 
             : "https://www.linkedin.com/in/jane-again",
       });
     }
+  });
+});
+
+test("the run is logged with the search provider, what happened to each lead and the reason for any error", async () => {
+  await withTestDatabase(async (database) => {
+    const { services, campaign, leads, webSearch, context } = await setup(
+      database,
+      { leads: 3 },
+      { ENRICH_CONCURRENCY: 1 },
+    );
+    webSearch.answer = (input) => {
+      if (input.query.startsWith("Jane 0")) throw new Error("Tavily is down");
+      if (input.query.startsWith("Jane 1")) return [];
+
+      return found("https://www.linkedin.com/in/jane");
+    };
+    const logger = context.logger;
+    if (!(logger instanceof TestLogger)) throw new Error("expected TestLogger");
+
+    await services.enrich.start({ campaignId: campaign.campaignId });
+    await services.enrich.runCampaign({ campaignId: campaign.campaignId });
+
+    expect(logger.entries).toEqual([
+      {
+        message: "Web search queued.",
+        campaignId: campaign.campaignId,
+        queued: 3,
+        webSearch: "fake",
+      },
+      {
+        message: "Web search started.",
+        campaignId: campaign.campaignId,
+        leads: 3,
+        recovered: 0,
+        webSearch: "fake",
+      },
+      {
+        message: "Web search failed for a lead.",
+        campaignId: campaign.campaignId,
+        leadId: leads[0]?.leadId,
+        reason: "Tavily is down",
+      },
+      {
+        message: "Web search finished.",
+        campaignId: campaign.campaignId,
+        outcomes: { error: 1, nothing: 1, linkedin: 1 },
+      },
+    ]);
   });
 });
 
