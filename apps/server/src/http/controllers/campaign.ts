@@ -227,6 +227,21 @@ export const campaignController = new Hono<AppContext>()
     },
   )
 
+  .post(
+    "/:campaignId/find-email/run",
+    describeRoute({ tags: ["campaign"] }),
+    validator("param", campaignIdParamSchema),
+    async (context) => {
+      const { campaignId } = context.req.valid("param");
+
+      const result = await context
+        .get("services")
+        .findEmail.start({ campaignId });
+
+      return context.json(result, 202);
+    },
+  )
+
   .get(
     "/:campaignId/leads/:leadId/assessment",
     describeRoute({ tags: ["campaign"] }),

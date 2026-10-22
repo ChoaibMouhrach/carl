@@ -10,6 +10,7 @@ import { EventService } from "./event";
 import { McpService } from "./mcp";
 import { FilterService } from "./filter";
 import { EnrichService } from "./enrich";
+import { FindEmailService } from "./find-email";
 import { SkoolLookupService } from "./skool-lookup";
 
 interface ServicesConstructorParams {
@@ -29,6 +30,7 @@ export class Services {
   public mcp;
   public filter;
   public enrich;
+  public findEmail;
 
   public constructor({ context }: ServicesConstructorParams) {
     this.platformSetup = new PlatformSetupService({
@@ -56,5 +58,6 @@ export class Services {
     this.filter = new FilterService({ context });
 
     this.enrich = new EnrichService({ context });
+    this.findEmail = new FindEmailService({ context });
   }
 }

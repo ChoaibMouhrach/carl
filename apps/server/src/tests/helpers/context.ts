@@ -13,6 +13,7 @@ import {
   type ListFailedResult,
   type MaintenanceJob,
   type EnrichJob,
+  type FindEmailJob,
   type FilterJob,
   type ScrapeJob,
   type QueueConsumer,
@@ -26,6 +27,10 @@ import {
   type ClassifierInput,
   type ClassifierOutput,
 } from "@server/lib/base-lead-classifier";
+import {
+  BaseEmailFinder,
+  type EmailLookup,
+} from "@server/lib/base-email-finder";
 import {
   BaseWebSearch,
   type WebSearchInput,
@@ -122,6 +127,8 @@ interface TestJob<Input> {
 
 export class TestQueue<Input> extends BaseQueue<Input> {
   public waiting = 0;
+  /** Jobs that count as queued or running, for tests that simulate a run in progress */
+  public unfinished: Input[] = [];
   private consumer?: QueueConsumer<Input>;
   private process: (input: Input) => Promise<void>;
   private jobs = new Map<string, TestJob<Input>>();
@@ -157,6 +164,12 @@ export class TestQueue<Input> extends BaseQueue<Input> {
 
   public override async consume(consumer: QueueConsumer<Input>): Promise<void> {
     this.consumer = consumer;
+  }
+
+  public override async hasJob(
+    matches: (input: Input) => boolean,
+  ): Promise<boolean> {
+    return this.unfinished.some(matches);
   }
 
   public override async getCounts(): Promise<QueueJobCounts> {
@@ -246,6 +259,7 @@ export class TestQueueHub extends BaseQueueHub {
   public scrape: TestQueue<ScrapeJob>;
   public filter: TestQueue<FilterJob>;
   public enrich: TestQueue<EnrichJob>;
+  public findEmail: TestQueue<FindEmailJob>;
 
   public constructor(init: { mailer: BaseMailer }) {
     super();
@@ -266,6 +280,9 @@ export class TestQueueHub extends BaseQueueHub {
     this.enrich = new TestQueue<EnrichJob>({
       process: async () => {},
     });
+    this.findEmail = new TestQueue<FindEmailJob>({
+      process: async () => {},
+    });
   }
 
   public override queues(): RegisteredQueue[] {
@@ -275,6 +292,7 @@ export class TestQueueHub extends BaseQueueHub {
       { name: "scrape", queue: this.scrape },
       { name: "filter", queue: this.filter },
       { name: "enrich", queue: this.enrich },
+      { name: "find-email", queue: this.findEmail },
     ];
   }
 
@@ -369,6 +387,44 @@ export class FakeWebSearch extends BaseWebSearch {
   }
 }
 
+export class FakeEmailFinder extends BaseEmailFinder {
+  public readonly provider = "fake";
+
+  public calls: EmailLookup[][] = [];
+  public error: Error | null = null;
+  public inFlight = 0;
+  public peakInFlight = 0;
+  public delayMs = 0;
+  /** Makes a call fail when it returns an error for the lookups it is given */
+  public failWhen: (lookups: EmailLookup[]) => Error | null = () => null;
+  /** Decides the email for each lookup; by default none is found */
+  public answer: (lookup: EmailLookup) => string | null = () => null;
+
+  public override async find(lookups: EmailLookup[]) {
+    const failure = this.failWhen(lookups);
+
+    this.calls.push(lookups);
+    this.inFlight += 1;
+    this.peakInFlight = Math.max(this.peakInFlight, this.inFlight);
+
+    try {
+      if (this.delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, this.delayMs));
+      }
+
+      if (failure) throw failure;
+      if (this.error) throw this.error;
+
+      return lookups.map((lookup) => ({
+        key: lookup.key,
+        email: this.answer(lookup),
+      }));
+    } finally {
+      this.inFlight -= 1;
+    }
+  }
+}
+
 export class TestEventBus extends BaseEventBus {
   public published: LiveEventType[] = [];
   private listeners = new Set<LiveEventListener>();
@@ -435,11 +491,14 @@ export const createContext = (
   skoolScraper: BaseSkoolScraper = new CustomSkoolScraper(),
   leadClassifier: FakeLeadClassifier = new FakeLeadClassifier(),
   webSearch: FakeWebSearch = new FakeWebSearch(),
+  emailFinder: FakeEmailFinder = new FakeEmailFinder(),
 ): Context & {
+  queueHub: TestQueueHub;
   eventBus: TestEventBus;
   cache: TestCache;
   leadClassifier: FakeLeadClassifier;
   webSearch: FakeWebSearch;
+  emailFinder: FakeEmailFinder;
 } => {
   const queueHub = new TestQueueHub({ mailer });
 
@@ -457,6 +516,7 @@ export const createContext = (
     skoolScraper,
     leadClassifier,
     webSearch,
+    emailFinder,
     eventStreamHeartbeatMs: 50,
     discoveryCriteria: DEFAULT_SKOOL_SEARCHES,
   };

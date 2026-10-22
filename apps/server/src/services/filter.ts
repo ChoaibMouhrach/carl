@@ -14,11 +14,7 @@ import {
   verifyEvidence,
 } from "@server/lib/assessment";
 import { BaseService } from "@server/lib/base-service";
-import {
-  BadRequestError,
-  ConflictError,
-  NotFoundError,
-} from "@server/lib/errors";
+import { BadRequestError, NotFoundError } from "@server/lib/errors";
 import {
   buildClassifierPrompt,
   classifierInstructions,
@@ -122,16 +118,11 @@ export class FilterService extends BaseService {
     const { campaignLead } = this.context.repositories;
     const stage = { campaignId: input.campaignId, stage: FILTER_STAGE };
 
-    if (
-      (await campaignLead.countAtStageWithStatus({
-        ...stage,
-        status: "running",
-      })) > 0
-    ) {
-      throw new ConflictError({
-        message: "The AI filter is already running for this campaign.",
-      });
-    }
+    await this.refuseWhileRunning({
+      ...stage,
+      queue: this.context.queueHub.filter,
+      message: "The AI filter is already running for this campaign.",
+    });
 
     await campaignLead.advanceDone({
       campaignId: input.campaignId,
@@ -232,17 +223,12 @@ export class FilterService extends BaseService {
 
     const { campaignLead, leadAssessment } = this.context.repositories;
 
-    if (
-      (await campaignLead.countAtStageWithStatus({
-        campaignId: input.campaignId,
-        stage: FILTER_STAGE,
-        status: "running",
-      })) > 0
-    ) {
-      throw new ConflictError({
-        message: "The AI filter is running. Try again when it has finished.",
-      });
-    }
+    await this.refuseWhileRunning({
+      campaignId: input.campaignId,
+      stage: FILTER_STAGE,
+      queue: this.context.queueHub.filter,
+      message: "The AI filter is running. Try again when it has finished.",
+    });
 
     const questions = await this.enabledQuestions(input.campaignId);
     const assessments = await leadAssessment.listByCampaign(input);

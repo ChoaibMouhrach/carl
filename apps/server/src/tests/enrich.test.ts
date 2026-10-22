@@ -107,6 +107,9 @@ test("starting moves the leads that passed stage 2 to stage 3, queues one job an
       .update(campaignLeadsTable)
       .set({ status: "running" })
       .where(eq(campaignLeadsTable.leadId, leads[0]?.leadId ?? 0));
+    context.queueHub.enrich.unfinished.push({
+      campaignId: campaign.campaignId,
+    });
     const again = await admin.post(`${path}/enrich/run`);
     expect(again.status).toBe(409);
     expect((await context.queueHub.enrich.getCounts()).completed).toBe(1);
@@ -282,6 +285,30 @@ test("a profile or site that is about someone else is not saved", async () => {
     expect(
       await rowOf(database.db, campaign.campaignId, lead?.leadId ?? 0),
     ).toMatchObject({ status: "failed", failureReason: "Nothing found" });
+  });
+});
+
+test("starting again after a run died leaves nothing stuck: the leads it left running are queued again and a new job is queued", async () => {
+  await withTestDatabase(async (database) => {
+    const { admin, path, campaign, leads, context } = await setup(database);
+    await admin.post(`${path}/enrich/run`);
+    await database.db
+      .update(campaignLeadsTable)
+      .set({ status: "running" })
+      .where(eq(campaignLeadsTable.leadId, leads[0]?.leadId ?? 0));
+
+    const again = await admin.post(`${path}/enrich/run`);
+
+    expect(again.status).toBe(202);
+    expect(z.object({ queued: z.number() }).parse(await again.json())).toEqual({
+      queued: leads.length,
+    });
+    for (const lead of leads) {
+      expect(
+        await rowOf(database.db, campaign.campaignId, lead.leadId),
+      ).toMatchObject({ stage: 3, status: "pending" });
+    }
+    expect((await context.queueHub.enrich.getCounts()).completed).toBe(2);
   });
 });
 

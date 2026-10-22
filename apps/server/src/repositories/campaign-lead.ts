@@ -6,8 +6,8 @@ import {
   ilike,
   inArray,
   isNull,
-  ne,
   notExists,
+  notInArray,
   or,
   sql,
 } from "drizzle-orm";
@@ -160,11 +160,11 @@ export class CampaignLeadRepository extends BaseRepository {
     return requeued.length;
   }
 
-  /** Puts failed leads back in the queue, except those that failed for the given reason */
+  /** Puts failed leads back in the queue, except those that failed for one of the given reasons */
   public async requeueFailedExcept(where: {
     campaignId: number;
     stage: StageNumber;
-    reason: string;
+    reasons: string[];
   }) {
     const table = CampaignLeadRepository.table;
 
@@ -178,7 +178,7 @@ export class CampaignLeadRepository extends BaseRepository {
           eq(table.status, "failed"),
           or(
             isNull(table.failureReason),
-            ne(table.failureReason, where.reason),
+            notInArray(table.failureReason, where.reasons),
           ),
         ),
       )

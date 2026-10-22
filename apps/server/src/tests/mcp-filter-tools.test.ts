@@ -469,6 +469,9 @@ test("a second run while leads are running is refused, and a lead already judged
       { campaignId: campaign.campaignId, leadId: leads[0]?.leadId ?? 0 },
       { status: "running", failureReason: null },
     );
+    session.context.queueHub.filter.unfinished.push({
+      campaignId: campaign.campaignId,
+    });
     const busy = await call(session, "run_filter", {
       campaignId: campaign.campaignId,
     });
@@ -560,6 +563,9 @@ test("re-applying while the filter runs, or with no questions, is refused and no
       { campaignId: campaign.campaignId, leadId: leads[0]?.leadId ?? 0 },
       { status: "running", failureReason: null },
     );
+    session.context.queueHub.filter.unfinished.push({
+      campaignId: campaign.campaignId,
+    });
     const running = await call(session, "reapply_filter", {
       campaignId: campaign.campaignId,
     });

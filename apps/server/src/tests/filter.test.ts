@@ -395,6 +395,9 @@ test("starting moves the leads that finished stage 1 to stage 2, queues one job 
       .update(campaignLeadsTable)
       .set({ status: "running" })
       .where(eq(campaignLeadsTable.leadId, leads[0]?.leadId ?? 0));
+    context.queueHub.filter.unfinished.push({
+      campaignId: campaign.campaignId,
+    });
     const again = await admin.post(`${path}/filter/run`);
     expect(again.status).toBe(409);
   });
@@ -1082,6 +1085,9 @@ test("re-applying is refused while the filter runs, with no questions, for an un
       { campaignId: campaign.campaignId, leadId: leads[0]?.leadId ?? 0 },
       { status: "running", failureReason: null },
     );
+    context.queueHub.filter.unfinished.push({
+      campaignId: campaign.campaignId,
+    });
     const running = await admin.post(`${path}/filter/reapply`);
     await context.repositories.campaignLead.setStatus(
       { campaignId: campaign.campaignId, leadId: leads[0]?.leadId ?? 0 },
@@ -1352,5 +1358,69 @@ test("changing what an unknown answer means turns a stored review into a disqual
     expect(
       await rowOf(database.db, campaign.campaignId, leads[0]?.leadId ?? 0),
     ).toMatchObject({ status: "failed", failureReason: "Disqualified" });
+  });
+});
+
+test("starting the filter again after a run died queues the leads it left running instead of refusing", async () => {
+  await withTestDatabase(async (database) => {
+    const { admin, path, campaign, leads, context } = await setup(database);
+    await admin.post(`${path}/filter/run`);
+    await database.db
+      .update(campaignLeadsTable)
+      .set({ status: "running" })
+      .where(eq(campaignLeadsTable.leadId, leads[0]?.leadId ?? 0));
+
+    const again = await admin.post(`${path}/filter/run`);
+
+    expect(again.status).toBe(202);
+    expect(
+      z.object({ queued: z.number() }).parse(await again.json()).queued,
+    ).toBe(leads.length);
+    for (const lead of leads) {
+      expect(
+        await rowOf(database.db, campaign.campaignId, lead.leadId),
+      ).toMatchObject({ stage: 2, status: "pending" });
+    }
+    expect((await context.queueHub.filter.getCounts()).completed).toBe(2);
+  });
+});
+
+test("re-applying the rules after a run died queues the leads it left running instead of refusing, and a job still queued for the campaign still refuses", async () => {
+  await withTestDatabase(async (database) => {
+    const { admin, path, services, campaign, leads, context } = await setup(
+      database,
+      1,
+    );
+    await runAll(services, campaign.campaignId);
+    const lead = leads[0];
+    await context.repositories.campaignLead.setStatus(
+      { campaignId: campaign.campaignId, leadId: lead?.leadId ?? 0 },
+      { status: "running", failureReason: null },
+    );
+    context.queueHub.filter.unfinished.push({
+      campaignId: campaign.campaignId + 1,
+    });
+
+    const orphaned = await admin.post(`${path}/filter/reapply`);
+
+    expect(orphaned.status).toBe(200);
+    expect(
+      await rowOf(database.db, campaign.campaignId, lead?.leadId ?? 0),
+    ).toMatchObject({ stage: 2, status: "pending" });
+
+    await context.repositories.campaignLead.setStatus(
+      { campaignId: campaign.campaignId, leadId: lead?.leadId ?? 0 },
+      { status: "running", failureReason: null },
+    );
+    context.queueHub.filter.unfinished.push({
+      campaignId: campaign.campaignId,
+    });
+
+    const busy = await admin.post(`${path}/filter/reapply`);
+
+    expect(busy.status).toBe(409);
+    expect(
+      await rowOf(database.db, campaign.campaignId, lead?.leadId ?? 0),
+    ).toMatchObject({ status: "running" });
   });
 });

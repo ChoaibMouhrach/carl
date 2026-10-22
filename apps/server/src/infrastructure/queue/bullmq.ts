@@ -8,6 +8,7 @@ import {
   type AddJobOptions,
   type EmailJob,
   type EnrichJob,
+  type FindEmailJob,
   type FilterJob,
   type ListFailedInput,
   type ListFailedResult,
@@ -37,6 +38,9 @@ const filterConcurrency = 1;
 const enrichQueueName = "enrich";
 const enrichJobName = "run";
 const enrichConcurrency = 1;
+const findEmailQueueName = "find-email";
+const findEmailJobName = "run";
+const findEmailConcurrency = 1;
 
 const FAILED_JOB_RETENTION_SECONDS = 60 * 60 * 24 * 7;
 const FAILED_JOB_RETENTION_COUNT = 5_000;
@@ -191,6 +195,20 @@ export class BullQueue<Input> extends BaseQueue<Input> {
     };
   }
 
+  public override async hasJob(
+    matches: (input: Input) => boolean,
+  ): Promise<boolean> {
+    const jobs = await this.queue.getJobs([
+      "active",
+      "waiting",
+      "delayed",
+      "prioritized",
+      "waiting-children",
+    ]);
+
+    return jobs.some((job) => Boolean(job) && matches(job.data));
+  }
+
   public override async listFailed(
     input: ListFailedInput,
   ): Promise<ListFailedResult> {
@@ -313,12 +331,24 @@ export class EnrichQueue extends BullQueue<EnrichJob> {
   }
 }
 
+export class FindEmailQueue extends BullQueue<FindEmailJob> {
+  public constructor(init: MaintenanceQueueInit) {
+    super({
+      ...init,
+      concurrency: findEmailConcurrency,
+      jobName: findEmailJobName,
+      name: findEmailQueueName,
+    });
+  }
+}
+
 export class QueueHub extends BaseQueueHub {
   public email: EmailQueue;
   public maintenance: MaintenanceQueue;
   public scrape: ScrapeQueue;
   public filter: FilterQueue;
   public enrich: EnrichQueue;
+  public findEmail: FindEmailQueue;
 
   public constructor(init: EmailQueueInit) {
     super();
@@ -343,6 +373,11 @@ export class QueueHub extends BaseQueueHub {
       logger: init.logger,
       redisUrl: init.redisUrl,
     });
+    this.findEmail = new FindEmailQueue({
+      errorMonitor: init.errorMonitor,
+      logger: init.logger,
+      redisUrl: init.redisUrl,
+    });
   }
 
   public override queues(): RegisteredQueue[] {
@@ -352,6 +387,7 @@ export class QueueHub extends BaseQueueHub {
       { name: scrapeQueueName, queue: this.scrape },
       { name: filterQueueName, queue: this.filter },
       { name: enrichQueueName, queue: this.enrich },
+      { name: findEmailQueueName, queue: this.findEmail },
     ];
   }
 
@@ -360,5 +396,7 @@ export class QueueHub extends BaseQueueHub {
     await this.maintenance.close();
     await this.scrape.close();
     await this.filter.close();
+    await this.enrich.close();
+    await this.findEmail.close();
   }
 }

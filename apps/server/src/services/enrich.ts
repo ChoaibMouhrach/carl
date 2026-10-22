@@ -1,10 +1,6 @@
 import type { StageNumber } from "@repo/constants/campaign";
 import { BaseService } from "@server/lib/base-service";
-import {
-  BadRequestError,
-  ConflictError,
-  NotFoundError,
-} from "@server/lib/errors";
+import { BadRequestError, NotFoundError } from "@server/lib/errors";
 import {
   linkedinQuery,
   LINKEDIN_DOMAIN,
@@ -34,23 +30,21 @@ export class EnrichService extends BaseService {
     const { campaignLead } = this.context.repositories;
     const stage = { campaignId: input.campaignId, stage: ENRICH_STAGE };
 
-    if (
-      (await campaignLead.countAtStageWithStatus({
-        ...stage,
-        status: "running",
-      })) > 0
-    ) {
-      throw new ConflictError({
-        message: "The web search is already running for this campaign.",
-      });
-    }
+    await this.refuseWhileRunning({
+      ...stage,
+      queue: this.context.queueHub.enrich,
+      message: "The web search is already running for this campaign.",
+    });
 
     await campaignLead.advanceDone({
       campaignId: input.campaignId,
       from: FILTER_STAGE,
       to: ENRICH_STAGE,
     });
-    await campaignLead.requeueFailedExcept({ ...stage, reason: NOTHING_FOUND });
+    await campaignLead.requeueFailedExcept({
+      ...stage,
+      reasons: [NOTHING_FOUND],
+    });
 
     const queued = await campaignLead.countAtStageWithStatus({
       ...stage,

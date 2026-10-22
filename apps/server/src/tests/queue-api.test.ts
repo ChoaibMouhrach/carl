@@ -104,6 +104,7 @@ test("the overview lists every queue with its live counts", async () => {
       "email",
       "enrich",
       "filter",
+      "find-email",
       "maintenance",
       "scrape",
     ]);
@@ -114,6 +115,7 @@ test("the overview lists every queue with its live counts", async () => {
       email: 2,
       enrich: 0,
       filter: 0,
+      "find-email": 0,
       maintenance: 0,
       scrape: 0,
     });
