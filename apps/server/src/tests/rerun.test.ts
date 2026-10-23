@@ -111,6 +111,8 @@ const runWorkers = async (
   await services.findEmail.runCampaign({ campaignId });
 };
 
+const linkedin = (slug: string) => `https://www.linkedin.com/in/${slug}`;
+
 const result = z.object({ queued: z.number(), skipped: z.number() });
 
 test("re-running the email search sends the chosen leads even though they have emails, adds what is found to what they had, and leaves the other leads alone", async () => {
@@ -834,5 +836,144 @@ test("re-running the AI filter replaces the stored verdict and moves the lead's 
       status: "failed",
       failureReason: "Disqualified",
     });
+  });
+});
+
+const scopeGroups = [
+  "doneA",
+  "doneB",
+  "failedNoEmail",
+  "failedProvider",
+  "waiting",
+  "early",
+] as const;
+
+const scopeSeed: Seeded[] = [
+  { status: "done" },
+  { status: "done" },
+  { status: "failed" },
+  { status: "failed" },
+  { status: "pending" },
+  { stage: 3, status: "done" },
+].map((spec, index) => ({
+  ...spec,
+  fields: {
+    linkedinUrl: linkedin(scopeGroups[index] ?? ""),
+    emails:
+      scopeGroups[index] === "waiting"
+        ? []
+        : [`old-${scopeGroups[index]}@example.com`],
+  },
+}));
+
+for (const [scope, expected] of [
+  ["failed", ["failedNoEmail", "failedProvider"]],
+  ["done", ["doneA", "doneB"]],
+  ["all", ["doneA", "doneB", "failedNoEmail", "failedProvider", "waiting"]],
+] as const) {
+  test(`re-running the email search for the ${scope} scope looks up and writes emails only for ${expected.join(", ")}, not for the other groups or another campaign`, async () => {
+    await withTestDatabase(async (database) => {
+      const { admin, path, campaign, leads, emailFinder, context } =
+        await setup(database, scopeSeed);
+      const idOf = (name: (typeof scopeGroups)[number]) =>
+        leads[scopeGroups.indexOf(name)]?.leadId ?? 0;
+      await database.db
+        .update(campaignLeadsTable)
+        .set({ failureReason: "No email found" })
+        .where(eq(campaignLeadsTable.leadId, idOf("failedNoEmail")));
+      await database.db
+        .update(campaignLeadsTable)
+        .set({ failureReason: "FullEnrich was unreachable" })
+        .where(eq(campaignLeadsTable.leadId, idOf("failedProvider")));
+      const stranger = await seedLead(context, {
+        skoolUsername: "rerun-stranger",
+        name: "Jane Stranger",
+        linkedinUrl: linkedin("stranger"),
+        emails: ["old-stranger@example.com"],
+      });
+      const otherCampaign = await context.repositories.campaign.create({
+        name: "Another campaign",
+        keywords: ["coaching"],
+        types: ["public"],
+        pricingModels: ["paid"],
+        status: "active",
+      });
+      await context.repositories.campaignLead.attach({
+        campaignId: otherCampaign.campaignId,
+        leads: [{ leadId: stranger.leadId, keyword: "coaching" }],
+        stage: 4,
+        status: "done",
+      });
+      emailFinder.answer = (lookup) =>
+        `new-${lookup.linkedinUrl?.split("/").at(-1)}@example.com`;
+
+      const response = await admin.post(path, { stage: 4, scope });
+
+      expect(response.status).toBe(202);
+      const job = context.queueHub.findEmail.added.at(-1);
+      expect(job).toEqual({ campaignId: campaign.campaignId, onlyRerun: true });
+      await new Services({ context }).findEmail.runCampaign(
+        job ?? { campaignId: campaign.campaignId },
+      );
+      const searched = emailFinder.calls
+        .flat()
+        .map((lookup) => lookup.linkedinUrl?.split("/").at(-1))
+        .toSorted();
+      expect(searched).toEqual([...expected].toSorted());
+      for (const name of scopeGroups) {
+        const emails = (await leadOf(database.db, idOf(name)))?.emails;
+        const before = name === "waiting" ? [] : [`old-${name}@example.com`];
+        const found = `new-${name.toLowerCase()}@example.com`;
+        expect(emails).toEqual(
+          (expected as readonly string[]).includes(name)
+            ? [...before, found]
+            : before,
+        );
+      }
+      expect((await leadOf(database.db, stranger.leadId))?.emails).toEqual([
+        "old-stranger@example.com",
+      ]);
+      expect(
+        (
+          await database.db
+            .select()
+            .from(campaignLeadsTable)
+            .where(eq(campaignLeadsTable.campaignId, otherCampaign.campaignId))
+        ).map((row) => [row.stage, row.status, row.rerun]),
+      ).toEqual([[4, "done", false]]);
+      expect(
+        await rowOf(database.db, campaign.campaignId, idOf("early")),
+      ).toMatchObject({ stage: 3, status: "done" });
+    });
+  });
+}
+
+test("a scope with no matching leads is rejected and changes nothing", async () => {
+  await withTestDatabase(async (database) => {
+    const { admin, path, campaign, leads } = await setup(database, [
+      { fields: { linkedinUrl: "https://www.linkedin.com/in/done" } },
+    ]);
+
+    const response = await admin.post(path, { stage: 4, scope: "failed" });
+
+    expect(response.status).toBe(400);
+    expect(
+      await rowOf(database.db, campaign.campaignId, leads[0]?.leadId ?? 0),
+    ).toMatchObject({ stage: 4, status: "done", rerun: false });
+  });
+});
+
+test("a re-run with neither lead ids nor a scope is rejected before anything is written", async () => {
+  await withTestDatabase(async (database) => {
+    const { admin, path, campaign, leads } = await setup(database, [
+      { fields: { linkedinUrl: "https://www.linkedin.com/in/done" } },
+    ]);
+
+    const response = await admin.post(path, { stage: 4 });
+
+    expect(response.status).toBe(400);
+    expect(
+      await rowOf(database.db, campaign.campaignId, leads[0]?.leadId ?? 0),
+    ).toMatchObject({ stage: 4, status: "done", rerun: false });
   });
 });

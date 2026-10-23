@@ -133,6 +133,8 @@ export class TestQueue<Input> extends BaseQueue<Input> {
   public waiting = 0;
   /** Jobs that count as queued or running, for tests that simulate a run in progress */
   public unfinished: Input[] = [];
+  /** Every job added, in order, for tests that run the worker with the real payload */
+  public added: Input[] = [];
   private consumer?: QueueConsumer<Input>;
   private process: (input: Input) => Promise<void>;
   private jobs = new Map<string, TestJob<Input>>();
@@ -147,6 +149,7 @@ export class TestQueue<Input> extends BaseQueue<Input> {
     input: Input,
     options?: AddJobOptions,
   ): Promise<void> {
+    this.added.push(input);
     const id = options?.idempotencyKey ?? `job-${(this.counter += 1)}`;
 
     if (this.jobs.has(id)) return;
