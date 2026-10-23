@@ -316,26 +316,22 @@ identical lookups in one run are sent once.
 
 **How the answer comes back.** The job only starts the batches (100 leads each,
 two at a time) and ends, leaving the leads "running" and one row per batch in
-`email_enrichments`. FullEnrich then calls back:
+`email_enrichments`. FullEnrich's webhooks are not used: their signature does not
+verify with the API key the way their docs describe. Instead a maintenance job
+asks FullEnrich for the answer:
 
-- Each batch is started with `webhook_url` and `webhook_events.contact_finished`
-  set to `<VITE_API_URL>/api/webhooks/email-finder`. There is nothing to register
-  in the FullEnrich dashboard.
-- The route is public. It is not behind the rate limiter or a login and it is
-  trusted only through the `X-Signature-SHA1` header, an HMAC-SHA1 of the raw
-  body keyed with `FULLENRICH_API_KEY`. A bad or missing signature gets a 401 and
-  changes nothing.
-- A contact's webhook finishes that lead. The batch webhook finishes the rest: a
-  lead it has no email for fails with "No email found", and a batch FullEnrich gave
-  up on (no credits, rate limit, cancelled) fails its remaining leads with the
-  reason. The same webhook arriving twice changes nothing.
-- A maintenance job runs every 5 minutes and asks FullEnrich about batches that
-  have waited more than 5 minutes (at most 20 per run), so a lost webhook never
-  leaves leads stuck. A batch still waiting after a day, or one that was never
-  started, is failed.
-- `VITE_API_URL` must be a public address FullEnrich can reach, and `/api/webhooks`
-  must be routed to the server. When it is `localhost` or a private address no
-  webhook is sent and answers arrive through the sweep, up to 5 minutes later.
+- The job runs every 2 minutes and asks about each batch that has waited at least
+  2 minutes (at most 20 per run), then again at every run until it is settled.
+  FullEnrich takes 30 to 90 seconds per contact and allows 60 calls a minute, so
+  this is a few calls a minute at most.
+- Answers so far finish the leads they cover. The final answer finishes the rest:
+  a lead it has no email for fails with "No email found", and a batch FullEnrich
+  gave up on (no credits, rate limit, cancelled) fails its remaining leads with
+  the reason. A batch is settled once, so asking again changes nothing.
+- A batch still waiting after a day, or one that was never started, is failed so
+  the next run can try its leads again.
+- While a batch is waiting, starting another email search for the campaign is
+  refused with a 409 until it is settled.
 
 Rules for each lead:
 
