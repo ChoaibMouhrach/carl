@@ -15,7 +15,11 @@ import type {
   EmailLookup,
 } from "@server/lib/base-email-finder";
 import { BaseService, type RerunTarget } from "@server/lib/base-service";
-import { BadRequestError, NotFoundError } from "@server/lib/errors";
+import {
+  BadRequestError,
+  NotFoundError,
+  UnauthorizedError,
+} from "@server/lib/errors";
 import {
   buildLookup,
   NO_USABLE_NAME,
@@ -195,7 +199,7 @@ export class FindEmailService extends BaseService {
     rawBody: string;
     signature: string | null;
   }) {
-    const snapshot = this.context.emailFinder.readWebhook(input);
+    const snapshot = await this.readWebhook(input);
     const { emailEnrichment } = this.context.repositories;
     const enrichment =
       (snapshot.batchId
@@ -222,6 +226,30 @@ export class FindEmailService extends BaseService {
     await this.applySnapshot(enrichment, snapshot);
 
     return { applied: true };
+  }
+
+  private async readWebhook(input: {
+    rawBody: string;
+    signature: string | null;
+  }) {
+    try {
+      return this.context.emailFinder.readWebhook(input);
+    } catch (error) {
+      if (error instanceof UnauthorizedError) {
+        await this.context.logger.warn({
+          message: "A webhook was refused because its signature did not match.",
+          emailFinder: this.context.emailFinder.provider,
+          signaturePresent: input.signature !== null,
+          signatureLength: input.signature?.length ?? 0,
+          signatureLooksLikeSha1Hex: /^[0-9a-f]{40}$/.test(
+            input.signature ?? "",
+          ),
+          bodyLength: input.rawBody.length,
+        });
+      }
+
+      throw error;
+    }
   }
 
   /** Worker entry, run every few minutes: asks the provider about batches whose webhook never came, and gives up on ones that are hopeless */
