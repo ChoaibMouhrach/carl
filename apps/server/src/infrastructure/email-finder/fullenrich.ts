@@ -1,4 +1,3 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
 import z from "zod";
 import {
   BaseEmailFinder,
@@ -6,7 +5,6 @@ import {
   type EmailBatchStart,
   type EmailLookup,
 } from "@server/lib/base-email-finder";
-import { UnauthorizedError } from "@server/lib/errors";
 
 const BASE_URL = "https://app.fullenrich.com/api/v2";
 const MAX_START_ATTEMPTS = 3;
@@ -80,16 +78,9 @@ export class FullEnrichEmailFinder extends BaseEmailFinder {
   public override async start(input: {
     batchId: string;
     lookups: EmailLookup[];
-    webhookUrl: string | null;
   }): Promise<EmailBatchStart> {
     const body = {
       name: `Carl ${new Date().toISOString()}`,
-      ...(input.webhookUrl
-        ? {
-            webhook_url: input.webhookUrl,
-            webhook_events: { contact_finished: input.webhookUrl },
-          }
-        : {}),
       data: input.lookups.map((lookup, index) => ({
         first_name: lookup.firstName ?? undefined,
         last_name: lookup.lastName ?? undefined,
@@ -132,33 +123,6 @@ export class FullEnrichEmailFinder extends BaseEmailFinder {
     );
 
     return this.toSnapshot(resultSchema.parse(response), providerId);
-  }
-
-  public override readWebhook(input: {
-    rawBody: string;
-    signature: string | null;
-  }): EmailBatchSnapshot {
-    const expected = createHmac("sha1", this.apiKey)
-      .update(input.rawBody, "utf8")
-      .digest("hex");
-    const given = Buffer.from(input.signature ?? "");
-    const wanted = Buffer.from(expected);
-
-    if (given.length !== wanted.length || !timingSafeEqual(given, wanted)) {
-      throw new UnauthorizedError({
-        message: "The webhook signature is not valid.",
-      });
-    }
-
-    const parsed = resultSchema.safeParse(JSON.parse(input.rawBody));
-
-    if (!parsed.success) {
-      throw new FullEnrichError(
-        "The webhook payload is not in the expected shape.",
-      );
-    }
-
-    return this.toSnapshot(parsed.data, parsed.data.id ?? null);
   }
 
   private toSnapshot(

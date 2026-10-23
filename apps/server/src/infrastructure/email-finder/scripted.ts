@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 import IORedis from "ioredis";
-import { UnauthorizedError } from "../../lib/errors";
 import {
   BaseEmailFinder,
   type EmailBatchSnapshot,
@@ -33,7 +32,6 @@ export class ScriptedEmailFinder extends BaseEmailFinder {
   public override async start(input: {
     batchId: string;
     lookups: EmailLookup[];
-    webhookUrl: string | null;
   }): Promise<EmailBatchStart> {
     const providerId = `scripted-${randomUUID()}`;
     const results = await Promise.all(
@@ -72,11 +70,5 @@ export class ScriptedEmailFinder extends BaseEmailFinder {
       reason: null,
       results: [],
     };
-  }
-
-  public override readWebhook(): EmailBatchSnapshot {
-    throw new UnauthorizedError({
-      message: "The scripted email finder receives no webhooks.",
-    });
   }
 }

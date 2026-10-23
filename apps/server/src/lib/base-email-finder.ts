@@ -29,18 +29,11 @@ export interface EmailBatchStart {
 export abstract class BaseEmailFinder {
   public abstract readonly provider: string;
 
-  /** Starts a batch without waiting for it; the answer comes to the webhook or is fetched later */
+  /** Starts a batch without waiting for it; the answer is fetched later */
   public abstract start(input: {
     batchId: string;
     lookups: EmailLookup[];
-    webhookUrl: string | null;
   }): Promise<EmailBatchStart>;
 
   public abstract fetch(providerId: string): Promise<EmailBatchSnapshot>;
-
-  /** Checks the signature of a webhook and reads it; throws UnauthorizedError when it is not genuine */
-  public abstract readWebhook(input: {
-    rawBody: string;
-    signature: string | null;
-  }): EmailBatchSnapshot;
 }

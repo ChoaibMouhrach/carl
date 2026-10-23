@@ -10,14 +10,14 @@ export type LogLevel = (typeof logLevels)[number];
 // FullEnrich takes 100 contacts per batch and works on 100 at a time, so more batches at once would only wait in its queue and add polling calls to its 60 per minute limit
 export const EMAIL_FINDER_BATCH_SIZE = 100;
 export const EMAIL_FINDER_BATCHES_AT_ONCE = 2;
-// Leads sharing one lookup are paid for once; custom values and webhook payloads stay small if a lookup never fans out to more than this
+// Leads sharing one lookup are paid for once; custom values stay small if a lookup never fans out to more than this
 export const EMAIL_FINDER_MAX_LEADS_PER_LOOKUP = 10;
-// The webhook is the way answers arrive; the sweep only asks about batches that have waited this long, as FullEnrich asks not to be polled often
-export const EMAIL_FINDER_STALE_MS = 5 * 60_000;
+// Answers are fetched by the sweep, which asks about a batch once it has waited this long and then at every run; FullEnrich takes 30-90 seconds per contact and allows 60 calls a minute
+export const EMAIL_FINDER_STALE_MS = 2 * 60_000;
 export const EMAIL_FINDER_SWEEP_LIMIT = 20;
 export const EMAIL_FINDER_UNSTARTED_MS = 15 * 60_000;
 export const EMAIL_FINDER_GIVE_UP_MS = 24 * 60 * 60_000;
-export const EMAIL_FINDER_SWEEP_CRON = "*/5 * * * *";
+export const EMAIL_FINDER_SWEEP_CRON = "*/2 * * * *";
 
 export const SETUP_KEY = "setup";
 

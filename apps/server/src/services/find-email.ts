@@ -15,18 +15,13 @@ import type {
   EmailLookup,
 } from "@server/lib/base-email-finder";
 import { BaseService, type RerunTarget } from "@server/lib/base-service";
-import {
-  BadRequestError,
-  NotFoundError,
-  UnauthorizedError,
-} from "@server/lib/errors";
+import { BadRequestError, NotFoundError } from "@server/lib/errors";
 import {
   buildLookup,
   NO_USABLE_NAME,
   NO_USABLE_WEBSITE,
 } from "@server/lib/lead-contact";
 import { mapPool } from "@server/lib/utils";
-import { emailFinderWebhookUrl } from "@server/lib/webhook-url";
 
 const ENRICH_STAGE: StageNumber = 3;
 const FIND_EMAIL_STAGE: StageNumber = 4;
@@ -133,7 +128,7 @@ export class FindEmailService extends BaseService {
       : { queued };
   }
 
-  /** Worker entry: hands every lead waiting at the email stage to the provider in batches; the answers arrive by webhook or from the sweep */
+  /** Worker entry: hands every lead waiting at the email stage to the provider in batches; the answers come from the sweep */
   public async runCampaign(input: { campaignId: number; onlyRerun?: boolean }) {
     const { campaign, campaignLead, emailEnrichment } =
       this.context.repositories;
@@ -160,7 +155,6 @@ export class FindEmailService extends BaseService {
     const leadIds = input.onlyRerun
       ? pending.filter((leadId) => forced.has(leadId))
       : pending;
-    const webhookUrl = emailFinderWebhookUrl(this.context.env.VITE_API_URL);
 
     await this.context.eventBus.publish("campaigns.changed");
     await this.context.logger.info({
@@ -169,7 +163,6 @@ export class FindEmailService extends BaseService {
       leads: leadIds.length,
       recovered,
       emailFinder: this.context.emailFinder.provider,
-      webhook: webhookUrl !== null,
     });
 
     const outcomes: Record<string, number> = {};
@@ -182,7 +175,7 @@ export class FindEmailService extends BaseService {
       chunk(groups, EMAIL_FINDER_BATCH_SIZE),
       EMAIL_FINDER_BATCHES_AT_ONCE,
       async (batch) => {
-        await this.startBatch(input.campaignId, batch, webhookUrl, count);
+        await this.startBatch(input.campaignId, batch, count);
       },
     );
 
@@ -194,65 +187,7 @@ export class FindEmailService extends BaseService {
     });
   }
 
-  /** Reads a webhook from the provider and applies it; the same one arriving twice changes nothing */
-  public async receiveWebhook(input: {
-    rawBody: string;
-    signature: string | null;
-  }) {
-    const snapshot = await this.readWebhook(input);
-    const { emailEnrichment } = this.context.repositories;
-    const enrichment =
-      (snapshot.batchId
-        ? await emailEnrichment.findByBatchId({ batchId: snapshot.batchId })
-        : null) ??
-      (snapshot.providerId
-        ? await emailEnrichment.findByProviderId({
-            providerId: snapshot.providerId,
-          })
-        : null);
-
-    if (!enrichment) {
-      await this.context.logger.warn({
-        message: "A webhook arrived for a batch this server does not know.",
-        batchId: snapshot.batchId,
-        providerId: snapshot.providerId,
-      });
-
-      return { applied: false };
-    }
-
-    if (enrichment.status !== "waiting") return { applied: false };
-
-    await this.applySnapshot(enrichment, snapshot);
-
-    return { applied: true };
-  }
-
-  private async readWebhook(input: {
-    rawBody: string;
-    signature: string | null;
-  }) {
-    try {
-      return this.context.emailFinder.readWebhook(input);
-    } catch (error) {
-      if (error instanceof UnauthorizedError) {
-        await this.context.logger.warn({
-          message: "A webhook was refused because its signature did not match.",
-          emailFinder: this.context.emailFinder.provider,
-          signaturePresent: input.signature !== null,
-          signatureLength: input.signature?.length ?? 0,
-          signatureLooksLikeSha1Hex: /^[0-9a-f]{40}$/.test(
-            input.signature ?? "",
-          ),
-          bodyLength: input.rawBody.length,
-        });
-      }
-
-      throw error;
-    }
-  }
-
-  /** Worker entry, run every few minutes: asks the provider about batches whose webhook never came, and gives up on ones that are hopeless */
+  /** Worker entry, run every couple of minutes: asks the provider about batches that are still waiting, and gives up on ones that are hopeless */
   public async sweep() {
     const { emailEnrichment } = this.context.repositories;
     const now = Date.now();
@@ -375,7 +310,6 @@ export class FindEmailService extends BaseService {
   private async startBatch(
     campaignId: number,
     batch: LookupGroup[],
-    webhookUrl: string | null,
     count: Count,
   ) {
     const { campaignLead, emailEnrichment } = this.context.repositories;
@@ -399,7 +333,6 @@ export class FindEmailService extends BaseService {
       const started = await this.context.emailFinder.start({
         batchId,
         lookups: batch.map((group) => group.lookup),
-        webhookUrl,
       });
 
       await emailEnrichment.attachProviderId(

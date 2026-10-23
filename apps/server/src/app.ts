@@ -16,7 +16,6 @@ import { openAPIRouteHandler } from "hono-openapi";
 import { HTTPException } from "hono/http-exception";
 import { Scalar } from "@scalar/hono-api-reference";
 import { requestLogger } from "./http/middlewares/request-logger";
-import { webhookController } from "./http/controllers/webhook";
 import {
   anonymousRateLimit,
   authEmailRateLimit,
@@ -131,8 +130,6 @@ export const initApp = async (params: initAppParams) => {
         500,
       );
     })
-
-    .route("/api/webhooks", webhookController)
 
     .use("/api/*", anonymousRateLimit)
     .route("/api", controllers);

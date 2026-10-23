@@ -18,7 +18,7 @@ export abstract class BaseService {
     stage: StageNumber;
     queue: BaseQueue<{ campaignId: number }>;
     message: string;
-    /** Work that is still going without a job, such as a batch waiting for its webhook */
+    /** Work that is still going without a job, such as an email batch waiting for its answer */
     alsoBusy?: () => Promise<boolean>;
   }) {
     const { campaignLead } = this.context.repositories;
