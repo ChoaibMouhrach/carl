@@ -263,3 +263,132 @@ test("re-running is disabled on a campaign that is not active", async ({
     status: "done",
   });
 });
+
+test("finding emails for the done scope sends no lead ids and writes emails only for the done leads, not for failed, waiting or earlier-stage leads or another campaign", async ({
+  page,
+  seed,
+}) => {
+  const admin = await seed.createVerifiedAdmin();
+  await seed.authenticate(page.context(), admin.email);
+  const id = token();
+  const campaign = await seed.createCampaign({
+    name: `Scope ${id}`,
+    status: "active",
+  });
+  const otherCampaign = await seed.createCampaign({
+    name: `Scope other ${id}`,
+    status: "active",
+  });
+  const groups = [
+    { key: "done-a", stage: 4, status: "done", emails: [`a-${id}@old.com`] },
+    { key: "done-b", stage: 4, status: "done", emails: [] },
+    {
+      key: "failed",
+      stage: 4,
+      status: "failed",
+      failureReason: "No email found",
+      emails: [],
+    },
+    { key: "waiting", stage: 4, status: "pending", emails: [] },
+    { key: "early", stage: 3, status: "done", emails: [] },
+    { key: "stranger", stage: 4, status: "done", emails: [], other: true },
+  ] as const;
+  const leads = await Promise.all(
+    groups.map((group) =>
+      seed.createLead({
+        skoolUsername: `e2e-${id}-${group.key}`,
+        name: `Lead ${group.key} ${id.slice(0, 6)}`,
+        linkedinUrl: linkedin(`${group.key}-${id}`),
+        emails: [...group.emails],
+      }),
+    ),
+  );
+  for (const [index, group] of groups.entries()) {
+    await seed.attachCampaignLeads({
+      campaignId: (group.key === "stranger" ? otherCampaign : campaign)
+        .campaignId,
+      leads: [
+        {
+          leadId: leads[index]?.leadId ?? 0,
+          stage: group.stage,
+          status: group.status,
+          ...("failureReason" in group
+            ? { failureReason: group.failureReason }
+            : {}),
+        },
+      ],
+    });
+  }
+  const identities = groups.map((group) => linkedin(`${group.key}-${id}`));
+
+  try {
+    for (const [index, group] of groups.entries()) {
+      await seed.scriptEmailFinder(identities[index] ?? "", {
+        email: `found-${group.key}-${id}@example.com`,
+      });
+    }
+    const requests: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().endsWith("/rerun")) {
+        requests.push(request.postData() ?? "");
+      }
+    });
+    await page.goto(`/admin/campaigns/${campaign.campaignId}?stage=4`);
+    await page
+      .getByRole("combobox")
+      .filter({ hasText: "Waiting leads" })
+      .click();
+    await page.getByRole("option", { name: "Done leads", exact: true }).click();
+    await page.getByRole("button", { name: "Find emails" }).click();
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: "Find emails" })
+      .click();
+
+    const emailsByKey = async () =>
+      Object.fromEntries(
+        (await seed.listLeadsByUsernamePrefix(`e2e-${id}-`)).map((lead) => [
+          lead.skoolUsername.replace(`e2e-${id}-`, ""),
+          lead.emails,
+        ]),
+      );
+
+    await expect
+      .poll(async () => (await emailsByKey())["done-b"])
+      .toEqual([`found-done-b-${id}@example.com`]);
+    expect(await emailsByKey()).toEqual({
+      "done-a": [`a-${id}@old.com`, `found-done-a-${id}@example.com`],
+      "done-b": [`found-done-b-${id}@example.com`],
+      failed: [],
+      waiting: [],
+      early: [],
+      stranger: [],
+    });
+    expect(requests).toHaveLength(1);
+    expect(JSON.parse(requests[0] ?? "{}")).toEqual({
+      stage: 4,
+      scope: "done",
+    });
+    const stored = await seed.listCampaignLeads(campaign.campaignId);
+    expect(
+      Object.fromEntries(
+        stored.map((lead) => [
+          lead.skoolUsername.replace(`e2e-${id}-`, ""),
+          [lead.stage, lead.status, lead.failureReason],
+        ]),
+      ),
+    ).toEqual({
+      "done-a": [4, "done", null],
+      "done-b": [4, "done", null],
+      failed: [4, "failed", "No email found"],
+      waiting: [4, "pending", null],
+      early: [3, "done", null],
+    });
+    const otherStored = await seed.listCampaignLeads(otherCampaign.campaignId);
+    expect(
+      otherStored.map((lead) => [lead.stage, lead.status, lead.failureReason]),
+    ).toEqual([[4, "done", null]]);
+  } finally {
+    await Promise.all(identities.map((url) => seed.unscriptEmailFinder(url)));
+  }
+});
