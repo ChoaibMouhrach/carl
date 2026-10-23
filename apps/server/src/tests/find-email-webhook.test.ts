@@ -337,16 +337,42 @@ test("the same webhook delivered again changes nothing, and an answer after the 
 
 test("a webhook with a bad or missing signature is refused with 401 and nothing changes", async () => {
   await withTestDatabase(async (database) => {
-    const { campaign, leads, send } = await setup(database);
+    const { campaign, leads, send, context } = await setup(database);
     const forged = {
       state: "finished" as const,
       results: [{ ref: 0, email: "evil@example.com" }],
     };
 
+    const logger = context.logger;
+    if (!(logger instanceof TestLogger)) throw new Error("expected TestLogger");
+    logger.records.length = 0;
+
     const wrong = await send(forged, "forged");
     const missing = await send(forged, null);
 
     expect([wrong.status, missing.status]).toEqual([401, 401]);
+    expect(
+      logger.records.filter(
+        (record) =>
+          typeof record.message === "object" &&
+          "signaturePresent" in record.message,
+      ),
+    ).toMatchObject([
+      {
+        message: {
+          signaturePresent: true,
+          signatureLength: 6,
+          signatureLooksLikeSha1Hex: false,
+        },
+      },
+      {
+        message: {
+          signaturePresent: false,
+          signatureLength: 0,
+          signatureLooksLikeSha1Hex: false,
+        },
+      },
+    ]);
     expect(
       await statuses(
         database.db,
