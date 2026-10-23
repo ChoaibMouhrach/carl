@@ -19,6 +19,7 @@ pipeline, organised into campaigns.
 - [AI filter (stage 2)](#ai-filter-stage-2)
 - [Web search (stage 3)](#web-search-stage-3)
 - [Email finder (stage 4)](#email-finder-stage-4)
+- [Re-running a stage](#re-running-a-stage)
 - [MCP for AI agents](#mcp-for-ai-agents)
 - [Observability](#observability)
 - [Scripts](#scripts)
@@ -350,6 +351,28 @@ Rules for each lead:
 - The Stage 4 tab has a "Find emails" button, and the lead list shows why a lead
   failed under its status. The email is added to the lead's `emails`.
   `FULLENRICH_API_KEY` is required and the server will not start without it.
+
+## Re-running a stage
+
+Select leads in the campaign's lead list and press **Re-run** to run stage 2, 3
+or 4 again for them (`POST /api/campaigns/:id/rerun` with `stage` and `leadIds`,
+up to 1000). The chosen leads go back to that stage as pending and the stage's
+normal run starts, ignoring what they already have:
+
+- **Stage 2:** the AI is asked again and the verdict is replaced.
+- **Stage 3:** Tavily is searched again. A new LinkedIn profile or website
+  replaces the old one, and nothing found keeps what the lead has.
+- **Stage 4:** FullEnrich is asked again even if the lead has an email. A new
+  email is added to the existing ones, and nothing found keeps the lead done with
+  the emails it has. FullEnrich does not charge again for the same details within
+  3 months.
+
+Leads that are running, or have not reached the chosen stage, are left out and
+counted in the answer. A lead that was further along is moved back, loses its
+later progress until those stages are run again, and keeps its data. Leads
+already waiting at that stage run as well. The campaign must be active, and a
+stage that is already running is refused. The flag that marks a lead as run again
+on purpose (`campaign_leads.rerun`) is cleared when the lead's stage finishes.
 
 ## MCP for AI agents
 
