@@ -32,6 +32,7 @@ import { CampaignLeadFilters } from "./campaign-lead-filters";
 import { CampaignLeadTable } from "./campaign-lead-table";
 import { PipelineOverview } from "./pipeline-overview";
 import { AssessmentSheet } from "./assessment-sheet";
+import { RerunDialog, type RerunStage } from "./rerun-dialog";
 import { StagePanel } from "./stage-panel";
 
 const allStages = "all";
@@ -118,6 +119,28 @@ export const Campaign = () => {
     onError,
     onSuccess: async () => {
       toast.success("Email search started.");
+      selection.clear();
+      await invalidateCampaignData(queryClient);
+    },
+  });
+
+  const rerun = useMutation({
+    mutationFn: (stage: RerunStage) =>
+      api.campaign.rerun({ campaignId }, { stage, leadIds: selection.ids }),
+    onError,
+    onSuccess: async (result) => {
+      const skipped = "skipped" in result ? result.skipped : 0;
+      const leads = result.queued === 1 ? "lead" : "leads";
+      const left =
+        skipped === 1
+          ? "1 selected lead was left out."
+          : `${skipped} selected leads were left out.`;
+
+      toast.success(
+        skipped > 0
+          ? `Re-run started for ${result.queued} ${leads}. ${left}`
+          : `Re-run started for ${result.queued} ${leads}.`,
+      );
       selection.clear();
       await invalidateCampaignData(queryClient);
     },
@@ -291,6 +314,15 @@ export const Campaign = () => {
               status={searchParams.status}
             />
             <SelectionBar
+              actions={
+                <RerunDialog
+                  canRun={campaign.data.campaign.status === "active"}
+                  count={selection.count}
+                  currentStage={searchParams.stage}
+                  isPending={rerun.isPending}
+                  onConfirm={(stage) => rerun.mutate(stage)}
+                />
+              }
               disabled={isScraping}
               selection={selection}
               showSelectAll={view === "cards"}

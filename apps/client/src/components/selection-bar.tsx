@@ -1,8 +1,11 @@
 import { SelectCheckbox } from "@/components/select-checkbox";
 import type { Selection } from "@/lib/use-selection";
 import { Button } from "@repo/ui/components/ui/button";
+import type { ReactNode } from "react";
 
 interface SelectionBarProps {
+  /** Buttons that act on the selected rows */
+  actions?: ReactNode;
   selection: Selection;
   /** Cards have no header row, so the bar carries the select-all checkbox */
   showSelectAll?: boolean;
@@ -10,6 +13,7 @@ interface SelectionBarProps {
 }
 
 export const SelectionBar = ({
+  actions,
   selection,
   showSelectAll,
   disabled,
@@ -35,6 +39,7 @@ export const SelectionBar = ({
           Clear selection
         </Button>
       )}
+      {selection.count > 0 && actions}
     </div>
   );
 };

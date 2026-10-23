@@ -17,6 +17,7 @@ export const useSelection = (ids: number[]) => {
 
   return {
     count: selected.size,
+    ids: [...selected],
     allSelected,
     someSelected: selected.size > 0 && !allSelected,
     isSelected: (id: number) => selected.has(id),

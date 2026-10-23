@@ -177,6 +177,18 @@ export class CampaignApi extends BaseApi {
     );
   }
 
+  public rerun(
+    where: { campaignId: number },
+    input: { stage: 2 | 3 | 4; leadIds: number[] },
+  ) {
+    return this.call(() =>
+      http.api.campaigns[":campaignId"].rerun.$post({
+        param: { campaignId: where.campaignId.toString() },
+        json: input,
+      }),
+    );
+  }
+
   public assessment(where: { campaignId: number; leadId: number }) {
     return this.call(() =>
       http.api.campaigns[":campaignId"].leads[":leadId"].assessment.$get({
