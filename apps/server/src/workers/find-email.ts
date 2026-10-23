@@ -11,7 +11,7 @@ export class FindEmailWorker extends BaseWorker {
     const services = new Services({ context: this.context });
 
     await this.context.queueHub.findEmail.consume(async (job) => {
-      await services.findEmail.runCampaign({ campaignId: job.campaignId });
+      await services.findEmail.runCampaign(job);
     });
   }
 }

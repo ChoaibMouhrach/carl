@@ -10,7 +10,7 @@ export type FilterJob = { campaignId: number };
 
 export type EnrichJob = { campaignId: number };
 
-export type FindEmailJob = { campaignId: number };
+export type FindEmailJob = { campaignId: number; onlyRerun?: boolean };
 
 export type MaintenanceJob =
   | { type: "check-queue-backlog" }

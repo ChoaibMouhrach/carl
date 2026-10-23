@@ -14,7 +14,7 @@ import type {
   EmailBatchSnapshot,
   EmailLookup,
 } from "@server/lib/base-email-finder";
-import { BaseService } from "@server/lib/base-service";
+import { BaseService, type RerunTarget } from "@server/lib/base-service";
 import { BadRequestError, NotFoundError } from "@server/lib/errors";
 import {
   buildLookup,
@@ -61,10 +61,7 @@ const messageOf = (error: unknown) =>
   );
 
 export class FindEmailService extends BaseService {
-  public async start(
-    input: { campaignId: number },
-    options?: { leadIds: number[] },
-  ) {
+  public async start(input: { campaignId: number }, options?: RerunTarget) {
     const campaign = await this.findCampaign(input.campaignId);
 
     if (campaign.status !== "active") {
@@ -85,23 +82,29 @@ export class FindEmailService extends BaseService {
     });
 
     const reset = options
-      ? await this.resetForRerun({ ...stage, leadIds: options.leadIds })
+      ? await this.resetForRerun({ ...stage, target: options })
       : 0;
 
-    await campaignLead.advanceDone({
-      campaignId: input.campaignId,
-      from: ENRICH_STAGE,
-      to: FIND_EMAIL_STAGE,
-    });
-    await campaignLead.requeueFailedExcept({
-      ...stage,
-      reasons: [NO_EMAIL_FOUND, NO_USABLE_NAME, NO_USABLE_WEBSITE],
-    });
+    const onlyRerun = options !== undefined && "scope" in options;
 
-    const queued = await campaignLead.countAtStageWithStatus({
-      ...stage,
-      status: "pending",
-    });
+    if (!onlyRerun) {
+      await campaignLead.advanceDone({
+        campaignId: input.campaignId,
+        from: ENRICH_STAGE,
+        to: FIND_EMAIL_STAGE,
+      });
+      await campaignLead.requeueFailedExcept({
+        ...stage,
+        reasons: [NO_EMAIL_FOUND, NO_USABLE_NAME, NO_USABLE_WEBSITE],
+      });
+    }
+
+    const queued = onlyRerun
+      ? reset
+      : await campaignLead.countAtStageWithStatus({
+          ...stage,
+          status: "pending",
+        });
 
     if (queued === 0) {
       throw new BadRequestError({
@@ -111,6 +114,7 @@ export class FindEmailService extends BaseService {
 
     await this.context.queueHub.findEmail.add({
       campaignId: input.campaignId,
+      onlyRerun,
     });
     await this.context.eventBus.publish("campaigns.changed");
     await this.context.logger.info({
@@ -121,12 +125,12 @@ export class FindEmailService extends BaseService {
     });
 
     return options
-      ? { queued, skipped: options.leadIds.length - reset }
+      ? { queued, skipped: this.skippedBy(options, reset) }
       : { queued };
   }
 
   /** Worker entry: hands every lead waiting at the email stage to the provider in batches; the answers arrive by webhook or from the sweep */
-  public async runCampaign(input: { campaignId: number }) {
+  public async runCampaign(input: { campaignId: number; onlyRerun?: boolean }) {
     const { campaign, campaignLead, emailEnrichment } =
       this.context.repositories;
     const found = await campaign.findByCampaignId(input);
@@ -140,11 +144,18 @@ export class FindEmailService extends BaseService {
           campaignId: input.campaignId,
           stage: FIND_EMAIL_STAGE,
         });
-    const leadIds = await campaignLead.listLeadIdsAtStageWithStatus({
+    const pending = await campaignLead.listLeadIdsAtStageWithStatus({
       campaignId: input.campaignId,
       stage: FIND_EMAIL_STAGE,
       status: "pending",
     });
+    const forced = await campaignLead.listRerunLeadIds({
+      campaignId: input.campaignId,
+      stage: FIND_EMAIL_STAGE,
+    });
+    const leadIds = input.onlyRerun
+      ? pending.filter((leadId) => forced.has(leadId))
+      : pending;
     const webhookUrl = emailFinderWebhookUrl(this.context.env.VITE_API_URL);
 
     await this.context.eventBus.publish("campaigns.changed");
@@ -161,10 +172,6 @@ export class FindEmailService extends BaseService {
     const count: Count = (outcome, amount = 1) => {
       outcomes[outcome] = (outcomes[outcome] ?? 0) + amount;
     };
-    const forced = await campaignLead.listRerunLeadIds({
-      campaignId: input.campaignId,
-      stage: FIND_EMAIL_STAGE,
-    });
     const groups = await this.prepare(input.campaignId, leadIds, forced, count);
 
     await mapPool(

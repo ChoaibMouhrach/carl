@@ -1,7 +1,9 @@
-import type { StageNumber } from "@repo/constants/campaign";
+import type { RerunScope, StageNumber } from "@repo/constants/campaign";
 import type { Context } from "@server/context";
 import type { BaseQueue } from "./base-queue";
 import { BadRequestError, ConflictError } from "./errors";
+
+export type RerunTarget = { leadIds: number[] } | { scope: RerunScope };
 
 export abstract class BaseService {
   protected context;
@@ -49,7 +51,7 @@ export abstract class BaseService {
   protected async resetForRerun(input: {
     campaignId: number;
     stage: StageNumber;
-    leadIds: number[];
+    target: RerunTarget;
   }) {
     const reset =
       await this.context.repositories.campaignLead.resetForRerun(input);
@@ -57,10 +59,16 @@ export abstract class BaseService {
     if (reset === 0) {
       throw new BadRequestError({
         message:
-          "None of the selected leads can be run again for this stage. Leads that are running, or have not reached it, are left out.",
+          "leadIds" in input.target
+            ? "None of the selected leads can be run again for this stage. Leads that are running, or have not reached it, are left out."
+            : "No leads match that choice for this stage.",
       });
     }
 
     return reset;
+  }
+
+  protected skippedBy(target: RerunTarget, reset: number) {
+    return "leadIds" in target ? target.leadIds.length - reset : 0;
   }
 }

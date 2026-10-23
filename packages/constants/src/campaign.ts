@@ -4,6 +4,10 @@ export const stageNumbers = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 
 export type StageNumber = (typeof stageNumbers)[number];
 
+export const rerunScopes = ["failed", "done", "all"] as const;
+
+export type RerunScope = (typeof rerunScopes)[number];
+
 export const campaignStatuses = [
   "draft",
   "active",

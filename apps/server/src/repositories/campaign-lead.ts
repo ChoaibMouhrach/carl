@@ -3,6 +3,7 @@ import {
   desc,
   eq,
   exists,
+  gt,
   gte,
   ilike,
   inArray,
@@ -13,7 +14,11 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import type { LeadStatus, StageNumber } from "@repo/constants/campaign";
+import type {
+  LeadStatus,
+  RerunScope,
+  StageNumber,
+} from "@repo/constants/campaign";
 import { DEFAULT_RECORD_LIMIT } from "@server/config/constants";
 import { BaseRepository } from "@server/lib/base-repository";
 import { containsPattern } from "@server/lib/utils";
@@ -234,13 +239,22 @@ export class CampaignLeadRepository extends BaseRepository {
     return row?.count ?? 0;
   }
 
-  /** Sends the given leads back to a stage to be run again, leaving out leads that are running or have not reached it; returns how many were sent back */
+  /** Sends leads back to a stage to be run again, either the given ones or a whole scope, leaving out leads that are running or have not reached it; returns how many were sent back */
   public async resetForRerun(where: {
     campaignId: number;
     stage: StageNumber;
-    leadIds: number[];
+    target: { leadIds: number[] } | { scope: RerunScope };
   }) {
     const table = CampaignLeadRepository.table;
+    const reached = and(
+      eq(table.campaignId, where.campaignId),
+      gte(table.stage, where.stage),
+      ne(table.status, "running"),
+    );
+    const chosen =
+      "leadIds" in where.target
+        ? inArray(table.leadId, where.target.leadIds)
+        : this.scopeCondition(where.stage, where.target.scope);
     const reset = await this.db
       .update(table)
       .set({
@@ -249,17 +263,25 @@ export class CampaignLeadRepository extends BaseRepository {
         failureReason: null,
         rerun: true,
       })
-      .where(
-        and(
-          eq(table.campaignId, where.campaignId),
-          inArray(table.leadId, where.leadIds),
-          gte(table.stage, where.stage),
-          ne(table.status, "running"),
-        ),
-      )
+      .where(and(reached, chosen))
       .returning({ leadId: table.leadId });
 
     return reset.length;
+  }
+
+  private scopeCondition(stage: StageNumber, scope: RerunScope) {
+    const table = CampaignLeadRepository.table;
+    const failedHere = and(eq(table.stage, stage), eq(table.status, "failed"));
+    const doneHere = and(eq(table.stage, stage), eq(table.status, "done"));
+
+    switch (scope) {
+      case "failed":
+        return failedHere;
+      case "done":
+        return or(doneHere, gt(table.stage, stage));
+      case "all":
+        return undefined;
+    }
   }
 
   public async listRerunLeadIds(where: {

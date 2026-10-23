@@ -40,7 +40,7 @@ export class EnrichService extends BaseService {
     });
 
     const reset = options
-      ? await this.resetForRerun({ ...stage, leadIds: options.leadIds })
+      ? await this.resetForRerun({ ...stage, target: options })
       : 0;
 
     await campaignLead.advanceDone({
@@ -74,7 +74,7 @@ export class EnrichService extends BaseService {
     });
 
     return options
-      ? { queued, skipped: options.leadIds.length - reset }
+      ? { queued, skipped: this.skippedBy(options, reset) }
       : { queued };
   }
 

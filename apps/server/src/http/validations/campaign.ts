@@ -7,6 +7,7 @@ import {
 import {
   campaignStatuses,
   maxKeywords,
+  rerunScopes,
   leadStatuses,
   stageNumbers,
 } from "@repo/constants/campaign";
@@ -127,7 +128,15 @@ export const saveFilterSchema = z.object({
     .max(maxFilterQuestions),
 });
 
-export const rerunSchema = z.object({
-  stage: z.union([z.literal(2), z.literal(3), z.literal(4)]),
-  leadIds: z.array(z.number().int().positive()).min(1).max(1000),
-});
+const rerunStageSchema = z.union([z.literal(2), z.literal(3), z.literal(4)]);
+
+export const rerunSchema = z.union([
+  z.object({
+    stage: rerunStageSchema,
+    leadIds: z.array(z.number().int().positive()).min(1).max(1000),
+  }),
+  z.object({
+    stage: z.literal(4),
+    scope: z.enum(rerunScopes),
+  }),
+]);
