@@ -16,7 +16,6 @@ import {
   TestLogger,
   TestMailer,
 } from "./helpers/context";
-import { initApp } from "@server/app";
 import { withTestDatabase } from "./helpers/http";
 
 type Database = Parameters<Parameters<typeof withTestDatabase>[0]>[0];
@@ -40,9 +39,9 @@ const setup = async (
     undefined,
     emailFinder,
   );
-  const admin = await createAdminClient(context, "webhook-admin@example.com");
+  const admin = await createAdminClient(context, "batch-admin@example.com");
   const campaign = await context.repositories.campaign.create({
-    name: "Webhook",
+    name: "Batches",
     keywords: ["coaching"],
     types: ["public"],
     pricingModels: ["paid"],
@@ -71,24 +70,18 @@ const setup = async (
 
   if (!enrichment) throw new Error("No batch was started.");
 
-  const send = (
-    snapshot: Partial<EmailBatchSnapshot>,
-    signature: string | null = "valid",
-  ) =>
-    createApp(context).then((app) =>
-      app.request("/api/webhooks/email-finder", {
-        method: "POST",
-        headers: signature ? { "x-signature-sha1": signature } : {},
-        body: JSON.stringify({
-          providerId: enrichment.providerId,
-          batchId: enrichment.batchId,
-          state: "waiting",
-          reason: null,
-          results: [],
-          ...snapshot,
-        } satisfies EmailBatchSnapshot),
-      }),
-    );
+  const answer = async (snapshot: Partial<EmailBatchSnapshot>) => {
+    emailFinder.snapshots.set(enrichment.providerId ?? "", {
+      providerId: enrichment.providerId,
+      batchId: enrichment.batchId,
+      state: "waiting",
+      reason: null,
+      results: [],
+      ...snapshot,
+    });
+    await ageBatch(db, 10);
+    await services.findEmail.sweep();
+  };
 
   return {
     emailFinder,
@@ -98,13 +91,10 @@ const setup = async (
     leads,
     services,
     enrichment,
-    send,
+    answer,
     path: `/api/campaigns/${campaign.campaignId}`,
   };
 };
-
-const createApp = (context: Parameters<typeof initApp>[0]["context"]) =>
-  initApp({ context });
 
 const rowOf = async (db: Database["db"], campaignId: number, leadId: number) =>
   (
@@ -136,12 +126,11 @@ const statuses = async (
 const batchOf = async (db: Database["db"]) =>
   (await db.select().from(emailEnrichmentsTable))[0];
 
-test("a run hands the leads to the provider and leaves them running with a batch waiting, and the webhook address is sent only when the API is public", async () => {
+test("a run hands the leads to the provider and leaves them running with a batch waiting", async () => {
   await withTestDatabase(async (database) => {
     const local = await setup(database);
 
     expect(local.emailFinder.starts).toHaveLength(1);
-    expect(local.emailFinder.starts[0]?.webhookUrl).toBeNull();
     expect(local.enrichment).toMatchObject({
       campaignId: local.campaign.campaignId,
       status: "waiting",
@@ -164,16 +153,6 @@ test("a run hands the leads to the provider and leaves them running with a batch
       ["running", null],
       ["running", null],
     ]);
-  });
-
-  await withTestDatabase(async (database) => {
-    const publicApi = await setup(database, {
-      env: { VITE_API_URL: "https://api.example.com" },
-    });
-
-    expect(publicApi.emailFinder.starts[0]?.webhookUrl).toBe(
-      "https://api.example.com/api/webhooks/email-finder",
-    );
   });
 });
 
@@ -208,17 +187,15 @@ test("while a batch is waiting a new start is refused with nothing moved, and ru
   });
 });
 
-test("the webhook needs no login: a contact's answer finishes that lead only, and the batch's answer finishes the rest, with emails in lower case", async () => {
+test("a partial answer finishes only the leads it covers, and the final answer finishes the rest, with emails in lower case", async () => {
   await withTestDatabase(async (database) => {
-    const { campaign, leads, send, context } = await setup(database);
+    const { campaign, leads, answer, context } = await setup(database);
     context.eventBus.published.length = 0;
 
-    const contact = await send({
+    await answer({
       results: [{ ref: 1, email: "One@Example.COM" }],
     });
 
-    expect(contact.status).toBe(200);
-    expect(await contact.json()).toEqual({ applied: true });
     expect(
       await statuses(
         database.db,
@@ -236,7 +213,7 @@ test("the webhook needs no login: a contact's answer finishes that lead only, an
     expect((await batchOf(database.db))?.status).toBe("waiting");
     expect(context.eventBus.published).toEqual(["campaigns.changed"]);
 
-    const batch = await send({
+    await answer({
       state: "finished",
       results: [
         { ref: 0, email: "zero@example.com" },
@@ -245,7 +222,6 @@ test("the webhook needs no login: a contact's answer finishes that lead only, an
       ],
     });
 
-    expect(batch.status).toBe(200);
     expect(
       await statuses(
         database.db,
@@ -273,9 +249,9 @@ test("the webhook needs no login: a contact's answer finishes that lead only, an
 
 test("a lead the final answer does not mention is failed with no email found", async () => {
   await withTestDatabase(async (database) => {
-    const { campaign, leads, send } = await setup(database);
+    const { campaign, leads, answer } = await setup(database);
 
-    await send({
+    await answer({
       state: "finished",
       results: [{ ref: 0, email: "zero@example.com" }],
     });
@@ -294,27 +270,30 @@ test("a lead the final answer does not mention is failed with no email found", a
   });
 });
 
-test("the same webhook delivered again changes nothing, and an answer after the batch is over is ignored", async () => {
+test("a batch that one sweep finished is not asked about again, so a later answer from the provider changes nothing", async () => {
   await withTestDatabase(async (database) => {
-    const { campaign, leads, send } = await setup(database);
-    const final = {
-      state: "finished" as const,
+    const { campaign, leads, answer, services, emailFinder } =
+      await setup(database);
+    await answer({
+      state: "finished",
       results: [
         { ref: 0, email: "zero@example.com" },
         { ref: 1, email: null },
         { ref: 2, email: "two@example.com" },
       ],
-    };
-    await send(final);
+    });
     const before = await batchOf(database.db);
 
-    const again = await send(final);
-    const late = await send({
+    emailFinder.snapshots.set("fake-1", {
+      providerId: "fake-1",
+      batchId: before?.batchId ?? null,
+      state: "finished",
+      reason: null,
       results: [{ ref: 1, email: "late@example.com" }],
     });
+    await services.findEmail.sweep();
 
-    expect(await again.json()).toEqual({ applied: false });
-    expect(await late.json()).toEqual({ applied: false });
+    expect(emailFinder.fetched).toEqual(["fake-1"]);
     expect(
       await Promise.all(
         leads.map((lead) => emailsOf(database.db, lead.leadId)),
@@ -335,123 +314,12 @@ test("the same webhook delivered again changes nothing, and an answer after the 
   });
 });
 
-test("a webhook with a bad or missing signature is refused with 401 and nothing changes", async () => {
-  await withTestDatabase(async (database) => {
-    const { campaign, leads, send, context } = await setup(database);
-    const forged = {
-      state: "finished" as const,
-      results: [{ ref: 0, email: "evil@example.com" }],
-    };
-
-    const logger = context.logger;
-    if (!(logger instanceof TestLogger)) throw new Error("expected TestLogger");
-    logger.records.length = 0;
-
-    const wrong = await send(forged, "forged");
-    const missing = await send(forged, null);
-
-    expect([wrong.status, missing.status]).toEqual([401, 401]);
-    expect(
-      logger.records.filter(
-        (record) =>
-          typeof record.message === "object" &&
-          "signaturePresent" in record.message,
-      ),
-    ).toMatchObject([
-      {
-        message: {
-          signaturePresent: true,
-          signatureLength: 6,
-          signatureLooksLikeSha1Hex: false,
-        },
-      },
-      {
-        message: {
-          signaturePresent: false,
-          signatureLength: 0,
-          signatureLooksLikeSha1Hex: false,
-        },
-      },
-    ]);
-    expect(
-      await statuses(
-        database.db,
-        campaign.campaignId,
-        leads.map((lead) => lead.leadId),
-      ),
-    ).toEqual([
-      ["running", null],
-      ["running", null],
-      ["running", null],
-    ]);
-    expect(
-      await Promise.all(
-        leads.map((lead) => emailsOf(database.db, lead.leadId)),
-      ),
-    ).toEqual([[], [], []]);
-    expect((await batchOf(database.db))?.status).toBe("waiting");
-  });
-});
-
-test("a signed webhook for a batch this server never started is accepted and ignored", async () => {
-  await withTestDatabase(async (database) => {
-    const { campaign, leads, send, context } = await setup(database);
-    const logger = context.logger;
-    if (!(logger instanceof TestLogger)) throw new Error("expected TestLogger");
-    logger.records.length = 0;
-
-    const response = await send({
-      providerId: "someone-else",
-      batchId: "unknown-batch",
-      state: "finished",
-      results: [{ ref: 0, email: "stray@example.com" }],
-    });
-
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ applied: false });
-    expect(
-      logger.records.filter((record) => record.level === "warn"),
-    ).toMatchObject([{ message: { batchId: "unknown-batch" } }]);
-    expect(await emailsOf(database.db, leads[0]?.leadId ?? 0)).toEqual([]);
-    expect((await batchOf(database.db))?.status).toBe("waiting");
-    expect(campaign.campaignId).toBeGreaterThan(0);
-  });
-});
-
-test("a batch is found by the provider's id when the answer carries no batch id", async () => {
-  await withTestDatabase(async (database) => {
-    const { campaign, leads, send } = await setup(database);
-
-    await send({
-      batchId: null,
-      state: "finished",
-      results: [
-        { ref: 0, email: "a@example.com" },
-        { ref: 1, email: "b@example.com" },
-        { ref: 2, email: "c@example.com" },
-      ],
-    });
-
-    expect(
-      await statuses(
-        database.db,
-        campaign.campaignId,
-        leads.map((lead) => lead.leadId),
-      ),
-    ).toEqual([
-      ["done", null],
-      ["done", null],
-      ["done", null],
-    ]);
-  });
-});
-
 test("a provider that gives up keeps the emails it found, fails the rest with its reason, and the next start tries those again", async () => {
   await withTestDatabase(async (database) => {
-    const { admin, path, campaign, leads, send, emailFinder } =
+    const { admin, path, campaign, leads, answer, emailFinder } =
       await setup(database);
 
-    await send({
+    await answer({
       state: "failed",
       reason: "FullEnrich has no credits left.",
       results: [{ ref: 0, email: "found@example.com" }],

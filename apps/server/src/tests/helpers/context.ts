@@ -27,8 +27,6 @@ import {
   type ClassifierInput,
   type ClassifierOutput,
 } from "@server/lib/base-lead-classifier";
-import z from "zod";
-import { UnauthorizedError } from "@server/lib/errors";
 import {
   BaseEmailFinder,
   type EmailBatchSnapshot,
@@ -397,7 +395,6 @@ export class FakeWebSearch extends BaseWebSearch {
 export interface FakeBatchStart {
   batchId: string;
   lookups: EmailLookup[];
-  webhookUrl: string | null;
 }
 
 export class FakeEmailFinder extends BaseEmailFinder {
@@ -410,7 +407,7 @@ export class FakeEmailFinder extends BaseEmailFinder {
   public inFlight = 0;
   public peakInFlight = 0;
   public delayMs = 0;
-  /** When true a batch is left waiting, as with a real provider, until a webhook or a fetch brings the answer */
+  /** When true a batch is left waiting, as with a real provider, until a fetch brings the answer */
   public deferred = false;
   /** What fetch answers for a batch, by provider id */
   public snapshots = new Map<string, EmailBatchSnapshot>();
@@ -466,29 +463,7 @@ export class FakeEmailFinder extends BaseEmailFinder {
 
     return snapshot;
   }
-
-  /** The body is the snapshot as JSON and the signature must be "valid" */
-  public override readWebhook(input: {
-    rawBody: string;
-    signature: string | null;
-  }): EmailBatchSnapshot {
-    if (input.signature !== "valid") {
-      throw new UnauthorizedError({
-        message: "The webhook signature is not valid.",
-      });
-    }
-
-    return emailBatchSnapshotSchema.parse(JSON.parse(input.rawBody));
-  }
 }
-
-const emailBatchSnapshotSchema = z.object({
-  providerId: z.string().nullable(),
-  batchId: z.string().nullable(),
-  state: z.enum(["waiting", "finished", "failed"]),
-  reason: z.string().nullable(),
-  results: z.array(z.object({ ref: z.number(), email: z.string().nullable() })),
-});
 
 export class TestEventBus extends BaseEventBus {
   public published: LiveEventType[] = [];

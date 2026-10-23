@@ -537,7 +537,6 @@ test("the run is logged with the provider, the outcome counts and the reason for
           leads: 3,
           recovered: 0,
           emailFinder: "fake",
-          webhook: false,
         },
       },
       {

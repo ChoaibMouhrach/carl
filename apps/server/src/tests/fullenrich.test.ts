@@ -1,9 +1,7 @@
-import { createHmac } from "node:crypto";
 import { expect, test } from "bun:test";
 import z from "zod";
 import { FullEnrichEmailFinder } from "@server/infrastructure/email-finder/fullenrich";
 import type { EmailLookup } from "@server/lib/base-email-finder";
-import { UnauthorizedError } from "@server/lib/errors";
 
 interface Sent {
   method: string;
@@ -75,25 +73,12 @@ const createFinder = (responses: (() => Response)[]) => {
   return { finder, sent };
 };
 
-const signed = (body: object, key = API_KEY) => {
-  const rawBody = JSON.stringify(body);
-
-  return {
-    rawBody,
-    signature: createHmac("sha1", key).update(rawBody, "utf8").digest("hex"),
-  };
-};
-
-test("it starts one bulk enrichment for work emails with every field it has, our batch id and a position on each contact, and the webhook for the batch and for each contact", async () => {
+test("it starts one bulk enrichment for work emails with every field it has, our batch id and a position on each contact, and no webhook", async () => {
   const { finder, sent } = createFinder([
     () => json(200, { enrichment_id: "enr-1" }),
   ]);
 
-  const started = await finder.start({
-    batchId: "batch-1",
-    lookups,
-    webhookUrl: "https://api.example.com/api/webhooks/email-finder",
-  });
+  const started = await finder.start({ batchId: "batch-1", lookups });
 
   expect(started).toEqual({ providerId: "enr-1", snapshot: null });
   expect(sent).toHaveLength(1);
@@ -103,18 +88,11 @@ test("it starts one bulk enrichment for work emails with every field it has, our
     "Bearer fe-test-key",
   ]);
   const body = z
-    .object({
-      webhook_url: z.string(),
-      webhook_events: z.object({ contact_finished: z.string() }),
-      data: z.array(z.record(z.string(), z.unknown())),
-    })
+    .object({ data: z.array(z.record(z.string(), z.unknown())) })
     .parse(sent[0]?.body);
-  expect(body.webhook_url).toBe(
-    "https://api.example.com/api/webhooks/email-finder",
-  );
-  expect(body.webhook_events.contact_finished).toBe(
-    "https://api.example.com/api/webhooks/email-finder",
-  );
+  expect(
+    Object.keys(z.record(z.string(), z.unknown()).parse(sent[0]?.body)),
+  ).toEqual(["name", "data"]);
   expect(body.data).toEqual([
     {
       first_name: "Jane",
@@ -139,18 +117,6 @@ test("it starts one bulk enrichment for work emails with every field it has, our
   ]);
 });
 
-test("without a public address it starts the batch with no webhook", async () => {
-  const { finder, sent } = createFinder([
-    () => json(200, { enrichment_id: "enr-2" }),
-  ]);
-
-  await finder.start({ batchId: "batch-2", lookups, webhookUrl: null });
-
-  expect(
-    Object.keys(z.record(z.string(), z.unknown()).parse(sent[0]?.body)),
-  ).toEqual(["name", "data"]);
-});
-
 test("a rate limit when starting is waited out and tried again, but only a few times", async () => {
   const limited = () =>
     json(429, { code: "error.rate.limit", message: "Too many requests." });
@@ -162,7 +128,6 @@ test("a rate limit when starting is waited out and tried again, but only a few t
   const started = await retried.finder.start({
     batchId: "b",
     lookups,
-    webhookUrl: null,
   });
 
   expect(started.providerId).toBe("enr-3");
@@ -171,7 +136,7 @@ test("a rate limit when starting is waited out and tried again, but only a few t
   const exhausted = createFinder([limited, limited, limited]);
 
   await expect(
-    exhausted.finder.start({ batchId: "b", lookups, webhookUrl: null }),
+    exhausted.finder.start({ batchId: "b", lookups }),
   ).rejects.toThrow("FullEnrich 429: Too many requests.");
   expect(exhausted.sent).toHaveLength(3);
 });
@@ -181,9 +146,9 @@ test("a rejected key fails straight away with FullEnrich's message and is not re
     () => json(401, { code: "error.api.key", message: "Unknown api key" }),
   ]);
 
-  await expect(
-    finder.start({ batchId: "b", lookups, webhookUrl: null }),
-  ).rejects.toThrow("FullEnrich 401: Unknown api key");
+  await expect(finder.start({ batchId: "b", lookups })).rejects.toThrow(
+    "FullEnrich 401: Unknown api key",
+  );
   expect(sent).toHaveLength(1);
 });
 
@@ -258,61 +223,4 @@ test("a failed fetch fails with FullEnrich's message", async () => {
   const { finder } = createFinder([() => json(500, { message: "down" })]);
 
   await expect(finder.fetch("enr-6")).rejects.toThrow("FullEnrich 500: down");
-});
-
-test("a webhook signed with the API key is read, whether it is for one contact or the whole batch", () => {
-  const { finder } = createFinder([]);
-  const contact = signed({
-    id: "enr-7",
-    status: "IN_PROGRESS",
-    data: [record("1", "one@example.com")],
-  });
-  const batch = signed({
-    id: "enr-7",
-    status: "FINISHED",
-    data: [record("0", null), record("1", "one@example.com")],
-  });
-
-  expect(finder.readWebhook(contact)).toEqual({
-    providerId: "enr-7",
-    batchId: "batch-1",
-    state: "waiting",
-    reason: null,
-    results: [{ ref: 1, email: "one@example.com" }],
-  });
-  expect(finder.readWebhook(batch)).toMatchObject({
-    state: "finished",
-    results: [
-      { ref: 0, email: null },
-      { ref: 1, email: "one@example.com" },
-    ],
-  });
-});
-
-test("a webhook with a missing, wrong or differently-keyed signature, or a body changed after signing, is refused", () => {
-  const { finder } = createFinder([]);
-  const genuine = signed({ id: "enr-8", status: "FINISHED", data: [] });
-  const attempts = [
-    { rawBody: genuine.rawBody, signature: null },
-    { rawBody: genuine.rawBody, signature: "" },
-    { rawBody: genuine.rawBody, signature: "not-a-signature" },
-    { rawBody: genuine.rawBody, signature: genuine.signature.toUpperCase() },
-    signed({ id: "enr-8", status: "FINISHED", data: [] }, "another-key"),
-    {
-      rawBody: genuine.rawBody.replace("enr-8", "enr-9"),
-      signature: genuine.signature,
-    },
-  ];
-
-  for (const attempt of attempts) {
-    expect(() => finder.readWebhook(attempt)).toThrow(UnauthorizedError);
-  }
-});
-
-test("a signed webhook that is not in the expected shape is refused without being applied", () => {
-  const { finder } = createFinder([]);
-
-  expect(() => finder.readWebhook(signed({ unexpected: true }))).toThrow(
-    "The webhook payload is not in the expected shape.",
-  );
 });

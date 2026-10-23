@@ -1,11 +1,9 @@
-import { createHmac } from "node:crypto";
 import { afterEach, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
+import z from "zod";
 import { Queue } from "bullmq";
 import IORedis from "ioredis";
-import type { MiddlewareHandler } from "hono";
-import { initApp, type AppContext, type AuthAppContext } from "@server/app";
 import {
   EMAIL_FINDER_SWEEP_CRON,
   EMAIL_FINDER_STALE_MS,
@@ -20,10 +18,9 @@ import {
 import { DisabledErrorMonitor } from "@server/infrastructure/error-monitor/disabled";
 import { FullEnrichEmailFinder } from "@server/infrastructure/email-finder/fullenrich";
 import { BullQueue } from "@server/infrastructure/queue/bullmq";
-import { BaseRateLimiter } from "@server/lib/base-rate-limiter";
 import { Services } from "@server/services";
 import { MaintenanceWorker } from "@server/workers/maintenance";
-import { createAdminClient, seedLead } from "./helpers/api";
+import { seedLead } from "./helpers/api";
 import {
   createContext,
   FakeEmailFinder,
@@ -36,68 +33,41 @@ type Database = Parameters<Parameters<typeof withTestDatabase>[0]>[0];
 
 const API_KEY = "fe-integration-key";
 
-class RejectingRateLimiter extends BaseRateLimiter {
-  public anonymous: MiddlewareHandler<AppContext> = async (context) =>
-    context.json({ error: "Too many requests" }, 429);
-  public authEmail: MiddlewareHandler<AppContext> = async (_c, next) => {
-    await next();
-  };
-  public authIp: MiddlewareHandler<AppContext> = async (_c, next) => {
-    await next();
-  };
-  public authenticated: MiddlewareHandler<AuthAppContext> = async (
-    _c,
-    next,
-  ) => {
-    await next();
-  };
-  public platformSetup: MiddlewareHandler<AppContext> = async (_c, next) => {
-    await next();
-  };
-
-  public override async ping(): Promise<void> {}
-
-  public override async close(): Promise<void> {}
-}
-
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), {
     status,
     headers: { "content-type": "application/json" },
   });
 
-const sign = (rawBody: string, key = API_KEY) =>
-  createHmac("sha1", key).update(rawBody, "utf8").digest("hex");
-
 const setup = async ({ db, pool }: Database) => {
-  const requests: { method: string; url: string; body: unknown }[] = [];
+  const requests: {
+    method: string;
+    url: string;
+    authorization: string | null;
+    body: unknown;
+  }[] = [];
+  const remote: { result: object | null } = { result: null };
   const finder = new FullEnrichEmailFinder({
     apiKey: API_KEY,
     fetch: async (input, init) => {
+      const method = init?.method ?? "GET";
       requests.push({
-        method: init?.method ?? "GET",
+        method,
         url: String(input),
+        authorization: new Headers(init?.headers).get("authorization"),
         body: typeof init?.body === "string" ? JSON.parse(init.body) : null,
       });
+
+      if (method === "GET") return json(200, remote.result);
 
       return json(200, { enrichment_id: "enr-real" });
     },
   });
-  const base = createContext(
-    db,
-    pool,
-    { ...initENV(), VITE_API_URL: "https://api.example.com" },
-    new TestMailer(),
-    new RejectingRateLimiter(),
-  );
+  const base = createContext(db, pool, initENV(), new TestMailer());
   const context: Context & { queueHub: typeof base.queueHub } = {
     ...base,
     emailFinder: finder,
   };
-  const admin = await createAdminClient(
-    context,
-    "integration-admin@example.com",
-  );
   const campaign = await context.repositories.campaign.create({
     name: "Integration",
     keywords: ["coaching"],
@@ -128,18 +98,14 @@ const setup = async ({ db, pool }: Database) => {
 
   if (!batch) throw new Error("No batch was started.");
 
-  const app = await initApp({ context });
-  const webhook = (payload: object, signature: string | null = null) => {
-    const rawBody = JSON.stringify(payload);
-
-    return app.request("/api/webhooks/email-finder", {
-      method: "POST",
-      headers: { "x-signature-sha1": signature ?? sign(rawBody) },
-      body: rawBody,
-    });
+  const sweep = async () => {
+    await db
+      .update(emailEnrichmentsTable)
+      .set({ createdAt: new Date(Date.now() - 2 * EMAIL_FINDER_STALE_MS) });
+    await services.findEmail.sweep();
   };
 
-  return { admin, app, batch, campaign, context, db, leads, requests, webhook };
+  return { batch, campaign, context, db, leads, remote, requests, sweep };
 };
 
 const record = (batch: string, ref: number, email: string | null) => ({
@@ -167,21 +133,18 @@ const emails = async (db: Database["db"], leadIds: number[]) => {
   );
 };
 
-test("a batch started through the real FullEnrich client is finished by a webhook signed with the API key, going through the real route and signature check", async () => {
+test("a batch started through the real FullEnrich client sends no webhook and is finished by the sweep asking FullEnrich with the API key, first with a partial answer and then the final one", async () => {
   await withTestDatabase(async (database) => {
-    const { batch, leads, requests, webhook, db } = await setup(database);
+    const { batch, leads, remote, requests, sweep, db } = await setup(database);
     const ids = leads.map((lead) => lead.leadId);
 
     expect(requests).toHaveLength(1);
     expect(requests[0]?.url).toBe(
       "https://app.fullenrich.com/api/v2/contact/enrich/bulk?silentFail=true",
     );
-    expect(requests[0]?.body).toMatchObject({
-      webhook_url: "https://api.example.com/api/webhooks/email-finder",
-      webhook_events: {
-        contact_finished: "https://api.example.com/api/webhooks/email-finder",
-      },
-    });
+    expect(
+      Object.keys(z.record(z.string(), z.unknown()).parse(requests[0]?.body)),
+    ).toEqual(["name", "data"]);
     expect(batch).toMatchObject({ status: "waiting", providerId: "enr-real" });
     expect(await states(db, ids)).toEqual([
       ["running", null],
@@ -189,20 +152,25 @@ test("a batch started through the real FullEnrich client is finished by a webhoo
       ["running", null],
     ]);
 
-    const contact = await webhook({
+    remote.result = {
       id: "enr-real",
       status: "IN_PROGRESS",
       data: [record(batch.batchId, 0, "Zero@Example.com")],
-    });
+    };
+    await sweep();
 
-    expect(contact.status).toBe(200);
+    expect(requests[1]).toMatchObject({
+      method: "GET",
+      url: "https://app.fullenrich.com/api/v2/contact/enrich/bulk/enr-real",
+      authorization: `Bearer ${API_KEY}`,
+    });
     expect(await states(db, ids)).toEqual([
       ["done", null],
       ["running", null],
       ["running", null],
     ]);
 
-    const finished = await webhook({
+    remote.result = {
       id: "enr-real",
       status: "FINISHED",
       data: [
@@ -210,9 +178,9 @@ test("a batch started through the real FullEnrich client is finished by a webhoo
         record(batch.batchId, 1, null),
         record(batch.batchId, 2, "two@example.com"),
       ],
-    });
+    };
+    await sweep();
 
-    expect(finished.status).toBe(200);
     expect(await states(db, ids)).toEqual([
       ["done", null],
       ["failed", "No email found"],
@@ -227,106 +195,8 @@ test("a batch started through the real FullEnrich client is finished by a webhoo
       status: "finished",
       failureReason: null,
     });
-  });
-});
-
-test("a webhook signed with another key, or changed after it was signed, is refused with 401 and writes nothing", async () => {
-  await withTestDatabase(async (database) => {
-    const { batch, leads, webhook, db } = await setup(database);
-    const ids = leads.map((lead) => lead.leadId);
-    const payload = {
-      id: "enr-real",
-      status: "FINISHED",
-      data: [record(batch.batchId, 0, "evil@example.com")],
-    };
-    const raw = JSON.stringify(payload);
-
-    const wrongKey = await webhook(payload, sign(raw, "another-key"));
-    const changed = await webhook(
-      {
-        ...payload,
-        status: "FINISHED",
-        data: [record(batch.batchId, 1, "evil@example.com")],
-      },
-      sign(raw),
-    );
-
-    expect([wrongKey.status, changed.status]).toEqual([401, 401]);
-    expect(await states(db, ids)).toEqual([
-      ["running", null],
-      ["running", null],
-      ["running", null],
-    ]);
-    expect(await emails(db, ids)).toEqual([[], [], []]);
-    expect((await db.select().from(emailEnrichmentsTable))[0]?.status).toBe(
-      "waiting",
-    );
-  });
-});
-
-test("the webhook is not held back by the anonymous rate limit that stops other API routes", async () => {
-  await withTestDatabase(async (database) => {
-    const { app, batch, webhook } = await setup(database);
-
-    const limited = await app.request("/api/campaigns");
-    const hook = await webhook({
-      id: "enr-real",
-      status: "IN_PROGRESS",
-      data: [record(batch.batchId, 0, "a@example.com")],
-    });
-
-    expect(limited.status).toBe(429);
-    expect(hook.status).toBe(200);
-  });
-});
-
-test("a webhook that settled a batch leaves nothing for the sweep, and a sweep that settled it makes a late webhook change nothing", async () => {
-  await withTestDatabase(async (database) => {
-    const { batch, context, leads, webhook, db } = await setup(database);
-    const ids = leads.map((lead) => lead.leadId);
-    const services = new Services({ context });
-    const fetched: string[] = [];
-    const swept: Context = {
-      ...context,
-      emailFinder: new (class extends FakeEmailFinder {
-        public override async fetch(providerId: string) {
-          fetched.push(providerId);
-
-          return {
-            providerId,
-            batchId: batch.batchId,
-            state: "finished" as const,
-            reason: null,
-            results: [{ ref: 0, email: "swept@example.com" }],
-          };
-        }
-      })(),
-    };
-    await db
-      .update(emailEnrichmentsTable)
-      .set({ createdAt: new Date(Date.now() - 2 * EMAIL_FINDER_STALE_MS) });
-
-    await new Services({ context: swept }).findEmail.sweep();
-    const late = await webhook({
-      id: "enr-real",
-      status: "FINISHED",
-      data: [
-        record(batch.batchId, 0, "late@example.com"),
-        record(batch.batchId, 1, "late1@example.com"),
-      ],
-    });
-
-    expect(fetched).toEqual(["enr-real"]);
-    expect(await late.json()).toEqual({ applied: false });
-    expect(await emails(db, ids)).toEqual([["swept@example.com"], [], []]);
-    expect(await states(db, ids)).toEqual([
-      ["done", null],
-      ["failed", "No email found"],
-      ["failed", "No email found"],
-    ]);
-
-    await services.findEmail.sweep();
-    expect(fetched).toEqual(["enr-real"]);
+    await sweep();
+    expect(requests).toHaveLength(3);
   });
 });
 
@@ -386,7 +256,7 @@ afterEach(async () => {
   for (const cleanup of cleanups.splice(0)) await cleanup();
 });
 
-test("the sweep schedule is a real BullMQ job scheduler that fires every five minutes with the sweep job", async () => {
+test("the sweep schedule is a real BullMQ job scheduler that fires every two minutes with the sweep job", async () => {
   const name = `test-sweep-schedule-${randomUUID()}`;
   const queue = new BullQueue<{ type: string }>({
     concurrency: 1,
@@ -422,8 +292,8 @@ test("the sweep schedule is a real BullMQ job scheduler that fires every five mi
   await inspector.close();
   await connection.quit();
 
-  expect(EMAIL_FINDER_SWEEP_CRON).toBe("*/5 * * * *");
+  expect(EMAIL_FINDER_SWEEP_CRON).toBe("*/2 * * * *");
   expect(
     schedulers.map((scheduler) => [scheduler.key, scheduler.pattern]),
-  ).toEqual([["sweep-email-batches", "*/5 * * * *"]]);
+  ).toEqual([["sweep-email-batches", "*/2 * * * *"]]);
 });

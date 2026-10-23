@@ -4,6 +4,7 @@ import z from "zod";
 import { initENV } from "@server/config/env";
 import {
   campaignLeadsTable,
+  emailEnrichmentsTable,
   leadAssessmentsTable,
   leadsTable,
   type LeadInsert,
@@ -492,7 +493,7 @@ test("only an admin can re-run, an unknown campaign is 404, and a bad body is re
   });
 });
 
-test("re-running emails is refused while a batch is waiting for its webhook, and nothing moves", async () => {
+test("re-running emails is refused while a batch is waiting for its answer, and nothing moves", async () => {
   await withTestDatabase(async (database) => {
     const { admin, path, campaign, leads, emailFinder, context } = await setup(
       database,
@@ -528,7 +529,7 @@ test("re-running emails is refused while a batch is waiting for its webhook, and
   });
 });
 
-test("when the answer comes by webhook, a re-run lead keeps the emails it had, gains the new one, and stays done if the final answer has none", async () => {
+test("when the answer comes from the sweep, a re-run lead keeps the emails it had, gains the new one, and stays done if the final answer has none", async () => {
   await withTestDatabase(async (database) => {
     const { admin, path, campaign, leads, emailFinder, context } = await setup(
       database,
@@ -554,21 +555,23 @@ test("when the answer comes by webhook, a re-run lead keeps the emails it had, g
     await admin.post(path, { stage: 4, leadIds: ids });
     await services.findEmail.runCampaign({ campaignId: campaign.campaignId });
     const start = emailFinder.starts[0];
-    const send = (snapshot: object) =>
-      services.findEmail.receiveWebhook({
-        rawBody: JSON.stringify({
-          providerId: "fake-1",
-          batchId: start?.batchId,
-          state: "waiting",
-          reason: null,
-          results: [],
-          ...snapshot,
-        }),
-        signature: "valid",
+    const answer = async (snapshot: object) => {
+      emailFinder.snapshots.set("fake-1", {
+        providerId: "fake-1",
+        batchId: start?.batchId ?? null,
+        state: "waiting",
+        reason: null,
+        results: [],
+        ...snapshot,
       });
+      await database.db
+        .update(emailEnrichmentsTable)
+        .set({ createdAt: new Date(Date.now() - 10 * 60_000) });
+      await services.findEmail.sweep();
+    };
 
-    await send({ results: [{ ref: 0, email: "A-New@Example.com" }] });
-    await send({
+    await answer({ results: [{ ref: 0, email: "A-New@Example.com" }] });
+    await answer({
       state: "finished",
       results: [
         { ref: 1, email: null },
