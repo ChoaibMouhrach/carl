@@ -1,4 +1,5 @@
 import type { ScrapeRun, StageCount } from "@/api/campaign";
+import type { RerunScope } from "@/lib/campaign";
 import { leadStatusLabels } from "@/lib/campaign";
 import { formatNumber } from "@/lib/format";
 import { leadStatuses } from "@/lib/campaign";
@@ -30,10 +31,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@repo/ui/components/ui/tooltip";
+import { FindEmailActions } from "./find-email-actions";
 import { Link } from "@tanstack/react-router";
 import {
   ListChecksIcon,
-  MailSearchIcon,
   PlayIcon,
   RefreshCwIcon,
   SearchIcon,
@@ -55,6 +56,7 @@ interface StagePanelProps {
   isReapplying: boolean;
   onReapplyFilter: () => void;
   onRunEnrich: () => void;
+  onRerunEmailScope: (scope: RerunScope) => void;
   onRunFindEmail: () => void;
   onRunFilter: () => void;
   isRunning: boolean;
@@ -72,6 +74,7 @@ export const StagePanel = ({
   isReapplying,
   onReapplyFilter,
   onRunEnrich,
+  onRerunEmailScope,
   onRunFindEmail,
   onRunFilter,
   isRunning,
@@ -180,30 +183,12 @@ export const StagePanel = ({
             </div>
           )}
           {isFindEmailStage && (
-            <div className="flex flex-wrap items-center gap-3">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <span className="inline-flex">
-                        <Button
-                          disabled={!canRun || isFindingEmail}
-                          onClick={onRunFindEmail}
-                        >
-                          {isFindingEmail ? <Spinner /> : <MailSearchIcon />}
-                          Find emails
-                        </Button>
-                      </span>
-                    }
-                  />
-                  <TooltipContent>
-                    {canRun
-                      ? "Ask FullEnrich for a work email for each lead that has a LinkedIn profile or a website"
-                      : "Activate the campaign to find emails"}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
+            <FindEmailActions
+              canRun={canRun}
+              isPending={isFindingEmail}
+              onRerunScope={onRerunEmailScope}
+              onRun={onRunFindEmail}
+            />
           )}
           {canStart && (
             <div className="flex flex-wrap items-center gap-3">

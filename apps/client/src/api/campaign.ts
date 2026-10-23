@@ -1,5 +1,10 @@
 import type { InferRequestType } from "hono/client";
-import type { CampaignStatus, LeadStatus, StageNumber } from "@/lib/campaign";
+import type {
+  CampaignStatus,
+  LeadStatus,
+  RerunScope,
+  StageNumber,
+} from "@/lib/campaign";
 import { BaseApi } from "@/lib/base-api";
 import { http } from "@/lib/http";
 
@@ -179,7 +184,9 @@ export class CampaignApi extends BaseApi {
 
   public rerun(
     where: { campaignId: number },
-    input: { stage: 2 | 3 | 4; leadIds: number[] },
+    input:
+      | { stage: 2 | 3 | 4; leadIds: number[] }
+      | { stage: 4; scope: RerunScope },
   ) {
     return this.call(() =>
       http.api.campaigns[":campaignId"].rerun.$post({

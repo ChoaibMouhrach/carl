@@ -10,6 +10,7 @@ import { onError } from "@/lib/base-api";
 import {
   stageNumbers,
   type CampaignStatus,
+  type RerunScope,
   type StageNumber,
 } from "@/lib/campaign";
 import { invalidateCampaignData } from "@/lib/invalidate";
@@ -124,26 +125,38 @@ export const Campaign = () => {
     },
   });
 
+  const onRerunStarted = async (result: {
+    queued: number;
+    skipped?: number;
+  }) => {
+    const skipped = result.skipped ?? 0;
+    const leads = result.queued === 1 ? "lead" : "leads";
+    const left =
+      skipped === 1
+        ? "1 selected lead was left out."
+        : `${skipped} selected leads were left out.`;
+
+    toast.success(
+      skipped > 0
+        ? `Re-run started for ${result.queued} ${leads}. ${left}`
+        : `Re-run started for ${result.queued} ${leads}.`,
+    );
+    selection.clear();
+    await invalidateCampaignData(queryClient);
+  };
+
   const rerun = useMutation({
     mutationFn: (stage: RerunStage) =>
       api.campaign.rerun({ campaignId }, { stage, leadIds: selection.ids }),
     onError,
-    onSuccess: async (result) => {
-      const skipped = "skipped" in result ? result.skipped : 0;
-      const leads = result.queued === 1 ? "lead" : "leads";
-      const left =
-        skipped === 1
-          ? "1 selected lead was left out."
-          : `${skipped} selected leads were left out.`;
+    onSuccess: onRerunStarted,
+  });
 
-      toast.success(
-        skipped > 0
-          ? `Re-run started for ${result.queued} ${leads}. ${left}`
-          : `Re-run started for ${result.queued} ${leads}.`,
-      );
-      selection.clear();
-      await invalidateCampaignData(queryClient);
-    },
+  const rerunEmailScope = useMutation({
+    mutationFn: (scope: RerunScope) =>
+      api.campaign.rerun({ campaignId }, { stage: 4, scope }),
+    onError,
+    onSuccess: onRerunStarted,
   });
 
   const reapplyFilter = useMutation({
@@ -274,10 +287,12 @@ export const Campaign = () => {
           }
           isFindingEmail={
             startFindEmail.isPending ||
+            rerunEmailScope.isPending ||
             (stages.find((item) => item.stage === 4)?.running ?? 0) > 0
           }
           onRunEnrich={() => startEnrich.mutate()}
           onRunFindEmail={() => startFindEmail.mutate()}
+          onRerunEmailScope={(scope) => rerunEmailScope.mutate(scope)}
           onReapplyFilter={() => reapplyFilter.mutate()}
           isReapplying={reapplyFilter.isPending}
           onRunFilter={() => startFilter.mutate()}
