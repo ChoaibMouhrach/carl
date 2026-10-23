@@ -18,7 +18,10 @@ const ERROR_REASON_LENGTH = 300;
 const NOTHING_FOUND = "Nothing found";
 
 export class EnrichService extends BaseService {
-  public async start(input: { campaignId: number }) {
+  public async start(
+    input: { campaignId: number },
+    options?: { leadIds: number[] },
+  ) {
     const campaign = await this.findCampaign(input.campaignId);
 
     if (campaign.status !== "active") {
@@ -35,6 +38,10 @@ export class EnrichService extends BaseService {
       queue: this.context.queueHub.enrich,
       message: "The web search is already running for this campaign.",
     });
+
+    const reset = options
+      ? await this.resetForRerun({ ...stage, leadIds: options.leadIds })
+      : 0;
 
     await campaignLead.advanceDone({
       campaignId: input.campaignId,
@@ -66,7 +73,9 @@ export class EnrichService extends BaseService {
       webSearch: this.context.webSearch.provider,
     });
 
-    return { queued };
+    return options
+      ? { queued, skipped: options.leadIds.length - reset }
+      : { queued };
   }
 
   /** Worker entry: finds a LinkedIn profile, or else a website, for every lead waiting at the web search stage */
@@ -96,6 +105,10 @@ export class EnrichService extends BaseService {
       webSearch: this.context.webSearch.provider,
     });
 
+    const forced = await campaignLead.listRerunLeadIds({
+      campaignId: input.campaignId,
+      stage: ENRICH_STAGE,
+    });
     const outcomes: Record<string, number> = {};
 
     const liveUpdate = createThrottle(
@@ -116,7 +129,7 @@ export class EnrichService extends BaseService {
         liveUpdate.call();
 
         try {
-          const outcome = await this.enrich(leadId);
+          const outcome = await this.enrich(leadId, forced.has(leadId));
           const foundSomething = outcome !== "nothing";
 
           outcomes[outcome] = (outcomes[outcome] ?? 0) + 1;
@@ -156,7 +169,7 @@ export class EnrichService extends BaseService {
   }
 
   /** Says how the lead ended up: it already had a link, a LinkedIn profile or a website was found, or nothing was */
-  private async enrich(leadId: number) {
+  private async enrich(leadId: number, forced: boolean) {
     const { lead, community } = this.context.repositories;
     const found = await lead.findByLeadId({ leadId });
 
@@ -164,7 +177,9 @@ export class EnrichService extends BaseService {
       throw new NotFoundError({ message: "Lead not found." });
     }
 
-    if (found.linkedinUrl || found.website) return "known";
+    const hasPresence = Boolean(found.linkedinUrl || found.website);
+
+    if (hasPresence && !forced) return "known";
 
     const communities = await community.findAllByLeadId({ leadId });
     const query = {
@@ -190,7 +205,7 @@ export class EnrichService extends BaseService {
     });
     const website = pickWebsite(websiteResults, query);
 
-    if (!website) return "nothing";
+    if (!website) return hasPresence ? "known" : "nothing";
 
     await lead.update({ leadId }, { website });
 

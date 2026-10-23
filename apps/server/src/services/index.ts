@@ -11,6 +11,7 @@ import { McpService } from "./mcp";
 import { FilterService } from "./filter";
 import { EnrichService } from "./enrich";
 import { FindEmailService } from "./find-email";
+import { RerunService } from "./rerun";
 import { SkoolLookupService } from "./skool-lookup";
 
 interface ServicesConstructorParams {
@@ -31,6 +32,7 @@ export class Services {
   public filter;
   public enrich;
   public findEmail;
+  public rerun;
 
   public constructor({ context }: ServicesConstructorParams) {
     this.platformSetup = new PlatformSetupService({
@@ -59,5 +61,6 @@ export class Services {
 
     this.enrich = new EnrichService({ context });
     this.findEmail = new FindEmailService({ context });
+    this.rerun = new RerunService({ context });
   }
 }

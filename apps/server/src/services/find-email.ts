@@ -61,7 +61,10 @@ const messageOf = (error: unknown) =>
   );
 
 export class FindEmailService extends BaseService {
-  public async start(input: { campaignId: number }) {
+  public async start(
+    input: { campaignId: number },
+    options?: { leadIds: number[] },
+  ) {
     const campaign = await this.findCampaign(input.campaignId);
 
     if (campaign.status !== "active") {
@@ -80,6 +83,10 @@ export class FindEmailService extends BaseService {
       alsoBusy: () =>
         emailEnrichment.hasWaiting({ campaignId: input.campaignId }),
     });
+
+    const reset = options
+      ? await this.resetForRerun({ ...stage, leadIds: options.leadIds })
+      : 0;
 
     await campaignLead.advanceDone({
       campaignId: input.campaignId,
@@ -113,7 +120,9 @@ export class FindEmailService extends BaseService {
       emailFinder: this.context.emailFinder.provider,
     });
 
-    return { queued };
+    return options
+      ? { queued, skipped: options.leadIds.length - reset }
+      : { queued };
   }
 
   /** Worker entry: hands every lead waiting at the email stage to the provider in batches; the answers arrive by webhook or from the sweep */
@@ -152,7 +161,11 @@ export class FindEmailService extends BaseService {
     const count: Count = (outcome, amount = 1) => {
       outcomes[outcome] = (outcomes[outcome] ?? 0) + amount;
     };
-    const groups = await this.prepare(input.campaignId, leadIds, count);
+    const forced = await campaignLead.listRerunLeadIds({
+      campaignId: input.campaignId,
+      stage: FIND_EMAIL_STAGE,
+    });
+    const groups = await this.prepare(input.campaignId, leadIds, forced, count);
 
     await mapPool(
       chunk(groups, EMAIL_FINDER_BATCH_SIZE),
@@ -263,7 +276,12 @@ export class FindEmailService extends BaseService {
   }
 
   /** Settles every lead that needs no paid search and groups the others by what would be sent, so the same lookup is never paid for twice */
-  private async prepare(campaignId: number, leadIds: number[], count: Count) {
+  private async prepare(
+    campaignId: number,
+    leadIds: number[],
+    forced: Set<number>,
+    count: Count,
+  ) {
     const { campaignLead, lead } = this.context.repositories;
     const groups = new Map<string, LookupGroup[]>();
 
@@ -280,7 +298,7 @@ export class FindEmailService extends BaseService {
         continue;
       }
 
-      if (found.emails.length > 0) {
+      if (found.emails.length > 0 && !forced.has(leadId)) {
         count("known");
         await campaignLead.setStatus(where, {
           status: "done",
@@ -400,9 +418,10 @@ export class FindEmailService extends BaseService {
       const email = result.email?.trim().toLowerCase();
 
       for (const leadId of leadIds) {
+        const keepsEmail = !email && (await this.hasEmail(leadId));
         const finished = await campaignLead.finishRunning(
           { ...base, leadId },
-          email
+          email || keepsEmail
             ? { status: "done", failureReason: null }
             : { status: "failed", failureReason: NO_EMAIL_FOUND },
         );
@@ -440,9 +459,13 @@ export class FindEmailService extends BaseService {
             : NO_EMAIL_FOUND;
 
         for (const leadId of enrichment.groups.flat()) {
+          const keepsEmail =
+            snapshot.state === "finished" && (await this.hasEmail(leadId));
           const finished = await campaignLead.finishRunning(
             { ...base, leadId },
-            { status: "failed", failureReason: reason },
+            keepsEmail
+              ? { status: "done", failureReason: null }
+              : { status: "failed", failureReason: reason },
           );
 
           if (!finished) continue;
@@ -462,6 +485,13 @@ export class FindEmailService extends BaseService {
       failed,
     });
     await this.liveUpdate(snapshot.state !== "waiting");
+  }
+
+  /** A lead run again that finds nothing new still has the email it had */
+  private async hasEmail(leadId: number) {
+    const found = await this.context.repositories.lead.findByLeadId({ leadId });
+
+    return (found?.emails.length ?? 0) > 0;
   }
 
   private async liveUpdate(final: boolean) {

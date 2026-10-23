@@ -104,7 +104,10 @@ export class FilterService extends BaseService {
     };
   }
 
-  public async start(input: { campaignId: number }) {
+  public async start(
+    input: { campaignId: number },
+    options?: { leadIds: number[] },
+  ) {
     const campaign = await this.findCampaign(input.campaignId);
 
     if (campaign.status !== "active") {
@@ -123,6 +126,10 @@ export class FilterService extends BaseService {
       queue: this.context.queueHub.filter,
       message: "The AI filter is already running for this campaign.",
     });
+
+    const reset = options
+      ? await this.resetForRerun({ ...stage, leadIds: options.leadIds })
+      : 0;
 
     await campaignLead.advanceDone({
       campaignId: input.campaignId,
@@ -145,7 +152,9 @@ export class FilterService extends BaseService {
     await this.context.queueHub.filter.add({ campaignId: input.campaignId });
     await this.context.eventBus.publish("campaigns.changed");
 
-    return { queued };
+    return options
+      ? { queued, skipped: options.leadIds.length - reset }
+      : { queued };
   }
 
   /** Worker entry: classifies every lead waiting at the filter stage */

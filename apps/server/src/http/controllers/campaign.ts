@@ -8,6 +8,7 @@ import {
   campaignLeadQuerySchema,
   saveFilterSchema,
   campaignQuerySchema,
+  rerunSchema,
   createCampaignSchema,
   scrapeQuerySchema,
   updateCampaignSchema,
@@ -237,6 +238,23 @@ export const campaignController = new Hono<AppContext>()
       const result = await context
         .get("services")
         .findEmail.start({ campaignId });
+
+      return context.json(result, 202);
+    },
+  )
+
+  .post(
+    "/:campaignId/rerun",
+    describeRoute({ tags: ["campaign"] }),
+    validator("param", campaignIdParamSchema),
+    validator("json", rerunSchema),
+    async (context) => {
+      const { campaignId } = context.req.valid("param");
+      const body = context.req.valid("json");
+
+      const result = await context
+        .get("services")
+        .rerun.start({ campaignId }, body);
 
       return context.json(result, 202);
     },

@@ -3,9 +3,11 @@ import {
   desc,
   eq,
   exists,
+  gte,
   ilike,
   inArray,
   isNull,
+  ne,
   notExists,
   notInArray,
   or,
@@ -23,6 +25,9 @@ import {
 } from "@server/infrastructure/database/schemas";
 
 const ATTACH_CHUNK_SIZE = 1_000;
+
+const isFinished = (status: LeadStatus) =>
+  status === "done" || status === "failed";
 
 export class CampaignLeadRepository extends BaseRepository {
   private static table = campaignLeadsTable;
@@ -146,7 +151,7 @@ export class CampaignLeadRepository extends BaseRepository {
     const table = CampaignLeadRepository.table;
     const finished = await this.db
       .update(table)
-      .set(input)
+      .set({ ...input, ...(isFinished(input.status) ? { rerun: false } : {}) })
       .where(
         and(
           eq(table.campaignId, where.campaignId),
@@ -229,6 +234,53 @@ export class CampaignLeadRepository extends BaseRepository {
     return row?.count ?? 0;
   }
 
+  /** Sends the given leads back to a stage to be run again, leaving out leads that are running or have not reached it; returns how many were sent back */
+  public async resetForRerun(where: {
+    campaignId: number;
+    stage: StageNumber;
+    leadIds: number[];
+  }) {
+    const table = CampaignLeadRepository.table;
+    const reset = await this.db
+      .update(table)
+      .set({
+        stage: where.stage,
+        status: "pending",
+        failureReason: null,
+        rerun: true,
+      })
+      .where(
+        and(
+          eq(table.campaignId, where.campaignId),
+          inArray(table.leadId, where.leadIds),
+          gte(table.stage, where.stage),
+          ne(table.status, "running"),
+        ),
+      )
+      .returning({ leadId: table.leadId });
+
+    return reset.length;
+  }
+
+  public async listRerunLeadIds(where: {
+    campaignId: number;
+    stage: StageNumber;
+  }) {
+    const table = CampaignLeadRepository.table;
+    const rows = await this.db
+      .select({ leadId: table.leadId })
+      .from(table)
+      .where(
+        and(
+          eq(table.campaignId, where.campaignId),
+          eq(table.stage, where.stage),
+          eq(table.rerun, true),
+        ),
+      );
+
+    return new Set(rows.map((row) => row.leadId));
+  }
+
   public async listLeadIdsAtStageWithStatus(where: {
     campaignId: number;
     stage: StageNumber;
@@ -258,7 +310,7 @@ export class CampaignLeadRepository extends BaseRepository {
 
     await this.db
       .update(table)
-      .set(input)
+      .set({ ...input, ...(isFinished(input.status) ? { rerun: false } : {}) })
       .where(
         and(
           eq(table.campaignId, where.campaignId),

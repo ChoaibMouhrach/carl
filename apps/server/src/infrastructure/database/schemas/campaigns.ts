@@ -129,6 +129,8 @@ export const campaignLeadsTable = pgTable(
     stage: integer().$type<StageNumber>().notNull().default(1),
     status: text().$type<LeadStatus>().notNull().default("pending"),
     failureReason: text(),
+    /** Set while the lead is being run again on purpose, so a stage does not skip it for already having a result */
+    rerun: boolean().notNull().default(false),
     /** The campaign keyword that first found the lead */
     keyword: text(),
 

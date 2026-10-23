@@ -126,3 +126,8 @@ export const saveFilterSchema = z.object({
     )
     .max(maxFilterQuestions),
 });
+
+export const rerunSchema = z.object({
+  stage: z.union([z.literal(2), z.literal(3), z.literal(4)]),
+  leadIds: z.array(z.number().int().positive()).min(1).max(1000),
+});

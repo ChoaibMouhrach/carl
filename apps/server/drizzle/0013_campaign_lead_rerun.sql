@@ -1,0 +1,1 @@
+ALTER TABLE "campaign_leads" ADD COLUMN "rerun" boolean DEFAULT false NOT NULL;

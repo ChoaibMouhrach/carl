@@ -1,7 +1,7 @@
 import type { StageNumber } from "@repo/constants/campaign";
 import type { Context } from "@server/context";
 import type { BaseQueue } from "./base-queue";
-import { ConflictError } from "./errors";
+import { BadRequestError, ConflictError } from "./errors";
 
 export abstract class BaseService {
   protected context;
@@ -43,5 +43,24 @@ export abstract class BaseService {
       ...where,
       recovered,
     });
+  }
+
+  /** Sends the chosen leads back to a stage to run again; refuses when none of them can be */
+  protected async resetForRerun(input: {
+    campaignId: number;
+    stage: StageNumber;
+    leadIds: number[];
+  }) {
+    const reset =
+      await this.context.repositories.campaignLead.resetForRerun(input);
+
+    if (reset === 0) {
+      throw new BadRequestError({
+        message:
+          "None of the selected leads can be run again for this stage. Leads that are running, or have not reached it, are left out.",
+      });
+    }
+
+    return reset;
   }
 }
