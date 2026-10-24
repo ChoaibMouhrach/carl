@@ -10,22 +10,21 @@ test("every API response carries a request id that is unique per request, reused
   const [response] = await Promise.all([
     page.waitForResponse(
       (candidate) =>
-        new URL(candidate.url()).pathname === "/api/campaigns" &&
-        candidate.ok(),
+        new URL(candidate.url()).pathname === "/api/queues" && candidate.ok(),
     ),
-    page.goto("/admin/campaigns"),
+    page.goto("/admin/queues"),
   ]);
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
   const pageRequestId = response.headers()["x-request-id"];
   expect(pageRequestId).toMatch(uuid);
 
   const api = new URL(response.url()).origin;
-  const first = await page.request.get(`${api}/api/campaigns`);
-  const second = await page.request.get(`${api}/api/campaigns`);
-  const reused = await page.request.get(`${api}/api/campaigns`, {
+  const first = await page.request.get(`${api}/api/queues`);
+  const second = await page.request.get(`${api}/api/queues`);
+  const reused = await page.request.get(`${api}/api/queues`, {
     headers: { "x-request-id": "e2e-trace-123.abc" },
   });
-  const replaced = await page.request.get(`${api}/api/campaigns`, {
+  const replaced = await page.request.get(`${api}/api/queues`, {
     headers: { "x-request-id": "not a safe id!" },
   });
 
@@ -39,7 +38,7 @@ test("every API response carries a request id that is unique per request, reused
   expect(replaced.headers()["x-request-id"]).not.toBe("not a safe id!");
 
   const unauthenticated = await page.context().browser()?.newContext();
-  const anonymous = await unauthenticated?.request.get(`${api}/api/campaigns`);
+  const anonymous = await unauthenticated?.request.get(`${api}/api/queues`);
   expect(anonymous?.status()).toBe(401);
   expect(anonymous?.headers()["x-request-id"]).toMatch(uuid);
   await unauthenticated?.close();

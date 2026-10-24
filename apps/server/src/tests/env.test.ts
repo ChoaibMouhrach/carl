@@ -150,116 +150,11 @@ describe("database and redis connection env", () => {
   });
 });
 
-describe("the AI key", () => {
-  let original: string | undefined;
-
-  beforeEach(() => {
-    original = process.env["OPENAI_API_KEY"];
-  });
-
-  afterEach(() => {
-    if (original === undefined) delete process.env["OPENAI_API_KEY"];
-    else process.env["OPENAI_API_KEY"] = original;
-  });
-
-  test("is required: a missing or empty key stops the server from starting", () => {
-    delete process.env["OPENAI_API_KEY"];
-    expect(() => initENV()).toThrow(/OPENAI_API_KEY/);
-
-    process.env["OPENAI_API_KEY"] = "";
-    expect(() => initENV()).toThrow(/OPENAI_API_KEY/);
-  });
-
-  test("is passed through as given when it is set", () => {
-    process.env["OPENAI_API_KEY"] = "sk-test-key";
-
-    expect(initENV().OPENAI_API_KEY).toBe("sk-test-key");
-  });
-});
-
-describe("the AI filter concurrency", () => {
-  let original: string | undefined;
-
-  beforeEach(() => {
-    original = process.env["AI_FILTER_CONCURRENCY"];
-    process.env["OPENAI_API_KEY"] ??= "sk-test-key";
-  });
-
-  afterEach(() => {
-    if (original === undefined) delete process.env["AI_FILTER_CONCURRENCY"];
-    else process.env["AI_FILTER_CONCURRENCY"] = original;
-  });
-
-  test("defaults to twelve", () => {
-    delete process.env["AI_FILTER_CONCURRENCY"];
-
-    expect(initENV().AI_FILTER_CONCURRENCY).toBe(12);
-  });
-
-  test("reads a number and refuses zero, a fraction or more than 64", () => {
-    process.env["AI_FILTER_CONCURRENCY"] = "20";
-    expect(initENV().AI_FILTER_CONCURRENCY).toBe(20);
-
-    for (const bad of ["0", "1.5", "65", "many"]) {
-      process.env["AI_FILTER_CONCURRENCY"] = bad;
-      expect(() => initENV()).toThrow(/AI_FILTER_CONCURRENCY/);
-    }
-  });
-});
-
-describe("the web search settings", () => {
-  let key: string | undefined;
-  let concurrency: string | undefined;
-
-  beforeEach(() => {
-    key = process.env["TAVILY_API_KEY"];
-    concurrency = process.env["ENRICH_CONCURRENCY"];
-    process.env["OPENAI_API_KEY"] ??= "sk-test-key";
-    process.env["TAVILY_API_KEY"] ??= "tvly-test-key";
-  });
-
-  afterEach(() => {
-    if (key === undefined) delete process.env["TAVILY_API_KEY"];
-    else process.env["TAVILY_API_KEY"] = key;
-    if (concurrency === undefined) delete process.env["ENRICH_CONCURRENCY"];
-    else process.env["ENRICH_CONCURRENCY"] = concurrency;
-  });
-
-  test("the key is required: a missing or empty key stops the server from starting", () => {
-    delete process.env["TAVILY_API_KEY"];
-    expect(() => initENV()).toThrow(/TAVILY_API_KEY/);
-
-    process.env["TAVILY_API_KEY"] = "";
-    expect(() => initENV()).toThrow(/TAVILY_API_KEY/);
-  });
-
-  test("the concurrency is 5 by default and must be a whole number from 1 to 32", () => {
-    delete process.env["ENRICH_CONCURRENCY"];
-    expect(initENV().ENRICH_CONCURRENCY).toBe(5);
-
-    process.env["ENRICH_CONCURRENCY"] = "32";
-    expect(initENV().ENRICH_CONCURRENCY).toBe(32);
-
-    for (const bad of ["0", "33", "2.5", "many"]) {
-      process.env["ENRICH_CONCURRENCY"] = bad;
-      expect(() => initENV()).toThrow(/ENRICH_CONCURRENCY/);
-    }
-  });
-
-  test("an empty concurrency, as hosting platforms leave unset keys, falls back to 5", () => {
-    process.env["ENRICH_CONCURRENCY"] = "";
-
-    expect(initENV().ENRICH_CONCURRENCY).toBe(5);
-  });
-});
-
 describe("LOG_LEVEL", () => {
   let level: string | undefined;
 
   beforeEach(() => {
     level = process.env["LOG_LEVEL"];
-    process.env["OPENAI_API_KEY"] ??= "sk-test-key";
-    process.env["TAVILY_API_KEY"] ??= "tvly-test-key";
   });
 
   afterEach(() => {
@@ -281,29 +176,5 @@ describe("LOG_LEVEL", () => {
 
     process.env["LOG_LEVEL"] = "verbose";
     expect(() => initENV()).toThrow(/LOG_LEVEL/);
-  });
-});
-
-describe("FULLENRICH_API_KEY", () => {
-  let key: string | undefined;
-
-  beforeEach(() => {
-    key = process.env["FULLENRICH_API_KEY"];
-    process.env["OPENAI_API_KEY"] ??= "sk-test-key";
-    process.env["TAVILY_API_KEY"] ??= "tvly-test-key";
-    process.env["FULLENRICH_API_KEY"] ??= "fe-test-key";
-  });
-
-  afterEach(() => {
-    if (key === undefined) delete process.env["FULLENRICH_API_KEY"];
-    else process.env["FULLENRICH_API_KEY"] = key;
-  });
-
-  test("the key is required: a missing or empty key stops the server from starting", () => {
-    delete process.env["FULLENRICH_API_KEY"];
-    expect(() => initENV()).toThrow(/FULLENRICH_API_KEY/);
-
-    process.env["FULLENRICH_API_KEY"] = "";
-    expect(() => initENV()).toThrow(/FULLENRICH_API_KEY/);
   });
 });

@@ -1,14 +1,11 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { admin, mcp } from "better-auth/plugins";
+import { admin } from "better-auth/plugins";
 import { passkey } from "@better-auth/passkey";
 import type { ENV } from "@server/config/env";
 import type { DB } from "@server/infrastructure/database/client";
 import {
   accountTable,
-  oauthAccessTokenTable,
-  oauthApplicationTable,
-  oauthConsentTable,
   passkeyTable,
   sessionTable,
   userTable,
@@ -36,9 +33,6 @@ export const createAuth = (input: {
       provider: "pg",
       schema: {
         account: accountTable,
-        oauthAccessToken: oauthAccessTokenTable,
-        oauthApplication: oauthApplicationTable,
-        oauthConsent: oauthConsentTable,
         passkey: passkeyTable,
         session: sessionTable,
         user: userTable,
@@ -99,10 +93,6 @@ export const createAuth = (input: {
     session: { freshAge: 0 },
     plugins: [
       admin(),
-      mcp({
-        loginPage: `${clientUrl.origin}/sign-in`,
-        resource: `${input.env.VITE_API_URL}/api/mcp`,
-      }),
       passkey({
         rpID: clientUrl.hostname,
         rpName: "Carl",

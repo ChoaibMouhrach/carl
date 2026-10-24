@@ -7,10 +7,6 @@ import type { Context } from "./context";
 import { AppRedirect, redirectAsJson } from "./http/utils";
 import { readClientHtml } from "./http/client-html";
 import type { Role } from "./config/constants";
-import {
-  oAuthDiscoveryMetadata,
-  oAuthProtectedResourceMetadata,
-} from "better-auth/plugins";
 import { controllers } from "./http/controllers";
 import { openAPIRouteHandler } from "hono-openapi";
 import { HTTPException } from "hono/http-exception";
@@ -70,14 +66,6 @@ export const initApp = async (params: initAppParams) => {
       (context) => params.context.auth.handler(context.req.raw),
     )
 
-    .get("/.well-known/oauth-authorization-server", (context) =>
-      oAuthDiscoveryMetadata(params.context.auth)(context.req.raw),
-    )
-
-    .get("/.well-known/oauth-protected-resource", (context) =>
-      oAuthProtectedResourceMetadata(params.context.auth)(context.req.raw),
-    )
-
     .on(["POST", "GET"], "/api/auth/*", (context) =>
       params.context.auth.handler(context.req.raw),
     )
@@ -88,9 +76,6 @@ export const initApp = async (params: initAppParams) => {
       }
 
       if (error instanceof HTTPException) {
-        // The MCP transport answers protocol errors with a body of its own
-        if (error.res) return error.res;
-
         return context.json(
           {
             error: error.message,

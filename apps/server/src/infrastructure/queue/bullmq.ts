@@ -7,13 +7,9 @@ import {
   BaseQueueHub,
   type AddJobOptions,
   type EmailJob,
-  type EnrichJob,
-  type FindEmailJob,
-  type FilterJob,
   type ListFailedInput,
   type ListFailedResult,
   type MaintenanceJob,
-  type ScrapeJob,
   type QueueConsumer,
   type QueueJobCounts,
   type RegisteredQueue,
@@ -26,21 +22,6 @@ const emailJobName = "send";
 const maintenanceQueueName = "maintenance";
 const maintenanceJobName = "run";
 const maintenanceConcurrency = 1;
-
-const scrapeQueueName = "scrape";
-const scrapeJobName = "run";
-const scrapeConcurrency = 1;
-
-const filterQueueName = "filter";
-const filterJobName = "run";
-const filterConcurrency = 1;
-
-const enrichQueueName = "enrich";
-const enrichJobName = "run";
-const enrichConcurrency = 1;
-const findEmailQueueName = "find-email";
-const findEmailJobName = "run";
-const findEmailConcurrency = 1;
 
 const FAILED_JOB_RETENTION_SECONDS = 60 * 60 * 24 * 7;
 const FAILED_JOB_RETENTION_COUNT = 5_000;
@@ -298,82 +279,14 @@ export class MaintenanceQueue extends BullQueue<MaintenanceJob> {
   }
 }
 
-export class ScrapeQueue extends BullQueue<ScrapeJob> {
-  public constructor(init: MaintenanceQueueInit) {
-    super({
-      ...init,
-      concurrency: scrapeConcurrency,
-      jobName: scrapeJobName,
-      name: scrapeQueueName,
-    });
-  }
-}
-
-export class FilterQueue extends BullQueue<FilterJob> {
-  public constructor(init: MaintenanceQueueInit) {
-    super({
-      ...init,
-      concurrency: filterConcurrency,
-      jobName: filterJobName,
-      name: filterQueueName,
-    });
-  }
-}
-
-export class EnrichQueue extends BullQueue<EnrichJob> {
-  public constructor(init: MaintenanceQueueInit) {
-    super({
-      ...init,
-      concurrency: enrichConcurrency,
-      jobName: enrichJobName,
-      name: enrichQueueName,
-    });
-  }
-}
-
-export class FindEmailQueue extends BullQueue<FindEmailJob> {
-  public constructor(init: MaintenanceQueueInit) {
-    super({
-      ...init,
-      concurrency: findEmailConcurrency,
-      jobName: findEmailJobName,
-      name: findEmailQueueName,
-    });
-  }
-}
-
 export class QueueHub extends BaseQueueHub {
   public email: EmailQueue;
   public maintenance: MaintenanceQueue;
-  public scrape: ScrapeQueue;
-  public filter: FilterQueue;
-  public enrich: EnrichQueue;
-  public findEmail: FindEmailQueue;
 
   public constructor(init: EmailQueueInit) {
     super();
     this.email = new EmailQueue(init);
     this.maintenance = new MaintenanceQueue({
-      errorMonitor: init.errorMonitor,
-      logger: init.logger,
-      redisUrl: init.redisUrl,
-    });
-    this.scrape = new ScrapeQueue({
-      errorMonitor: init.errorMonitor,
-      logger: init.logger,
-      redisUrl: init.redisUrl,
-    });
-    this.filter = new FilterQueue({
-      errorMonitor: init.errorMonitor,
-      logger: init.logger,
-      redisUrl: init.redisUrl,
-    });
-    this.enrich = new EnrichQueue({
-      errorMonitor: init.errorMonitor,
-      logger: init.logger,
-      redisUrl: init.redisUrl,
-    });
-    this.findEmail = new FindEmailQueue({
       errorMonitor: init.errorMonitor,
       logger: init.logger,
       redisUrl: init.redisUrl,
@@ -384,19 +297,11 @@ export class QueueHub extends BaseQueueHub {
     return [
       { name: emailQueueName, queue: this.email },
       { name: maintenanceQueueName, queue: this.maintenance },
-      { name: scrapeQueueName, queue: this.scrape },
-      { name: filterQueueName, queue: this.filter },
-      { name: enrichQueueName, queue: this.enrich },
-      { name: findEmailQueueName, queue: this.findEmail },
     ];
   }
 
   public override async close(): Promise<void> {
     await this.email.close();
     await this.maintenance.close();
-    await this.scrape.close();
-    await this.filter.close();
-    await this.enrich.close();
-    await this.findEmail.close();
   }
 }

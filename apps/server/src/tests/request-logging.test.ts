@@ -15,7 +15,7 @@ test("an API request is logged with its method, path without the query string, s
     const logger = loggerOf(context.logger);
     const app = await initApp({ context });
 
-    const response = await app.request("/api/campaigns?search=hunter2");
+    const response = await app.request("/api/queues?search=hunter2");
 
     const requestId = response.headers.get("x-request-id");
     expect(response.status).toBe(401);
@@ -27,7 +27,7 @@ test("an API request is logged with its method, path without the query string, s
           message: "Request completed.",
           requestId,
           method: "GET",
-          path: "/api/campaigns",
+          path: "/api/queues",
           status: 401,
           durationMs: expect.any(Number),
         },
@@ -41,10 +41,10 @@ test("a request id sent by the caller is reused, and an unsafe one is replaced",
     const logger = loggerOf(context.logger);
     const app = await initApp({ context });
 
-    const reused = await app.request("/api/campaigns", {
+    const reused = await app.request("/api/queues", {
       headers: { "x-request-id": "trace-123.abc" },
     });
-    const replaced = await app.request("/api/campaigns", {
+    const replaced = await app.request("/api/queues", {
       headers: { "x-request-id": "bad id\twith spaces" },
     });
 
@@ -66,17 +66,17 @@ test("a successful request is logged as info and an unexpected failure as an err
     const admin = await createAdminClient(context, "logging-admin@example.com");
     logger.records.length = 0;
 
-    const ok = await admin.get("/api/campaigns");
+    const ok = await admin.get("/api/queues");
 
     expect(ok.status).toBe(200);
     expect(logger.records.map((record) => record.level)).toEqual(["info"]);
 
     logger.records.length = 0;
-    context.repositories.campaign.list = async () => {
+    context.queueHub.email.getCounts = async () => {
       throw new Error("db exploded");
     };
 
-    const failed = await admin.get("/api/campaigns");
+    const failed = await admin.get("/api/queues");
 
     const requestId = failed.headers.get("x-request-id");
     expect(failed.status).toBe(500);
@@ -91,7 +91,7 @@ test("a successful request is logged as info and an unexpected failure as an err
           message: "Unhandled error.",
           requestId,
           method: "GET",
-          path: "/api/campaigns",
+          path: "/api/queues",
         },
         error: { message: "db exploded" },
       },

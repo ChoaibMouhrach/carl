@@ -1,8 +1,5 @@
 import { initApp } from "./app";
-import {
-  EMAIL_FINDER_SWEEP_CRON,
-  HTTP_IDLE_TIMEOUT_SECONDS,
-} from "./config/constants";
+import { HTTP_IDLE_TIMEOUT_SECONDS } from "./config/constants";
 import { initContext } from "./context";
 import { readClientHtml } from "./http/client-html";
 import { Workers } from "./workers";
@@ -34,12 +31,6 @@ export const initServer = async () => {
     data: { type: "check-queue-backlog" },
   });
 
-  await context.queueHub.maintenance.schedule({
-    schedulerId: "sweep-email-batches",
-    pattern: EMAIL_FINDER_SWEEP_CRON,
-    data: { type: "sweep-email-batches" },
-  });
-
   return {
     logger: context.logger,
     serve: () => {
@@ -66,9 +57,7 @@ export const initServer = async () => {
     },
     close: async () => {
       stopHttpServer?.();
-      await context.eventBus.close();
       await context.rateLimiter.close();
-      await context.cache.close();
       await context.queueHub.close();
       await context.errorMonitor.flush();
     },

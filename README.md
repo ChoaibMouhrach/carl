@@ -1,26 +1,17 @@
 # Carl
 
-A go-to-market (GTM) app for Skool. Carl finds Skool communities, treats each
-community's owner as a lead, and runs those leads through a multi-stage
-pipeline, organised into campaigns.
+A SaaS foundation: a Turborepo monorepo with a Hono API, background job queues
+and a React dashboard, with an admin account, passkeys and email flows ready.
 
 ## Contents
 
 - [Overview](#overview)
-- [How a campaign works](#how-a-campaign-works)
-- [Running a scrape](#running-a-scrape)
 - [Tech stack](#tech-stack)
 - [Monorepo layout](#monorepo-layout)
 - [How requests are routed](#how-requests-are-routed)
 - [Prerequisites](#prerequisites)
 - [Getting started](#getting-started)
 - [Environment variables](#environment-variables)
-- [Live updates](#live-updates)
-- [AI filter (stage 2)](#ai-filter-stage-2)
-- [Web search (stage 3)](#web-search-stage-3)
-- [Email finder (stage 4)](#email-finder-stage-4)
-- [Re-running a stage](#re-running-a-stage)
-- [MCP for AI agents](#mcp-for-ai-agents)
 - [Observability](#observability)
 - [Scripts](#scripts)
 - [Database & migrations](#database--migrations)
@@ -36,14 +27,7 @@ the API and the dashboard SPA.
 
 **What it does:**
 
-- **Scrapes Skool** discovery and community pages for your keywords, then stores
-  each community and its owner. The owner is the lead; the community is how we
-  found them
-- **Campaigns** — several can run side by side, each with its own keywords,
-  search settings and filters, and its own view of where every lead sits in the
-  pipeline
-- **A dashboard** to manage campaigns, leads and communities, start scrapes and
-  watch their progress
+- **A dashboard** with account settings (passkeys, sessions) and a view of the background queues
 - **A single admin account**, created by a first-run setup flow. There is no
   public sign-up
 - Rate limiting (Redis-backed), background job queues, and a provider-agnostic
@@ -51,69 +35,6 @@ the API and the dashboard SPA.
 
 Every external integration is required. Environment validation fails immediately
 when any required configuration is missing.
-
-## How a campaign works
-
-A campaign moves leads through **8 pipeline stages**. Stage 1 is the Skool
-scrape. Stages 2–8 are generic slots in the UI: they show lead counts, but their
-work is not implemented yet.
-
-A campaign has these scrape settings:
-
-| Setting       | Meaning                                                               |
-| ------------- | --------------------------------------------------------------------- |
-| Keywords      | What to search for on Skool: up to 10, one per line                   |
-| Type          | `public` or `private` communities                                     |
-| Pricing model | `free`, `paid` or `free-trial`                                        |
-| Monthly price | Optional minimum and maximum, in USD. Yearly prices are divided by 12 |
-| Members       | Optional minimum and maximum member count                             |
-
-Searches always use English. Free communities count as a $0 price, and
-communities with a one-time or unknown price have no monthly price to compare,
-so they are dropped whenever a price limit is set.
-
-Leads found by a scrape are attached to the campaign at stage 1 as `done`, ready
-for stage 2. Each lead then has a status per stage: `pending`, `running`, `done`
-or `failed`.
-
-## Running a scrape
-
-Open an **active** campaign and run the scrape from its stage 1 panel. The API
-returns `202` immediately and a BullMQ worker does the work. The page updates
-live while the run is queued or running, then shows a summary: communities
-found, new communities, leads added, filtered out and failed.
-
-How the scraper works:
-
-1. **Discover** — queries Skool's discovery pages for each keyword, one search per
-   chosen type and pricing model, and fetches the remaining pages in parallel.
-   Discovery results are not deduplicated
-2. **Skip known communities** — one database lookup skips every community
-   already stored, so nothing is fetched twice. Owners are cached the same way
-3. **Fetch each new community's `/about` page** — the owner, pricing, tiers,
-   links, counts and reviews come from the page's `__NEXT_DATA__` JSON
-4. **Apply the campaign's filters** — price and member limits are applied here,
-   before anything is stored, so a filtered-out community and its owner never
-   reach the database
-5. **Store** — the owner's profile (followers, posts, created communities, links)
-   is fetched, emails are extracted from their bio, and the lead and community
-   are saved. A filtered-out community is not remembered, so a later scrape
-   fetches it again
-
-Skool is reached through a `BaseSkoolScraper` contract. The current
-implementation is `infrastructure/skool/custom`; an Apify-based one can be added
-at `infrastructure/skool/apify` without touching the services.
-
-You can also run a scrape from the command line, without a campaign:
-
-```bash
-bun --cwd apps/server run scrape --keyword "business coaching" --keyword "online courses" \
-  --type public --pricing paid \
-  --min-price 10 --max-price 100 --min-members 50 --max-members 5000
-```
-
-`--keyword` is required and can be repeated. `--type` and `--pricing` can be
-repeated too, and leaving them out searches all of their options.
 
 ## Tech stack
 
@@ -137,7 +58,7 @@ apps/
   client/   Vite + React SPA — the authenticated dashboard, served at /
   e2e/      Playwright end-to-end tests
 packages/
-  constants/  Shared types & constants (@repo/constants): error codes, campaign enums…
+  constants/  Shared types & constants (@repo/constants): error codes…
   ui/         Shared shadcn/ui component library (@repo/ui)
 ```
 
@@ -237,175 +158,6 @@ MAIL_RATE_LIMIT_PER_SECOND=2
 
 </details>
 
-## Live updates
-
-The dashboard stays current without polling. The server publishes an event
-whenever campaigns, leads or communities change — from any request, or from a
-scrape in progress — and an admin's browser receives it over a Server-Sent
-Events stream at `GET /api/events`. Each event tells the page which data to
-refetch (`campaigns.changed`, `leads.changed`, `communities.changed`); the
-dashboard invalidates the matching queries, and refetches everything after the
-stream reconnects.
-
-Events travel over Redis pub/sub (`infrastructure/event-bus/redis.ts`, behind
-`BaseEventBus`), so a change made on one server instance — or by the queue
-worker — reaches the browsers connected to any other. Publishing is best
-effort: if Redis fails, the request that caused the change still succeeds.
-
-## AI filter (stage 2)
-
-Each campaign has its own AI filter. Open a campaign, go to its Stage 2 tab and
-choose **AI filter settings**: there you describe what the campaign is trying to do (who you are, what you offer,
-what a good lead looks like) and the
-questions the AI answers about every lead. A question has a role: a
-**requirement** must be yes, a **disqualifier** removes the lead on yes, a
-**competitor** question marks competitors on yes, and an **evidence** question
-checks the answers are backed by the lead's data. A **signal** never changes the
-verdict; the assessment shows how many signals were yes as a priority. For each question you also say
-whether an answer the AI cannot give sends the lead to review or disqualifies it.
-**Show prompt** writes out exactly what the AI is sent. **Re-apply rules** (on the Stage 2 tab) recomputes every verdict from
-the answers already stored, matching questions by their text, so changing a role
-costs nothing; leads missing an answer to a newly added question are skipped until
-the AI is run again.
-
-**Run AI filter** moves every lead that finished stage 1 to stage 2 and queues
-one classification per lead (`filter` queue, `AI_FILTER_CONCURRENCY` at a time, 12 by default). The AI only sees
-what we scraped: the owner's profile and their communities, written out as plain
-text. Every yes must come with a quote that really appears in that text, otherwise
-it counts as unknown. Plain rules in `lib/assessment.ts` turn the answers into a
-verdict, in this order: competitor, disqualified, needs review, qualified. Only
-qualified leads are done at stage 2; the others are marked failed with the verdict
-as the reason and keep their assessment, which opens from the verdict badge in the
-campaign's lead list. A lead the AI could not be asked about is failed with the
-error and tried again by the next run.
-
-The model is a strategy. `LlmLeadClassifier` asks a `BaseLlm` for a structured
-answer; the implementation is `AiSdkLlm`, which uses the Vercel AI SDK with its
-OpenAI provider (`OPENAI_API_KEY`, which is required and stops the server from
-starting when missing, and `AI_FILTER_MODEL`). Moving to a native OpenAI or Anthropic SDK later means
-adding another `BaseLlm` and selecting it in `infrastructure/llm/index.ts`; nothing
-else changes. For e2e tests a scripted classifier replaces the whole thing when
-`SKOOL_SCRIPTING` is on.
-
-## Web search (stage 3)
-
-Qualified leads (done at stage 2) that have neither a website nor a LinkedIn
-profile are looked up on [Tavily](https://tavily.com) (`enrich` queue,
-`ENRICH_CONCURRENCY` at a time, 5 by default). `POST /api/campaigns/:id/enrich/run`
-moves them to stage 3 and queues one job. For each lead it searches LinkedIn
-first (query: name, first community, "LinkedIn") and saves the first
-`linkedin.com/in/…` profile whose title or address contains the lead's first and
-last name. When there is none it searches the web and saves the first result that
-is not a social site or Skool and that names the lead or the whole community, as
-the website. Leads that
-already have either one are done without a search. A lead with nothing found
-fails with "Nothing found" and is not searched again; a lead whose search
-errored is retried on the next run. `TAVILY_API_KEY` is required and the server
-will not start without it.
-
-## Email finder (stage 4)
-
-Leads that finished stage 3 get a work email from
-[FullEnrich](https://fullenrich.com) (`find-email` queue). `POST
-/api/campaigns/:id/find-email/run` moves them to stage 4 and queues one job.
-FullEnrich has no SDK, so `FullEnrichEmailFinder` calls its REST API directly
-behind `BaseEmailFinder`. Each lead is sent once, with its LinkedIn URL, its first
-and last name and the domain of its website, whichever it has, for
-`contact.work_emails`. Credits are only used when an email is found, and
-identical lookups in one run are sent once.
-
-**How the answer comes back.** The job only starts the batches (100 leads each,
-two at a time) and ends, leaving the leads "running" and one row per batch in
-`email_enrichments`. FullEnrich's webhooks are not used: their signature does not
-verify with the API key the way their docs describe. Instead a maintenance job
-asks FullEnrich for the answer:
-
-- The job runs every 2 minutes and asks about each batch that has waited at least
-  2 minutes (at most 20 per run), then again at every run until it is settled.
-  FullEnrich takes 30 to 90 seconds per contact and allows 60 calls a minute, so
-  this is a few calls a minute at most.
-- Answers so far finish the leads they cover. The final answer finishes the rest:
-  a lead it has no email for fails with "No email found", and a batch FullEnrich
-  gave up on (no credits, rate limit, cancelled) fails its remaining leads with
-  the reason. A batch is settled once, so asking again changes nothing.
-- A batch still waiting after a day, or one that was never started, is failed so
-  the next run can try its leads again.
-- While a batch is waiting, starting another email search for the campaign is
-  refused with a 409 until it is settled.
-
-Rules for each lead:
-
-- A lead that already has an email is done without a lookup.
-- Without a LinkedIn URL a lead needs a first and a last name ("No usable name")
-  and a website that is not a link-in-bio or social page ("No usable website").
-- A lead with no email found fails with "No email found" and is not looked up
-  again. A batch that errored is retried on the next run, and re-running the same
-  contacts within 3 months is free.
-- While a batch is waiting for its answer a new run is refused. If a run dies,
-  leads left "running" are queued again by the next start, here and for stages 2
-  and 3, unless a job or a waiting batch for the campaign still exists.
-- The Stage 4 tab has a "Find emails" button, and the lead list shows why a lead
-  failed under its status. The email is added to the lead's `emails`.
-  `FULLENRICH_API_KEY` is required and the server will not start without it.
-
-## Re-running a stage
-
-Select leads in the campaign's lead list and press **Re-run** to run stage 2, 3
-or 4 again for them (`POST /api/campaigns/:id/rerun` with `stage` and `leadIds`,
-up to 1000). The chosen leads go back to that stage as pending and the stage's
-normal run starts, ignoring what they already have:
-
-- **Stage 2:** the AI is asked again and the verdict is replaced.
-- **Stage 3:** Tavily is searched again. A new LinkedIn profile or website
-  replaces the old one, and nothing found keeps what the lead has.
-- **Stage 4:** FullEnrich is asked again even if the lead has an email. A new
-  email is added to the existing ones, and nothing found keeps the lead done with
-  the emails it has. FullEnrich does not charge again for the same details within
-  3 months.
-
-Leads that are running, or have not reached the chosen stage, are left out and
-counted in the answer. A lead that was further along is moved back, loses its
-later progress until those stages are run again, and keeps its data. Leads
-already waiting at that stage run as well. The campaign must be active, and a
-stage that is already running is refused. The flag that marks a lead as run again
-on purpose (`campaign_leads.rerun`) is cleared when the lead's stage finishes.
-
-## MCP for AI agents
-
-An AI agent can look Skool up through Carl and work with its leads, communities and
-campaigns. Account
-settings shows the address (`<API URL>/api/mcp`) to give an MCP client
-(Streamable HTTP) and lists the connected agents, each with a remove option.
-Clicking an agent opens its page: its details and a table of every request it
-made, where a request opens as the JSON the agent sent and the JSON it was
-answered with, each with a copy button. Those requests are kept in
-`mcp_requests` (bodies clipped at 100,000 characters) and deleted with the
-agent.
-Better Auth's MCP plugin
-runs the OAuth sign-in, so the agent opens the normal sign-in page once and then
-holds a token. Only admins are accepted.
-
-Two kinds of tools are offered. The Skool lookups are read-only:
-`search_communities` (keyword, visibility, pricing model, page, member and price
-limits), `get_community` (a community with its owner and the emails found in
-their bio) and `get_owner` (a profile and the communities they created). What
-they find is not saved. The data tools work on what is already in Carl:
-`list_campaigns`, `list_leads` and `list_saved_communities`, and `create_*` and
-`update_*` for campaigns, leads and communities. Stage 2 can be driven end to
-end: `get_filter` and `save_filter` read and replace a campaign's AI filter,
-`show_filter_prompt` writes out what the AI would be sent, `run_filter` starts the
-AI filter (paid, one request per lead), `list_campaign_leads` and `get_assessment`
-read the verdicts and the evidence, and `reapply_filter` recomputes verdicts from
-the stored answers. Agents can never delete, change a campaign's status or start a
-scrape: campaigns are always created as drafts, so a person activates a campaign
-before `run_filter` will work.
-Skool answers are cached in Redis for an hour (`infrastructure/cache/redis.ts`,
-behind `BaseCache`), so repeating a question does not hit Skool again.
-
-The OAuth tokens themselves live in the `oauth_*` tables. Discovery documents are
-served at `/.well-known/oauth-authorization-server` and
-`/.well-known/oauth-protected-resource`.
-
 ## Observability
 
 The server exposes `GET /health` (a readiness probe) and has an
@@ -461,7 +213,7 @@ line on stdout, so Docker, Dokploy or any log shipper can collect it:
   "hostname": "…",
   "requestId": "…",
   "method": "GET",
-  "path": "/api/campaigns",
+  "path": "/api/queues",
   "status": 401,
   "durationMs": 3,
   "msg": "Request completed."

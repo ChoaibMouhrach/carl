@@ -4,17 +4,7 @@ export type EmailSender = "auth";
 
 export type EmailJob = SendEmailProps<EmailSender>;
 
-export type ScrapeJob = { scrapeRunId: number };
-
-export type FilterJob = { campaignId: number };
-
-export type EnrichJob = { campaignId: number };
-
-export type FindEmailJob = { campaignId: number; onlyRerun?: boolean };
-
-export type MaintenanceJob =
-  | { type: "check-queue-backlog" }
-  | { type: "sweep-email-batches" };
+export type MaintenanceJob = { type: "check-queue-backlog" };
 
 export type QueueConsumer<Input> = (input: Input) => Promise<void>;
 
@@ -89,10 +79,6 @@ export interface RegisteredQueue {
 export abstract class BaseQueueHub {
   public abstract email: BaseQueue<EmailJob>;
   public abstract maintenance: BaseQueue<MaintenanceJob>;
-  public abstract scrape: BaseQueue<ScrapeJob>;
-  public abstract filter: BaseQueue<FilterJob>;
-  public abstract enrich: BaseQueue<EnrichJob>;
-  public abstract findEmail: BaseQueue<FindEmailJob>;
 
   public abstract queues(): RegisteredQueue[];
 

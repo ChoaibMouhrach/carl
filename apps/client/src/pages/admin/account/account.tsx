@@ -7,7 +7,6 @@ import {
 } from "@repo/ui/components/ui/card";
 import { ChangePassword } from "@/components/change-password";
 import { getRouteApi } from "@tanstack/react-router";
-import { AgentAccess } from "./agent-access";
 import { ChangeEmail } from "./change-email";
 import { Passkeys } from "./passkeys";
 import { SessionManagement } from "./session-management";
@@ -65,21 +64,6 @@ export const Account = () => {
           <SessionManagement />
         </CardContent>
       </Card>
-
-      {user.role === "admin" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Agent access</CardTitle>
-            <CardDescription>
-              Connect an AI agent so it can look Skool up through Carl. Nothing
-              it finds is saved.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <AgentAccess />
-          </CardContent>
-        </Card>
-      )}
     </>
   );
 };
