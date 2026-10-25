@@ -45,6 +45,7 @@ const baseSchema = z.object({
   TRUST_PROXY: z.stringbool().default(false),
   QUEUE_CONCURRENCY: z.coerce.number().int().positive().default(5),
   QUEUE_BACKLOG_THRESHOLD: z.coerce.number().int().positive().default(100),
+  SCRAPE_CONCURRENCY: z.coerce.number().int().positive().default(2),
 
   // Mail
   RESEND_API_KEY: z.string().nonempty(),

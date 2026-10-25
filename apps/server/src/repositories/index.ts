@@ -2,6 +2,8 @@ import { UserRepository } from "./user";
 import type { DBConnection } from "@server/infrastructure/database/client";
 import { SettingRepository } from "./setting";
 import { HealthRepository } from "./health";
+import { LeadRepository } from "./lead";
+import { CommunityRepository } from "./community";
 
 interface RepositoriesConstructorProps {
   dbConnection: DBConnection;
@@ -14,6 +16,8 @@ export class Repositories {
   public user;
   public setting;
   public health;
+  public lead;
+  public community;
 
   public constructor({ dbConnection }: RepositoriesConstructorProps) {
     this.pool = dbConnection.pool;
@@ -28,6 +32,14 @@ export class Repositories {
     });
 
     this.setting = new SettingRepository({
+      db: dbConnection.db,
+    });
+
+    this.lead = new LeadRepository({
+      db: dbConnection.db,
+    });
+
+    this.community = new CommunityRepository({
       db: dbConnection.db,
     });
   }

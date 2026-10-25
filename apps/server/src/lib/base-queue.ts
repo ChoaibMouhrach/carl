@@ -1,10 +1,32 @@
 import type { SendEmailProps } from "./base-mailer";
+import type { Community } from "./base-skool-scrapper";
 
 export type EmailSender = "auth";
 
 export type EmailJob = SendEmailProps<EmailSender>;
 
 export type MaintenanceJob = { type: "check-queue-backlog" };
+
+/** Prices are whole dollars per month; yearly prices are divided by 12 */
+export interface ScrapeFilters {
+  minPrice?: number;
+  maxPrice?: number;
+  minMembers?: number;
+  maxMembers?: number;
+}
+
+export type ScrapeJob =
+  | ({ type: "discover"; search: string } & ScrapeFilters)
+  | { type: "scrape-community"; communityURL: string }
+  | { type: "scrape-lead"; leadURL: string; community: Community };
+
+/** A job that retrying cannot fix; the queue fails it for good instead of retrying */
+export class NonRetryableJobError extends Error {
+  public constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "NonRetryableJobError";
+  }
+}
 
 export type QueueConsumer<Input> = (input: Input) => Promise<void>;
 
@@ -79,6 +101,7 @@ export interface RegisteredQueue {
 export abstract class BaseQueueHub {
   public abstract email: BaseQueue<EmailJob>;
   public abstract maintenance: BaseQueue<MaintenanceJob>;
+  public abstract scrape: BaseQueue<ScrapeJob>;
 
   public abstract queues(): RegisteredQueue[];
 

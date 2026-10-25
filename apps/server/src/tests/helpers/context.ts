@@ -16,7 +16,9 @@ import {
   type QueueJobCounts,
   type RegisteredQueue,
   type ScheduleJobOptions,
+  type ScrapeJob,
 } from "@server/lib/base-queue";
+import { BaseSkoolScrapper } from "@server/lib/base-skool-scrapper";
 import { BaseRateLimiter } from "@server/lib/base-rate-limiter";
 import { Repositories } from "@server/repositories";
 import { DisabledErrorMonitor } from "@server/infrastructure/error-monitor/disabled";
@@ -229,9 +231,24 @@ const toTestFailedJob = <Input>(job: TestJob<Input>): FailedJob => ({
   stacktrace: [],
 });
 
+export class UnconfiguredSkoolScrapper extends BaseSkoolScrapper {
+  public override discover(): Promise<never> {
+    return Promise.reject(new Error("Skool scrapper not configured."));
+  }
+
+  public override about(): Promise<never> {
+    return Promise.reject(new Error("Skool scrapper not configured."));
+  }
+
+  public override lead(): Promise<never> {
+    return Promise.reject(new Error("Skool scrapper not configured."));
+  }
+}
+
 export class TestQueueHub extends BaseQueueHub {
   public email: TestQueue<EmailJob>;
   public maintenance: TestQueue<MaintenanceJob>;
+  public scrape: TestQueue<ScrapeJob>;
 
   public constructor(init: { mailer: BaseMailer }) {
     super();
@@ -243,12 +260,16 @@ export class TestQueueHub extends BaseQueueHub {
     this.maintenance = new TestQueue<MaintenanceJob>({
       process: async () => {},
     });
+    this.scrape = new TestQueue<ScrapeJob>({
+      process: async () => {},
+    });
   }
 
   public override queues(): RegisteredQueue[] {
     return [
       { name: "email", queue: this.email },
       { name: "maintenance", queue: this.maintenance },
+      { name: "scrape", queue: this.scrape },
     ];
   }
 
@@ -301,5 +322,6 @@ export const createContext = (
     queueHub,
     rateLimiter,
     repositories: new Repositories({ dbConnection: { db, pool } }),
+    skoolScrapper: new UnconfiguredSkoolScrapper(),
   };
 };

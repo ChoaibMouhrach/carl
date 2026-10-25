@@ -16,6 +16,8 @@ import { createAuth } from "./infrastructure/auth";
 import type { BaseErrorMonitor } from "./lib/base-error-monitor";
 import { DisabledErrorMonitor } from "./infrastructure/error-monitor/disabled";
 import { SentryErrorMonitor } from "./infrastructure/error-monitor/sentry";
+import type { BaseSkoolScrapper } from "./lib/base-skool-scrapper";
+import { CustomSkoolScrapper } from "./infrastructure/skool-scrapper/custom";
 
 export const initContext = async () => {
   const env = initENV();
@@ -64,6 +66,7 @@ export const initContext = async () => {
 
   const queueHub: BaseQueueHub = new QueueHub({
     concurrency: env.QUEUE_CONCURRENCY,
+    scrapeConcurrency: env.SCRAPE_CONCURRENCY,
     errorMonitor,
     logger,
     redisUrl: env.REDIS_CONNECTION_STRING,
@@ -76,6 +79,8 @@ export const initContext = async () => {
         redisUrl: env.REDIS_CONNECTION_STRING,
       });
 
+  const skoolScrapper: BaseSkoolScrapper = new CustomSkoolScrapper({ logger });
+
   const auth = createAuth({ db: dbConnection.db, env, queueHub });
 
   return {
@@ -87,6 +92,7 @@ export const initContext = async () => {
     env,
     auth,
     errorMonitor,
+    skoolScrapper,
   };
 };
 

@@ -1,4 +1,4 @@
-import { Queue, Worker } from "bullmq";
+import { Queue, UnrecoverableError, Worker } from "bullmq";
 import IORedis from "ioredis";
 import type { BaseLogger } from "@server/lib/base-logger";
 import type { BaseErrorMonitor } from "@server/lib/base-error-monitor";
@@ -10,9 +10,11 @@ import {
   type ListFailedInput,
   type ListFailedResult,
   type MaintenanceJob,
+  NonRetryableJobError,
   type QueueConsumer,
   type QueueJobCounts,
   type RegisteredQueue,
+  type ScrapeJob,
   type ScheduleJobOptions,
 } from "@server/lib/base-queue";
 
@@ -22,6 +24,9 @@ const emailJobName = "send";
 const maintenanceQueueName = "maintenance";
 const maintenanceJobName = "run";
 const maintenanceConcurrency = 1;
+
+const scrapeQueueName = "scrape";
+const scrapeJobName = "run";
 
 const FAILED_JOB_RETENTION_SECONDS = 60 * 60 * 24 * 7;
 const FAILED_JOB_RETENTION_COUNT = 5_000;
@@ -112,7 +117,15 @@ export class BullQueue<Input> extends BaseQueue<Input> {
     this.worker = new Worker<Input, void, string>(
       this.name,
       async (job) => {
-        await consumer(job.data);
+        try {
+          await consumer(job.data);
+        } catch (error) {
+          if (error instanceof NonRetryableJobError) {
+            throw new UnrecoverableError(error.message);
+          }
+
+          throw error;
+        }
       },
       {
         connection: this.workerConnection,
@@ -122,7 +135,9 @@ export class BullQueue<Input> extends BaseQueue<Input> {
 
     this.worker.on("failed", (job, error) => {
       const attempts = job?.opts.attempts ?? 1;
-      const exhausted = job ? job.attemptsMade >= attempts : false;
+      const exhausted =
+        error instanceof UnrecoverableError ||
+        (job ? job.attemptsMade >= attempts : false);
       const entry = {
         message: exhausted ? "A job failed for good." : "A job failed.",
         attemptsMade: job?.attemptsMade,
@@ -133,7 +148,7 @@ export class BullQueue<Input> extends BaseQueue<Input> {
       if (exhausted) void this.logger.error(entry, error);
       else void this.logger.warn({ ...entry, reason: error.message });
 
-      if (job && job.attemptsMade >= attempts) {
+      if (job && exhausted) {
         this.errorMonitor.captureException(error, {
           tags: {
             signal: "job_failed",
@@ -279,13 +294,41 @@ export class MaintenanceQueue extends BullQueue<MaintenanceJob> {
   }
 }
 
+interface ScrapeQueueInit {
+  concurrency: number;
+  errorMonitor: BaseErrorMonitor;
+  logger: BaseLogger;
+  redisUrl: string;
+}
+
+export class ScrapeQueue extends BullQueue<ScrapeJob> {
+  public constructor(init: ScrapeQueueInit) {
+    super({
+      ...init,
+      jobName: scrapeJobName,
+      name: scrapeQueueName,
+    });
+  }
+}
+
+interface QueueHubInit extends EmailQueueInit {
+  scrapeConcurrency: number;
+}
+
 export class QueueHub extends BaseQueueHub {
   public email: EmailQueue;
   public maintenance: MaintenanceQueue;
+  public scrape: ScrapeQueue;
 
-  public constructor(init: EmailQueueInit) {
+  public constructor(init: QueueHubInit) {
     super();
     this.email = new EmailQueue(init);
+    this.scrape = new ScrapeQueue({
+      concurrency: init.scrapeConcurrency,
+      errorMonitor: init.errorMonitor,
+      logger: init.logger,
+      redisUrl: init.redisUrl,
+    });
     this.maintenance = new MaintenanceQueue({
       errorMonitor: init.errorMonitor,
       logger: init.logger,
@@ -297,11 +340,13 @@ export class QueueHub extends BaseQueueHub {
     return [
       { name: emailQueueName, queue: this.email },
       { name: maintenanceQueueName, queue: this.maintenance },
+      { name: scrapeQueueName, queue: this.scrape },
     ];
   }
 
   public override async close(): Promise<void> {
     await this.email.close();
     await this.maintenance.close();
+    await this.scrape.close();
   }
 }
