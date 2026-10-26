@@ -296,6 +296,8 @@ export class MaintenanceQueue extends BullQueue<MaintenanceJob> {
 
 interface ScrapeQueueInit {
   concurrency: number;
+  /** Only tests set this, to keep their jobs out of the real queue */
+  name?: string;
   errorMonitor: BaseErrorMonitor;
   logger: BaseLogger;
   redisUrl: string;
@@ -306,7 +308,7 @@ export class ScrapeQueue extends BullQueue<ScrapeJob> {
     super({
       ...init,
       jobName: scrapeJobName,
-      name: scrapeQueueName,
+      name: init.name ?? scrapeQueueName,
     });
   }
 }
