@@ -1,14 +1,22 @@
 import { test as base, type BrowserContext } from "@playwright/test";
 import { faker } from "@faker-js/faker";
 import {
+  addCommunitiesToCampaign,
+  addLeadsToCampaign,
+  countCampaignsContaining,
   countCommunitiesWithPrefix,
   countLeadsWithPrefix,
+  createCampaign,
   createCommunity,
   createEmailChangeUrl,
   createLead,
   createLeads,
+  deleteCampaignsContaining,
+  findCampaignByName,
   findCommunityBySlug,
   findLeadByUsername,
+  listCampaignCommunityIds,
+  listCampaignLeadIds,
   ageSessions,
   banUser,
   deleteUser,
@@ -23,6 +31,7 @@ import {
   getUserEmail,
   resetE2EAuthRateLimits,
   type CreateVerifiedUserInput,
+  type SeedCampaignInput,
   type SeedCommunityInput,
   type SeedLeadInput,
   type SeededUser,
@@ -30,6 +39,22 @@ import {
 import { CLIENT_URL, seedConfig } from "./config";
 
 interface Seed {
+  addCommunitiesToCampaign: (input: {
+    campaignId: number;
+    communityIds: number[];
+  }) => Promise<void>;
+  addLeadsToCampaign: (input: {
+    campaignId: number;
+    leadIds: number[];
+  }) => Promise<void>;
+  countCampaignsContaining: (fragment: string) => Promise<number>;
+  createCampaign: (
+    input: SeedCampaignInput,
+  ) => ReturnType<typeof createCampaign>;
+  deleteCampaignsContaining: (fragment: string) => Promise<void>;
+  findCampaignByName: (name: string) => ReturnType<typeof findCampaignByName>;
+  listCampaignCommunityIds: (campaignId: number) => Promise<number[]>;
+  listCampaignLeadIds: (campaignId: number) => Promise<number[]>;
   countCommunitiesWithPrefix: (prefix: string) => Promise<number>;
   countLeadsWithPrefix: (prefix: string) => Promise<number>;
   createCommunity: (
@@ -93,6 +118,19 @@ export const test = base.extend<{ seed: Seed; resetRateLimits: void }>({
     const config = seedConfig();
 
     await use({
+      addCommunitiesToCampaign: (input) =>
+        addCommunitiesToCampaign(config, input),
+      addLeadsToCampaign: (input) => addLeadsToCampaign(config, input),
+      countCampaignsContaining: (fragment) =>
+        countCampaignsContaining(config, fragment),
+      createCampaign: (input) => createCampaign(config, input),
+      deleteCampaignsContaining: (fragment) =>
+        deleteCampaignsContaining(config, fragment),
+      findCampaignByName: (name) => findCampaignByName(config, name),
+      listCampaignCommunityIds: (campaignId) =>
+        listCampaignCommunityIds(config, campaignId),
+      listCampaignLeadIds: (campaignId) =>
+        listCampaignLeadIds(config, campaignId),
       countCommunitiesWithPrefix: (prefix) =>
         countCommunitiesWithPrefix(config, prefix),
       countLeadsWithPrefix: (prefix) => countLeadsWithPrefix(config, prefix),

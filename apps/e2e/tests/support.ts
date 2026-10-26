@@ -49,3 +49,12 @@ export const confirmDelete = async (page: Page) => {
     .getByRole("button", { name: "Delete" })
     .click();
 };
+
+/** An optional field: its label is there and carries no asterisk */
+export const expectOptional = async (page: Page, label: string) => {
+  const exact = new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+  const field = page.locator("label").filter({ hasText: exact });
+
+  await expect(field).toHaveCount(1);
+  await expect(field.locator('span[aria-hidden="true"]')).toHaveCount(0);
+};
