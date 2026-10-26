@@ -80,3 +80,7 @@ export const extractEmails = (...texts: (string | null | undefined)[]) => {
 /** A LIKE pattern matching `text` literally, so a typed % or _ is not a wildcard */
 export const containsPattern = (text: string) =>
   `%${text.replace(/[\\%_]/g, "\\$&")}%`;
+
+/** Escapes `%`, `_` and `\` so user input matches literally inside a LIKE pattern */
+export const escapeLike = (value: string) =>
+  value.replace(/[\\%_]/g, (character) => `\\${character}`);

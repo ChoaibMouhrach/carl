@@ -9,6 +9,12 @@ export const serverErrorCodes = [
   "sessionExpired",
   "emailAlreadyTaken",
   "invalidPassword",
+  "leadNotFound",
+  "leadUsernameTaken",
+  "leadSkoolUrlTaken",
+  "communityNotFound",
+  "communitySkoolUrlTaken",
+  "invalidCommunityPricing",
 ] as const;
 
 export type ServerErrorCode = (typeof serverErrorCodes)[number];
