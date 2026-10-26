@@ -35,8 +35,9 @@ export class CampaignRepository extends BaseRepository {
 
     return {
       campaign: table,
-      leadsCount: sql<number>`(select count(*)::int from ${campaignLeadsTable} where ${campaignLeadsTable.campaignId} = ${table.campaignId})`,
-      communitiesCount: sql<number>`(select count(*)::int from ${campaignCommunitiesTable} where ${campaignCommunitiesTable.campaignId} = ${table.campaignId})`,
+      // Drizzle drops table names in a single-table select, so the outer column is spelled out
+      leadsCount: sql<number>`(select count(*)::int from "campaign_leads" where "campaign_leads"."campaignId" = "campaigns"."campaignId")`,
+      communitiesCount: sql<number>`(select count(*)::int from "campaign_communities" where "campaign_communities"."campaignId" = "campaigns"."campaignId")`,
     };
   }
 
