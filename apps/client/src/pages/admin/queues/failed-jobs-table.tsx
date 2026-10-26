@@ -136,7 +136,7 @@ export const FailedJobsTable = ({
                         <Button
                           disabled={isMutating}
                           size="sm"
-                          variant="ghost"
+                          variant="destructive"
                         />
                       }
                     >

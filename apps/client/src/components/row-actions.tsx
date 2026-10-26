@@ -1,3 +1,4 @@
+import { Tip } from "@/components/tip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,18 +53,23 @@ export const RowActions = ({
       onClick={(event) => event.stopPropagation()}
     >
       <DropdownMenu>
-        <DropdownMenuTrigger
+        <Tip
+          label={menuLabel}
           render={
-            <Button
-              aria-label={menuLabel}
-              disabled={isDisabled}
-              size="icon"
-              variant="ghost"
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  aria-label={menuLabel}
+                  disabled={isDisabled}
+                  size="icon"
+                  variant="ghost"
+                />
+              }
             />
           }
         >
           {isDeleting ? <Spinner /> : <MoreHorizontalIcon />}
-        </DropdownMenuTrigger>
+        </Tip>
         <DropdownMenuContent align="end">
           {edit && (
             <DropdownMenuItem render={edit}>

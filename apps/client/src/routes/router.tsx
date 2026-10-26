@@ -7,6 +7,14 @@ import { adminAccountRoute } from "./admin/account";
 import { adminDashboardRoute } from "./admin/dashboard";
 import { adminLayoutRoute } from "./admin/layout";
 import { adminQueuesRoute } from "./admin/queues";
+import { adminLeadsRoute } from "./admin/leads";
+import { adminLeadRoute } from "./admin/lead";
+import { adminLeadCreateRoute } from "./admin/lead-create";
+import { adminLeadEditRoute } from "./admin/lead-edit";
+import { adminCommunitiesRoute } from "./admin/communities";
+import { adminCommunityRoute } from "./admin/community";
+import { adminCommunityCreateRoute } from "./admin/community-create";
+import { adminCommunityEditRoute } from "./admin/community-edit";
 
 export const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -14,6 +22,14 @@ export const routeTree = rootRoute.addChildren([
     adminDashboardRoute,
     adminAccountRoute,
     adminQueuesRoute,
+    adminLeadsRoute,
+    adminLeadCreateRoute,
+    adminLeadRoute,
+    adminLeadEditRoute,
+    adminCommunitiesRoute,
+    adminCommunityCreateRoute,
+    adminCommunityRoute,
+    adminCommunityEditRoute,
   ]),
   authRouteTree,
   errorRoute,

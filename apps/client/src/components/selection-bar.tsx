@@ -1,4 +1,5 @@
 import { SelectCheckbox } from "@/components/select-checkbox";
+import { Tip } from "@/components/tip";
 import type { Selection } from "@/lib/use-selection";
 import { Button } from "@repo/ui/components/ui/button";
 import type { ReactNode } from "react";
@@ -35,9 +36,14 @@ export const SelectionBar = ({
         {selection.count > 0 ? `${selection.count} selected` : "Select all"}
       </span>
       {selection.count > 0 && (
-        <Button onClick={selection.clear} size="sm" variant="ghost">
+        <Tip
+          label="Deselect everything"
+          render={
+            <Button onClick={selection.clear} size="sm" variant="ghost" />
+          }
+        >
           Clear selection
-        </Button>
+        </Tip>
       )}
       {selection.count > 0 && actions}
     </div>

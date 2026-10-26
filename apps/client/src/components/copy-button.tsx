@@ -1,3 +1,4 @@
+import { Tip } from "@/components/tip";
 import { Button } from "@repo/ui/components/ui/button";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { useState } from "react";
@@ -31,15 +32,20 @@ export const CopyButton = ({
   };
 
   return (
-    <Button
-      aria-label={label}
-      onClick={copy}
-      size={label ? "icon-sm" : size}
-      type="button"
-      variant="outline"
+    <Tip
+      label={copied ? "Copied" : (label ?? "Copy to clipboard")}
+      render={
+        <Button
+          aria-label={label}
+          onClick={copy}
+          size={label ? "icon-sm" : size}
+          type="button"
+          variant="outline"
+        />
+      }
     >
       {copied ? <CheckIcon /> : <CopyIcon />}
       {!label && "Copy"}
-    </Button>
+    </Tip>
   );
 };

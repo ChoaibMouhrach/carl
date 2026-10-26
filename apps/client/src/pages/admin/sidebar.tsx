@@ -14,7 +14,13 @@ import {
 } from "@repo/ui/components/ui/sidebar";
 import { Link, useLocation } from "@tanstack/react-router";
 import { Logo, LogoWithText } from "@repo/ui/logo-mark";
-import { LayersIcon, LayoutDashboardIcon, type LucideIcon } from "lucide-react";
+import {
+  Building2Icon,
+  LayersIcon,
+  LayoutDashboardIcon,
+  UsersIcon,
+  type LucideIcon,
+} from "lucide-react";
 
 interface AdminSidebarProps {
   user: {
@@ -26,7 +32,11 @@ interface AdminSidebarProps {
 
 interface NavigationItem {
   label: string;
-  to: "/admin/dashboard" | "/admin/queues";
+  to:
+    | "/admin/dashboard"
+    | "/admin/leads"
+    | "/admin/communities"
+    | "/admin/queues";
   icon: LucideIcon;
 }
 
@@ -35,6 +45,16 @@ const navigation: NavigationItem[] = [
     label: "Dashboard",
     to: "/admin/dashboard",
     icon: LayoutDashboardIcon,
+  },
+  {
+    label: "Leads",
+    to: "/admin/leads",
+    icon: UsersIcon,
+  },
+  {
+    label: "Communities",
+    to: "/admin/communities",
+    icon: Building2Icon,
   },
   {
     label: "Queues",
