@@ -14,6 +14,7 @@ interface ListCommunitiesInput {
   perPage: number;
   search?: string;
   leadId?: number;
+  campaignId?: number;
   isFree?: boolean;
   hasEmail?: boolean;
   minMembers?: number;

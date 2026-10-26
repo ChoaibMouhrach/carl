@@ -7,6 +7,7 @@ interface ListLeadsInput {
   perPage: number;
   search?: string;
   hasEmail?: boolean;
+  campaignId?: number;
   sort: "name" | "username" | "createdAt";
   order: "asc" | "desc";
 }
@@ -18,6 +19,7 @@ export class LeadService extends BaseService {
     const { leads, total } = await this.context.repositories.lead.list({
       search: input.search,
       hasEmail: input.hasEmail,
+      campaignId: input.campaignId,
       sort: input.sort,
       order: input.order,
       limit: input.perPage,

@@ -13,6 +13,7 @@ import {
   sql,
 } from "drizzle-orm";
 import {
+  campaignCommunitiesTable,
   communitiesTable,
   leadsTable,
   type Community,
@@ -24,6 +25,7 @@ import { escapeLike } from "@server/lib/utils";
 export interface CommunityListWhere {
   search?: string;
   leadId?: number;
+  campaignId?: number;
   isFree?: boolean;
   hasEmail?: boolean;
   minMembers?: number;
@@ -76,6 +78,21 @@ export class CommunityRepository extends BaseRepository {
       .where(inArray(CommunityRepository.table.skoolUrl, where.skoolUrls));
   }
 
+  public async findAllByCommunityIds(where: {
+    communityIds: number[];
+  }): Promise<Community[]> {
+    if (where.communityIds.length === 0) {
+      return [];
+    }
+
+    return await this.db
+      .select()
+      .from(CommunityRepository.table)
+      .where(
+        inArray(CommunityRepository.table.communityId, where.communityIds),
+      );
+  }
+
   public async findAllByLeadId(where: {
     leadId: number;
   }): Promise<Community[]> {
@@ -99,6 +116,15 @@ export class CommunityRepository extends BaseRepository {
           )
         : undefined,
       where.leadId === undefined ? undefined : eq(table.leadId, where.leadId),
+      where.campaignId === undefined
+        ? undefined
+        : inArray(
+            table.communityId,
+            this.db
+              .select({ communityId: campaignCommunitiesTable.communityId })
+              .from(campaignCommunitiesTable)
+              .where(eq(campaignCommunitiesTable.campaignId, where.campaignId)),
+          ),
       where.isFree === undefined ? undefined : eq(table.isFree, where.isFree),
       where.hasEmail === undefined
         ? undefined

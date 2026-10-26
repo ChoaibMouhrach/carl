@@ -34,6 +34,7 @@ export const communityListQuerySchema = z
     perPage: perPageSchema,
     search: searchSchema,
     leadId: z.coerce.number().int().positive().optional(),
+    campaignId: z.coerce.number().int().positive().optional(),
     isFree: z.stringbool().optional(),
     hasEmail: z.stringbool().optional(),
     minMembers: z.coerce.number().int().nonnegative().optional(),

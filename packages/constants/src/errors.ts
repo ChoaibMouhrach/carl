@@ -15,6 +15,7 @@ export const serverErrorCodes = [
   "communityNotFound",
   "communitySkoolUrlTaken",
   "invalidCommunityPricing",
+  "campaignNotFound",
 ] as const;
 
 export type ServerErrorCode = (typeof serverErrorCodes)[number];

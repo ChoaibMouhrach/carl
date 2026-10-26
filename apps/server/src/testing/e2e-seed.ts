@@ -4,6 +4,9 @@ import IORedis from "ioredis";
 import { initDB, type DB } from "../infrastructure/database/client";
 import {
   accountTable,
+  campaignCommunitiesTable,
+  campaignLeadsTable,
+  campaignsTable,
   communitiesTable,
   leadsTable,
   sessionTable,
@@ -510,4 +513,121 @@ export const countCommunitiesWithPrefix = async (
       );
 
     return communities.length;
+  });
+
+export interface SeedCampaignInput {
+  name: string;
+  keyword: string;
+  description?: string | null;
+  minPriceCents?: number | null;
+  minMembers?: number | null;
+}
+
+export const createCampaign = async (
+  config: SeedConfig,
+  input: SeedCampaignInput,
+) =>
+  withDb(config, async (db) => {
+    const [campaign] = await db
+      .insert(campaignsTable)
+      .values({
+        name: input.name,
+        keyword: input.keyword,
+        description: input.description ?? null,
+        minPriceCents: input.minPriceCents ?? null,
+        minMembers: input.minMembers ?? null,
+      })
+      .returning();
+
+    if (!campaign) {
+      throw new Error(`could not create campaign ${input.name}`);
+    }
+
+    return campaign;
+  });
+
+export const findCampaignByName = async (config: SeedConfig, name: string) =>
+  withDb(config, async (db) => {
+    const [campaign] = await db
+      .select()
+      .from(campaignsTable)
+      .where(eq(campaignsTable.name, name))
+      .limit(1);
+
+    return campaign ?? null;
+  });
+
+export const countCampaignsContaining = async (
+  config: SeedConfig,
+  fragment: string,
+): Promise<number> =>
+  withDb(config, async (db) => {
+    const campaigns = await db
+      .select({ campaignId: campaignsTable.campaignId })
+      .from(campaignsTable)
+      .where(like(campaignsTable.name, `%${fragment}%`));
+
+    return campaigns.length;
+  });
+
+export const deleteCampaignsContaining = async (
+  config: SeedConfig,
+  fragment: string,
+): Promise<void> =>
+  withDb(config, async (db) => {
+    await db
+      .delete(campaignsTable)
+      .where(like(campaignsTable.name, `%${fragment}%`));
+  });
+
+export const addLeadsToCampaign = async (
+  config: SeedConfig,
+  input: { campaignId: number; leadIds: number[] },
+): Promise<void> =>
+  withDb(config, async (db) => {
+    await db.insert(campaignLeadsTable).values(
+      input.leadIds.map((leadId) => ({
+        campaignId: input.campaignId,
+        leadId,
+      })),
+    );
+  });
+
+export const addCommunitiesToCampaign = async (
+  config: SeedConfig,
+  input: { campaignId: number; communityIds: number[] },
+): Promise<void> =>
+  withDb(config, async (db) => {
+    await db.insert(campaignCommunitiesTable).values(
+      input.communityIds.map((communityId) => ({
+        campaignId: input.campaignId,
+        communityId,
+      })),
+    );
+  });
+
+export const listCampaignLeadIds = async (
+  config: SeedConfig,
+  campaignId: number,
+): Promise<number[]> =>
+  withDb(config, async (db) => {
+    const rows = await db
+      .select({ leadId: campaignLeadsTable.leadId })
+      .from(campaignLeadsTable)
+      .where(eq(campaignLeadsTable.campaignId, campaignId));
+
+    return rows.map((row) => row.leadId).sort((a, b) => a - b);
+  });
+
+export const listCampaignCommunityIds = async (
+  config: SeedConfig,
+  campaignId: number,
+): Promise<number[]> =>
+  withDb(config, async (db) => {
+    const rows = await db
+      .select({ communityId: campaignCommunitiesTable.communityId })
+      .from(campaignCommunitiesTable)
+      .where(eq(campaignCommunitiesTable.campaignId, campaignId));
+
+    return rows.map((row) => row.communityId).sort((a, b) => a - b);
   });

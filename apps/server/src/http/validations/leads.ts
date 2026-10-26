@@ -32,6 +32,7 @@ export const leadListQuerySchema = z.object({
   perPage: perPageSchema,
   search: searchSchema,
   hasEmail: z.stringbool().optional(),
+  campaignId: z.coerce.number().int().positive().optional(),
   sort: z.enum(["name", "username", "createdAt"]).default("createdAt"),
   order: orderSchema,
 });

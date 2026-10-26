@@ -15,6 +15,20 @@
       "when": 1792952425888,
       "tag": "0001_complete_maverick",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793011324398,
+      "tag": "0002_smiling_colleen_wing",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793012938584,
+      "tag": "0003_right_secret_warriors",
+      "breakpoints": true
     }
   ]
 }

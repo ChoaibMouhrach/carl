@@ -11,6 +11,7 @@ import {
   sql,
 } from "drizzle-orm";
 import {
+  campaignLeadsTable,
   communitiesTable,
   leadsTable,
   type Lead,
@@ -22,6 +23,7 @@ import { escapeLike } from "@server/lib/utils";
 export interface LeadListWhere {
   search?: string;
   hasEmail?: boolean;
+  campaignId?: number;
   sort: "name" | "username" | "createdAt";
   order: "asc" | "desc";
   limit: number;
@@ -39,6 +41,17 @@ export class LeadRepository extends BaseRepository {
       .limit(1);
 
     return leads.at(0) || null;
+  }
+
+  public async findAllByLeadIds(where: { leadIds: number[] }): Promise<Lead[]> {
+    if (where.leadIds.length === 0) {
+      return [];
+    }
+
+    return await this.db
+      .select()
+      .from(LeadRepository.table)
+      .where(inArray(LeadRepository.table.leadId, where.leadIds));
   }
 
   public async findByUsername(where: {
@@ -92,6 +105,15 @@ export class LeadRepository extends BaseRepository {
         : where.hasEmail
           ? isNotNull(table.email)
           : sql`${table.email} is null`,
+      where.campaignId === undefined
+        ? undefined
+        : inArray(
+            table.leadId,
+            this.db
+              .select({ leadId: campaignLeadsTable.leadId })
+              .from(campaignLeadsTable)
+              .where(eq(campaignLeadsTable.campaignId, where.campaignId)),
+          ),
     );
 
     const direction = where.order === "asc" ? asc : desc;
