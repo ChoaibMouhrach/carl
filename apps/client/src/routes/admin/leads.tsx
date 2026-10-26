@@ -13,6 +13,7 @@ export const adminLeadsRoute = createRoute({
     perPage: perPageSearchSchema,
     search: z.string().trim().min(1).optional().catch(undefined),
     hasEmail: z.boolean().optional().catch(undefined),
+    campaignId: z.coerce.number().int().positive().optional().catch(undefined),
     sort: z.enum(["name", "username", "createdAt"]).optional().catch(undefined),
     order: z.enum(["asc", "desc"]).optional().catch(undefined),
   }),

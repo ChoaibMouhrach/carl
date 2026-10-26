@@ -77,3 +77,20 @@ export const communitySortOptions: SortOption<
   { value: "name:asc", label: "Name A–Z", sort: "name", order: "asc" },
   { value: "name:desc", label: "Name Z–A", sort: "name", order: "desc" },
 ];
+
+export const campaignSortOptions: SortOption<"name" | "createdAt">[] = [
+  {
+    value: "createdAt:desc",
+    label: "Newest first",
+    sort: "createdAt",
+    order: "desc",
+  },
+  {
+    value: "createdAt:asc",
+    label: "Oldest first",
+    sort: "createdAt",
+    order: "asc",
+  },
+  { value: "name:asc", label: "Name A–Z", sort: "name", order: "asc" },
+  { value: "name:desc", label: "Name Z–A", sort: "name", order: "desc" },
+];

@@ -7,3 +7,11 @@ export const invalidateLeadData = async (queryClient: QueryClient) => {
     queryClient.invalidateQueries({ queryKey: ["admin", "communities"] }),
   ]);
 };
+
+// Membership changes show up in the campaign counts and in both filtered lists
+export const invalidateCampaignData = async (queryClient: QueryClient) => {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["admin", "campaigns"] }),
+    invalidateLeadData(queryClient),
+  ]);
+};

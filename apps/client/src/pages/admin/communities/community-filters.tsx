@@ -1,3 +1,5 @@
+import { CampaignFilter } from "@/components/campaign-filter";
+import type { CampaignOption } from "@/hooks/use-campaign-options";
 import { FilterSelect } from "@/components/filter-select";
 import { Search } from "@/components/search";
 import { communitySortOptions } from "@/lib/sort-options";
@@ -15,6 +17,9 @@ const pricingOptions: { value: PricingFilter; label: string }[] = [
 ];
 
 interface CommunityFiltersProps {
+  campaignId?: number;
+  campaigns: CampaignOption[];
+  onCampaignChange: (campaignId: number | undefined) => void;
   createAction: React.ReactNode;
   isFree?: boolean;
   onApplyRanges: (filters: CommunityRangeFilters) => void;
@@ -28,6 +33,9 @@ interface CommunityFiltersProps {
 }
 
 export const CommunityFilters = ({
+  campaignId,
+  campaigns,
+  onCampaignChange,
   createAction,
   isFree,
   onApplyRanges,
@@ -57,6 +65,11 @@ export const CommunityFilters = ({
         }
         options={pricingOptions}
         value={pricing}
+      />
+      <CampaignFilter
+        campaignId={campaignId}
+        campaigns={campaigns}
+        onChange={onCampaignChange}
       />
       <FilterSelect
         label="Sort by"

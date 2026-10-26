@@ -1,3 +1,5 @@
+import { CampaignFilter } from "@/components/campaign-filter";
+import type { CampaignOption } from "@/hooks/use-campaign-options";
 import { FilterSelect } from "@/components/filter-select";
 import { Search } from "@/components/search";
 import { leadSortOptions } from "@/lib/sort-options";
@@ -11,6 +13,9 @@ const emailOptions: { value: EmailFilter; label: string }[] = [
 ];
 
 interface LeadFiltersProps {
+  campaignId?: number;
+  campaigns: CampaignOption[];
+  onCampaignChange: (campaignId: number | undefined) => void;
   createAction: React.ReactNode;
   hasEmail?: boolean;
   onHasEmailChange: (hasEmail: boolean | undefined) => void;
@@ -22,6 +27,9 @@ interface LeadFiltersProps {
 }
 
 export const LeadFilters = ({
+  campaignId,
+  campaigns,
+  onCampaignChange,
   createAction,
   hasEmail,
   onHasEmailChange,
@@ -49,6 +57,11 @@ export const LeadFilters = ({
         }
         options={emailOptions}
         value={emailValue}
+      />
+      <CampaignFilter
+        campaignId={campaignId}
+        campaigns={campaigns}
+        onChange={onCampaignChange}
       />
       <FilterSelect
         label="Sort by"

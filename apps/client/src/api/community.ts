@@ -22,6 +22,7 @@ export interface CommunityListQuery {
   perPage?: number;
   search?: string;
   leadId?: number;
+  campaignId?: number;
   isFree?: boolean;
   hasEmail?: boolean;
   minMembers?: number;
@@ -41,6 +42,7 @@ export class CommunityApi extends BaseApi {
           perPage: query?.perPage?.toString(),
           search: query?.search,
           leadId: query?.leadId?.toString(),
+          campaignId: query?.campaignId?.toString(),
           isFree: query?.isFree?.toString(),
           hasEmail: query?.hasEmail?.toString(),
           minMembers: query?.minMembers?.toString(),

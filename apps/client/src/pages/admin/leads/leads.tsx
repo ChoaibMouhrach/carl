@@ -1,4 +1,5 @@
 import { api } from "@/api";
+import { AddToCampaignButton } from "@/components/add-to-campaign-button";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
 import { CardGridSkeleton } from "@/components/card-grid";
 import { FilterChips, type FilterChip } from "@/components/filter-chips";
@@ -7,9 +8,10 @@ import { SelectionBar } from "@/components/selection-bar";
 import { TableSkeleton } from "@/components/table-skeleton";
 import { Tip } from "@/components/tip";
 import { ViewSwitch } from "@/components/view-switch";
+import { useCampaignOptions } from "@/hooks/use-campaign-options";
 import { onError } from "@/lib/base-api";
 import { reportBulkDelete } from "@/lib/bulk-delete";
-import { invalidateLeadData } from "@/lib/invalidate";
+import { invalidateCampaignData, invalidateLeadData } from "@/lib/invalidate";
 import { perPageForUrl, resolvePageSize } from "@/lib/page-size";
 import { leadSortOptions, sortValue } from "@/lib/sort-options";
 import { useSelection } from "@/lib/use-selection";
@@ -60,6 +62,28 @@ export const Leads = () => {
     },
   });
 
+  const campaigns = useCampaignOptions();
+
+  const addToCampaign = useMutation({
+    mutationFn: (input: { campaignId: number; leadIds: number[] }) =>
+      api.campaign.addLeads(
+        { campaignId: input.campaignId },
+        { leadIds: input.leadIds },
+      ),
+    onError,
+    onSuccess: async (result) => {
+      toast.success(
+        result.added === 0
+          ? "Already in that campaign."
+          : result.added === 1
+            ? "1 lead added to the campaign."
+            : `${result.added} leads added to the campaign.`,
+      );
+      selection.clear();
+      await invalidateCampaignData(queryClient);
+    },
+  });
+
   const remove = useMutation({
     mutationFn: (leadId: number) => api.lead.remove({ leadId }),
     onError,
@@ -76,6 +100,7 @@ export const Leads = () => {
         page: 1,
         search: undefined,
         hasEmail: undefined,
+        campaignId: undefined,
       }),
     });
 
@@ -141,6 +166,22 @@ export const Leads = () => {
               }),
           },
         ]),
+    ...(searchParams.campaignId === undefined
+      ? []
+      : [
+          {
+            key: "campaignId",
+            label: `Campaign: ${campaigns.find((item) => item.value === String(searchParams.campaignId))?.label ?? "…"}`,
+            onRemove: () =>
+              navigate({
+                search: (current) => ({
+                  ...current,
+                  page: 1,
+                  campaignId: undefined,
+                }),
+              }),
+          },
+        ]),
   ];
 
   const selectedLeads = leads.data.leads.filter((lead) =>
@@ -152,7 +193,8 @@ export const Leads = () => {
   );
   const selectedLabel =
     selectedLeads.length === 1 ? "1 lead" : `${selectedLeads.length} leads`;
-  const isMutating = remove.isPending || removeMany.isPending;
+  const isMutating =
+    remove.isPending || removeMany.isPending || addToCampaign.isPending;
 
   const newLead = (
     <Tip
@@ -169,7 +211,14 @@ export const Leads = () => {
       <CardContent>
         <div className="space-y-4">
           <LeadFilters
+            campaignId={searchParams.campaignId}
+            campaigns={campaigns}
             createAction={newLead}
+            onCampaignChange={(campaignId) =>
+              navigate({
+                search: (current) => ({ ...current, page: 1, campaignId }),
+              })
+            }
             hasEmail={searchParams.hasEmail}
             onHasEmailChange={(hasEmail) =>
               navigate({
@@ -207,19 +256,34 @@ export const Leads = () => {
           <div className="flex min-h-9 flex-wrap items-center gap-x-4 gap-y-2">
             <SelectionBar
               actions={
-                <BulkDeleteButton
-                  consequence={
-                    selectedCommunities === 0
-                      ? selectedLabel
-                      : `${selectedLabel} and their ${selectedCommunities === 1 ? "1 community" : `${selectedCommunities} communities`}`
-                  }
-                  isPending={removeMany.isPending}
-                  label={`Delete ${selectedLabel}`}
-                  onConfirm={() =>
-                    removeMany.mutate(selectedLeads.map((lead) => lead.leadId))
-                  }
-                  title={`Delete ${selectedLabel}?`}
-                />
+                <>
+                  <AddToCampaignButton
+                    campaigns={campaigns}
+                    isPending={addToCampaign.isPending}
+                    onConfirm={(campaignId) =>
+                      addToCampaign.mutateAsync({
+                        campaignId,
+                        leadIds: selectedLeads.map((lead) => lead.leadId),
+                      })
+                    }
+                    subject={selectedLabel}
+                  />
+                  <BulkDeleteButton
+                    consequence={
+                      selectedCommunities === 0
+                        ? selectedLabel
+                        : `${selectedLabel} and their ${selectedCommunities === 1 ? "1 community" : `${selectedCommunities} communities`}`
+                    }
+                    isPending={removeMany.isPending}
+                    label={`Delete ${selectedLabel}`}
+                    onConfirm={() =>
+                      removeMany.mutate(
+                        selectedLeads.map((lead) => lead.leadId),
+                      )
+                    }
+                    title={`Delete ${selectedLabel}?`}
+                  />
+                </>
               }
               disabled={isMutating}
               selection={selection}

@@ -18,6 +18,7 @@ import {
   Building2Icon,
   LayersIcon,
   LayoutDashboardIcon,
+  MegaphoneIcon,
   UsersIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -36,6 +37,7 @@ interface NavigationItem {
     | "/admin/dashboard"
     | "/admin/leads"
     | "/admin/communities"
+    | "/admin/campaigns"
     | "/admin/queues";
   icon: LucideIcon;
 }
@@ -45,6 +47,11 @@ const navigation: NavigationItem[] = [
     label: "Dashboard",
     to: "/admin/dashboard",
     icon: LayoutDashboardIcon,
+  },
+  {
+    label: "Campaigns",
+    to: "/admin/campaigns",
+    icon: MegaphoneIcon,
   },
   {
     label: "Leads",

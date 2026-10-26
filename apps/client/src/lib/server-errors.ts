@@ -20,4 +20,5 @@ export const serverErrorMessages: Record<ServerErrorCode, string> = {
   communitySkoolUrlTaken: "A community with that Skool URL already exists.",
   invalidCommunityPricing:
     "A free community has no price, and a paid one needs an amount, currency and interval.",
+  campaignNotFound: "That campaign doesn't exist.",
 };

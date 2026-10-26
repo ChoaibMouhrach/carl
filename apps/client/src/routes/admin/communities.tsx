@@ -15,6 +15,7 @@ export const adminCommunitiesRoute = createRoute({
     perPage: perPageSearchSchema,
     search: z.string().trim().min(1).optional().catch(undefined),
     leadId: z.coerce.number().int().positive().optional().catch(undefined),
+    campaignId: z.coerce.number().int().positive().optional().catch(undefined),
     isFree: z.boolean().optional().catch(undefined),
     hasEmail: z.boolean().optional().catch(undefined),
     minMembers: count,

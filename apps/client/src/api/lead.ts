@@ -18,6 +18,7 @@ export class LeadApi extends BaseApi {
     perPage?: number;
     search?: string;
     hasEmail?: boolean;
+    campaignId?: number;
     sort?: LeadSort;
     order?: "asc" | "desc";
   }) {
@@ -28,6 +29,7 @@ export class LeadApi extends BaseApi {
           perPage: query?.perPage?.toString(),
           search: query?.search,
           hasEmail: query?.hasEmail?.toString(),
+          campaignId: query?.campaignId?.toString(),
           sort: query?.sort,
           order: query?.order,
         },

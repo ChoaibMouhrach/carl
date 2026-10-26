@@ -1,4 +1,5 @@
 import { api } from "@/api";
+import { AddToCampaignButton } from "@/components/add-to-campaign-button";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
 import { CardGridSkeleton } from "@/components/card-grid";
 import { FilterChips, type FilterChip } from "@/components/filter-chips";
@@ -7,10 +8,11 @@ import { SelectionBar } from "@/components/selection-bar";
 import { TableSkeleton } from "@/components/table-skeleton";
 import { Tip } from "@/components/tip";
 import { ViewSwitch } from "@/components/view-switch";
+import { useCampaignOptions } from "@/hooks/use-campaign-options";
 import { onError } from "@/lib/base-api";
 import { reportBulkDelete } from "@/lib/bulk-delete";
 import { formatNumber } from "@/lib/format";
-import { invalidateLeadData } from "@/lib/invalidate";
+import { invalidateCampaignData, invalidateLeadData } from "@/lib/invalidate";
 import { perPageForUrl, resolvePageSize } from "@/lib/page-size";
 import { communitySortOptions, sortValue } from "@/lib/sort-options";
 import { useSelection } from "@/lib/use-selection";
@@ -83,6 +85,28 @@ export const Communities = () => {
     },
   });
 
+  const campaigns = useCampaignOptions();
+
+  const addToCampaign = useMutation({
+    mutationFn: (input: { campaignId: number; communityIds: number[] }) =>
+      api.campaign.addCommunities(
+        { campaignId: input.campaignId },
+        { communityIds: input.communityIds },
+      ),
+    onError,
+    onSuccess: async (result) => {
+      toast.success(
+        result.added === 0
+          ? "Already in that campaign."
+          : result.added === 1
+            ? "1 community added to the campaign."
+            : `${result.added} communities added to the campaign.`,
+      );
+      selection.clear();
+      await invalidateCampaignData(queryClient);
+    },
+  });
+
   const remove = useMutation({
     mutationFn: (communityId: number) => api.community.remove({ communityId }),
     onError,
@@ -99,6 +123,7 @@ export const Communities = () => {
     update({
       search: undefined,
       leadId: undefined,
+      campaignId: undefined,
       isFree: undefined,
       hasEmail: undefined,
       minMembers: undefined,
@@ -156,6 +181,15 @@ export const Communities = () => {
             onRemove: () => update({ leadId: undefined }),
           },
         ]),
+    ...(searchParams.campaignId === undefined
+      ? []
+      : [
+          {
+            key: "campaignId",
+            label: `Campaign: ${campaigns.find((item) => item.value === String(searchParams.campaignId))?.label ?? "…"}`,
+            onRemove: () => update({ campaignId: undefined }),
+          },
+        ]),
     ...(searchParams.isFree === undefined
       ? []
       : [
@@ -211,7 +245,8 @@ export const Communities = () => {
     selectedCommunities.length === 1
       ? "1 community"
       : `${selectedCommunities.length} communities`;
-  const isMutating = remove.isPending || removeMany.isPending;
+  const isMutating =
+    remove.isPending || removeMany.isPending || addToCampaign.isPending;
 
   const newCommunity = (
     <Tip
@@ -237,7 +272,10 @@ export const Communities = () => {
       <CardContent>
         <div className="space-y-4">
           <CommunityFilters
+            campaignId={searchParams.campaignId}
+            campaigns={campaigns}
             createAction={newCommunity}
+            onCampaignChange={(campaignId) => update({ campaignId })}
             isFree={searchParams.isFree}
             onApplyRanges={update}
             onIsFreeChange={(isFree) => update({ isFree })}
@@ -266,19 +304,34 @@ export const Communities = () => {
           <div className="flex min-h-9 flex-wrap items-center gap-x-4 gap-y-2">
             <SelectionBar
               actions={
-                <BulkDeleteButton
-                  consequence={selectedLabel}
-                  isPending={removeMany.isPending}
-                  label={`Delete ${selectedLabel}`}
-                  onConfirm={() =>
-                    removeMany.mutate(
-                      selectedCommunities.map(
-                        (community) => community.communityId,
-                      ),
-                    )
-                  }
-                  title={`Delete ${selectedLabel}?`}
-                />
+                <>
+                  <AddToCampaignButton
+                    campaigns={campaigns}
+                    isPending={addToCampaign.isPending}
+                    onConfirm={(campaignId) =>
+                      addToCampaign.mutateAsync({
+                        campaignId,
+                        communityIds: selectedCommunities.map(
+                          (community) => community.communityId,
+                        ),
+                      })
+                    }
+                    subject={selectedLabel}
+                  />
+                  <BulkDeleteButton
+                    consequence={selectedLabel}
+                    isPending={removeMany.isPending}
+                    label={`Delete ${selectedLabel}`}
+                    onConfirm={() =>
+                      removeMany.mutate(
+                        selectedCommunities.map(
+                          (community) => community.communityId,
+                        ),
+                      )
+                    }
+                    title={`Delete ${selectedLabel}?`}
+                  />
+                </>
               }
               disabled={isMutating}
               selection={selection}
