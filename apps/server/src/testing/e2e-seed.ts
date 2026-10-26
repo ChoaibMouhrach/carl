@@ -4,6 +4,8 @@ import IORedis from "ioredis";
 import { initDB, type DB } from "../infrastructure/database/client";
 import {
   accountTable,
+  communitiesTable,
+  leadsTable,
   sessionTable,
   userTable,
   verificationTable,
@@ -364,4 +366,148 @@ export const ageSessions = async (
       .update(sessionTable)
       .set({ createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) })
       .where(eq(sessionTable.userId, userId));
+  });
+
+export interface SeedLeadInput {
+  name: string;
+  username: string;
+  email?: string | null;
+  bio?: string | null;
+  pictureUrl?: string | null;
+}
+
+export const createLead = async (config: SeedConfig, input: SeedLeadInput) =>
+  withDb(config, async (db) => {
+    const [lead] = await db
+      .insert(leadsTable)
+      .values({
+        name: input.name,
+        username: input.username,
+        skoolUrl: `https://www.skool.com/@${input.username}`,
+        email: input.email ?? null,
+        bio: input.bio ?? null,
+        pictureUrl: input.pictureUrl ?? null,
+      })
+      .returning();
+
+    if (!lead) {
+      throw new Error(`could not create lead ${input.username}`);
+    }
+
+    return lead;
+  });
+
+export interface SeedCommunityInput {
+  leadId: number;
+  name: string;
+  slug: string;
+  members?: number | null;
+  mrr?: number | null;
+  email?: string | null;
+  priceCents?: number | null;
+}
+
+export const createCommunity = async (
+  config: SeedConfig,
+  input: SeedCommunityInput,
+) =>
+  withDb(config, async (db) => {
+    const paid = input.priceCents !== undefined && input.priceCents !== null;
+
+    const [community] = await db
+      .insert(communitiesTable)
+      .values({
+        leadId: input.leadId,
+        name: input.name,
+        skoolUrl: `https://www.skool.com/${input.slug}`,
+        members: input.members ?? null,
+        mrr: input.mrr ?? null,
+        email: input.email ?? null,
+        isFree: !paid,
+        priceCents: paid ? input.priceCents : null,
+        priceCurrency: paid ? "usd" : null,
+        priceInterval: paid ? "month" : null,
+      })
+      .returning();
+
+    if (!community) {
+      throw new Error(`could not create community ${input.slug}`);
+    }
+
+    return community;
+  });
+
+/** Many leads at once, named `<prefix> 01`, `<prefix> 02`, ... with usernames `<prefix>-01`, ... */
+export const createLeads = async (
+  config: SeedConfig,
+  input: { prefix: string; count: number },
+) =>
+  withDb(config, async (db) =>
+    db
+      .insert(leadsTable)
+      .values(
+        Array.from({ length: input.count }, (_, index) => {
+          const number = String(index + 1).padStart(2, "0");
+
+          return {
+            name: `${input.prefix} ${number}`,
+            username: `${input.prefix}-${number}`,
+            skoolUrl: `https://www.skool.com/@${input.prefix}-${number}`,
+          };
+        }),
+      )
+      .returning(),
+  );
+
+export const findLeadByUsername = async (
+  config: SeedConfig,
+  username: string,
+) =>
+  withDb(config, async (db) => {
+    const [lead] = await db
+      .select()
+      .from(leadsTable)
+      .where(eq(leadsTable.username, username))
+      .limit(1);
+
+    return lead ?? null;
+  });
+
+export const findCommunityBySlug = async (config: SeedConfig, slug: string) =>
+  withDb(config, async (db) => {
+    const [community] = await db
+      .select()
+      .from(communitiesTable)
+      .where(eq(communitiesTable.skoolUrl, `https://www.skool.com/${slug}`))
+      .limit(1);
+
+    return community ?? null;
+  });
+
+export const countLeadsWithPrefix = async (
+  config: SeedConfig,
+  prefix: string,
+): Promise<number> =>
+  withDb(config, async (db) => {
+    const leads = await db
+      .select({ leadId: leadsTable.leadId })
+      .from(leadsTable)
+      .where(like(leadsTable.username, `${prefix}%`));
+
+    return leads.length;
+  });
+
+export const countCommunitiesWithPrefix = async (
+  config: SeedConfig,
+  prefix: string,
+): Promise<number> =>
+  withDb(config, async (db) => {
+    const communities = await db
+      .select({ communityId: communitiesTable.communityId })
+      .from(communitiesTable)
+      .where(
+        like(communitiesTable.skoolUrl, `https://www.skool.com/${prefix}%`),
+      );
+
+    return communities.length;
   });

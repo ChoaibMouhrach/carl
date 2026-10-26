@@ -30,6 +30,12 @@ export const expectRequired = async (
   }
 };
 
+/** A field by its exact label; required fields carry a trailing asterisk that getByLabel exact would miss */
+export const field = (page: Page, label: string) =>
+  page.getByLabel(
+    new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\*?$`),
+  );
+
 export const rowActions = (page: Page, rowText: string | RegExp) =>
   page
     .getByRole("row")

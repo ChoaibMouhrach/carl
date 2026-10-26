@@ -1,7 +1,14 @@
 import { test as base, type BrowserContext } from "@playwright/test";
 import { faker } from "@faker-js/faker";
 import {
+  countCommunitiesWithPrefix,
+  countLeadsWithPrefix,
+  createCommunity,
   createEmailChangeUrl,
+  createLead,
+  createLeads,
+  findCommunityBySlug,
+  findLeadByUsername,
   ageSessions,
   banUser,
   deleteUser,
@@ -16,11 +23,27 @@ import {
   getUserEmail,
   resetE2EAuthRateLimits,
   type CreateVerifiedUserInput,
+  type SeedCommunityInput,
+  type SeedLeadInput,
   type SeededUser,
 } from "@repo/server/testing/e2e-seed";
 import { CLIENT_URL, seedConfig } from "./config";
 
 interface Seed {
+  countCommunitiesWithPrefix: (prefix: string) => Promise<number>;
+  countLeadsWithPrefix: (prefix: string) => Promise<number>;
+  createCommunity: (
+    input: SeedCommunityInput,
+  ) => ReturnType<typeof createCommunity>;
+  createLead: (input: SeedLeadInput) => ReturnType<typeof createLead>;
+  createLeads: (input: {
+    prefix: string;
+    count: number;
+  }) => ReturnType<typeof createLeads>;
+  findCommunityBySlug: (slug: string) => ReturnType<typeof findCommunityBySlug>;
+  findLeadByUsername: (
+    username: string,
+  ) => ReturnType<typeof findLeadByUsername>;
   ageSessions: (email: string) => Promise<void>;
   banUser: (email: string) => Promise<void>;
   deleteUser: (email: string) => Promise<void>;
@@ -70,6 +93,14 @@ export const test = base.extend<{ seed: Seed; resetRateLimits: void }>({
     const config = seedConfig();
 
     await use({
+      countCommunitiesWithPrefix: (prefix) =>
+        countCommunitiesWithPrefix(config, prefix),
+      countLeadsWithPrefix: (prefix) => countLeadsWithPrefix(config, prefix),
+      createCommunity: (input) => createCommunity(config, input),
+      createLead: (input) => createLead(config, input),
+      createLeads: (input) => createLeads(config, input),
+      findCommunityBySlug: (slug) => findCommunityBySlug(config, slug),
+      findLeadByUsername: (username) => findLeadByUsername(config, username),
       ageSessions: (email) => ageSessions(config, email),
       banUser: (email) => banUser(config, email),
       deleteUser: (email) => deleteUser(config, email),
