@@ -87,6 +87,7 @@ export class ScrapeService extends BaseService {
         linkedin: lead.linkedin,
         website: lead.website,
         email: lead.email,
+        pictureUrl: lead.pictureUrl,
       });
 
       await tx.community.upsertBySkoolUrl(
@@ -109,6 +110,8 @@ export class ScrapeService extends BaseService {
       members: community.members,
       mrr: community.mrr,
       email: community.email,
+      thumbnailUrl: community.thumbnailUrl,
+      logoUrl: community.logoUrl,
       isFree: !paid,
       priceCents: paid?.amountCents ?? null,
       priceCurrency: paid?.currency ?? null,

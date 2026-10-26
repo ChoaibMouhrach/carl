@@ -16,6 +16,7 @@ export const leadsTable = pgTable("leads", {
   linkedin: text(),
   website: text(),
   email: text(),
+  pictureUrl: text(),
 
   // -- timestamps
   ...timestamps(),

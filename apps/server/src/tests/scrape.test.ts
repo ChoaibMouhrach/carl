@@ -1,130 +1,22 @@
 import { expect, test } from "bun:test";
 import { initENV } from "@server/config/env";
 import {
-  BaseSkoolScrapper,
   SkoolScrapeError,
   type Community,
-  type FullCommunity,
-  type FullLead,
 } from "@server/lib/base-skool-scrapper";
 import { ScrapeService } from "@server/services/scrape";
 import { NonRetryableJobError } from "@server/lib/base-queue";
 import z from "zod";
 import { ScrapeWorker } from "@server/workers/scrape";
-import {
-  communitiesTable,
-  leadsTable,
-} from "@server/infrastructure/database/schemas";
-import type { DB } from "@server/infrastructure/database/client";
 import { createAdminClient } from "./helpers/api";
+import {
+  FakeSkoolScrapper,
+  freeCommunity,
+  paidMonthly,
+  tableRows,
+} from "./helpers/skool";
 import { createContext, TestMailer } from "./helpers/context";
 import { withTestDatabase } from "./helpers/http";
-
-const paidMonthly = (slug: string, members = 10): Community => ({
-  name: slug.toUpperCase(),
-  communityURL: `https://www.skool.com/${slug}`,
-  description: `About ${slug}`,
-  members,
-  pricing: {
-    type: "paid",
-    amountCents: 2700,
-    currency: "usd",
-    interval: "month",
-    source: "displayPrice",
-  },
-  mrr: members * 27,
-  email: `${slug}@example.com`,
-});
-
-const freeCommunity = (slug: string): Community => ({
-  ...paidMonthly(slug),
-  pricing: { type: "free" },
-  mrr: 0,
-  email: null,
-});
-
-const lead = (username: string): FullLead => ({
-  name: `Lead ${username}`,
-  username,
-  leadURL: `https://www.skool.com/@${username}`,
-  bio: `Bio of ${username}`,
-  instagram: null,
-  facebook: null,
-  linkedin: null,
-  website: null,
-  email: `${username}@example.com`,
-});
-
-class FakeSkoolScrapper extends BaseSkoolScrapper {
-  public aboutCalls: string[] = [];
-  public leadCalls: string[] = [];
-  public discoverCalls: { search: string }[] = [];
-  public leadOverrides: Record<string, Partial<FullLead>> = {};
-
-  public constructor(
-    private readonly data: {
-      pages: Record<number, Community[]>;
-      owners: Record<string, string>;
-      missingCommunities?: string[];
-      missingLeads?: string[];
-      leadError?: Error;
-    },
-  ) {
-    super();
-  }
-
-  public override async discover(query: {
-    search: string;
-  }): Promise<Community[]> {
-    this.discoverCalls.push(query);
-
-    return Object.values(this.data.pages).flat();
-  }
-
-  public override async about(input: {
-    communityURL: string;
-  }): Promise<FullCommunity | null> {
-    this.aboutCalls.push(input.communityURL);
-
-    if (this.data.missingCommunities?.includes(input.communityURL)) {
-      return null;
-    }
-
-    const community = Object.values(this.data.pages)
-      .flat()
-      .find((candidate) => candidate.communityURL === input.communityURL);
-    const owner = this.data.owners[input.communityURL];
-
-    if (!community || !owner) {
-      throw new Error(`Unknown community ${input.communityURL}`);
-    }
-
-    return { ...community, leadURL: `https://www.skool.com/@${owner}` };
-  }
-
-  public override async lead(input: {
-    leadURL: string;
-  }): Promise<FullLead | null> {
-    this.leadCalls.push(input.leadURL);
-
-    if (this.data.leadError) {
-      throw this.data.leadError;
-    }
-
-    if (this.data.missingLeads?.includes(input.leadURL)) {
-      return null;
-    }
-
-    const username = input.leadURL.replace("https://www.skool.com/@", "");
-
-    return { ...lead(username), ...this.leadOverrides[username] };
-  }
-}
-
-const tableRows = async (db: DB) => ({
-  leads: await db.select().from(leadsTable),
-  communities: await db.select().from(communitiesTable),
-});
 
 const boot = async (
   db: Parameters<typeof createContext>[0],
@@ -195,6 +87,7 @@ test("a scrape discovers communities, then stores them and their leads in the da
       linkedin: "https://linkedin.com/in/ann",
       website: "https://ann.example.com",
       email: "ann@example.com",
+      pictureUrl: "https://assets.skool.com/ann-md.jpg",
       ...timestamps,
     });
     expect(leadByName("bob")).toEqual({
@@ -208,6 +101,7 @@ test("a scrape discovers communities, then stores them and their leads in the da
       linkedin: null,
       website: null,
       email: "bob@example.com",
+      pictureUrl: "https://assets.skool.com/bob-md.jpg",
       ...timestamps,
     });
 
@@ -225,6 +119,8 @@ test("a scrape discovers communities, then stores them and their leads in the da
       priceCents: 2700,
       priceCurrency: "usd",
       priceInterval: "month",
+      thumbnailUrl: "https://assets.skool.com/alpha-md.jpg",
+      logoUrl: "https://assets.skool.com/alpha-logo.jpg",
       ...timestamps,
     });
     expect(communityByUrl("beta")).toEqual({
@@ -240,6 +136,8 @@ test("a scrape discovers communities, then stores them and their leads in the da
       priceCents: null,
       priceCurrency: null,
       priceInterval: null,
+      thumbnailUrl: "https://assets.skool.com/beta-md.jpg",
+      logoUrl: "https://assets.skool.com/beta-logo.jpg",
       ...timestamps,
     });
     expect(communityByUrl("gamma").leadId).toBe(leadByName("ann").leadId);
@@ -478,5 +376,62 @@ test("only admins can start a scrape and the body is validated", async () => {
     expect(scrapper.discoverCalls).toHaveLength(0);
     expect(context.queueHub.scrape.added).toHaveLength(0);
     expect(await tableRows(db)).toEqual({ leads: [], communities: [] });
+  });
+});
+
+test("scraping again overwrites the images and clears them when Skool no longer has one", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const scrapper = new FakeSkoolScrapper({
+      pages: { 1: [paidMonthly("alpha")] },
+      owners: { "https://www.skool.com/alpha": "ann" },
+    });
+    const context = await boot(db, pool, scrapper);
+    await new ScrapeService({ context }).start({ search: "x" });
+    const before = await tableRows(db);
+    expect(before.leads[0]?.pictureUrl).toBe(
+      "https://assets.skool.com/ann-md.jpg",
+    );
+    expect(before.communities[0]).toMatchObject({
+      thumbnailUrl: "https://assets.skool.com/alpha-md.jpg",
+      logoUrl: "https://assets.skool.com/alpha-logo.jpg",
+    });
+
+    scrapper.leadOverrides["ann"] = {
+      pictureUrl: "https://assets.skool.com/ann-new.jpg",
+    };
+    await context.queueHub.scrape.add({
+      type: "scrape-lead",
+      leadURL: "https://www.skool.com/@ann",
+      community: {
+        ...paidMonthly("alpha"),
+        thumbnailUrl: "https://assets.skool.com/alpha-new.jpg",
+        logoUrl: null,
+      },
+    });
+
+    const changed = await tableRows(db);
+    expect(changed.leads).toHaveLength(1);
+    expect(changed.communities).toHaveLength(1);
+    expect(changed.leads[0]?.pictureUrl).toBe(
+      "https://assets.skool.com/ann-new.jpg",
+    );
+    expect(changed.communities[0]).toMatchObject({
+      thumbnailUrl: "https://assets.skool.com/alpha-new.jpg",
+      logoUrl: null,
+    });
+
+    scrapper.leadOverrides["ann"] = { pictureUrl: null };
+    await context.queueHub.scrape.add({
+      type: "scrape-lead",
+      leadURL: "https://www.skool.com/@ann",
+      community: { ...paidMonthly("alpha"), thumbnailUrl: null, logoUrl: null },
+    });
+
+    const cleared = await tableRows(db);
+    expect(cleared.leads[0]?.pictureUrl).toBeNull();
+    expect(cleared.communities[0]).toMatchObject({
+      thumbnailUrl: null,
+      logoUrl: null,
+    });
   });
 });

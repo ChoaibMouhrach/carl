@@ -8,6 +8,13 @@
       "when": 1792937497528,
       "tag": "0000_fuzzy_fat_cobra",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792952425888,
+      "tag": "0001_complete_maverick",
+      "breakpoints": true
     }
   ]
 }

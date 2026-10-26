@@ -20,6 +20,8 @@ export const communitiesTable = pgTable(
     members: integer(),
     mrr: integer(),
     email: text(),
+    thumbnailUrl: text(),
+    logoUrl: text(),
     isFree: boolean().notNull(),
     priceCents: integer(),
     priceCurrency: text(),

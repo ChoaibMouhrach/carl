@@ -16,6 +16,8 @@ export type Community = {
   pricing: Pricing;
   mrr: number;
   email: string | null;
+  thumbnailUrl: string | null;
+  logoUrl: string | null;
 };
 
 export type FullCommunity = Community & {
@@ -32,6 +34,7 @@ export type FullLead = {
   linkedin: string | null;
   website: string | null;
   email: string | null;
+  pictureUrl: string | null;
 };
 
 export type SkoolScrapeErrorKind =

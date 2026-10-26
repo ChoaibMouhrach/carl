@@ -69,6 +69,8 @@ const groupMetadataSchema = z.object({
   displayName: z.string(),
   description: z.string(),
   lpDescription: z.string().nullish(),
+  coverSmallUrl: optionalText,
+  logoUrl: optionalText,
   totalMembers: z.number(),
   displayPrice: jsonString(displayPriceSchema).nullish(),
   currentMBp: jsonString(legacyPriceSchema).nullish(),
@@ -110,6 +112,7 @@ const leadSchema = z.object({
         lastName: z.string(),
         metadata: z.object({
           bio: optionalText,
+          pictureProfile: optionalText,
           linkInstagram: optionalText,
           linkFacebook: optionalText,
           linkLinkedin: optionalText,
@@ -288,6 +291,7 @@ export class CustomSkoolScrapper extends BaseSkoolScrapper {
       linkedin: metadata.linkLinkedin,
       website: metadata.linkWebsite,
       email: this.firstEmail(metadata.bio),
+      pictureUrl: metadata.pictureProfile,
     };
   }
 
@@ -303,6 +307,8 @@ export class CustomSkoolScrapper extends BaseSkoolScrapper {
       pricing,
       mrr: this.estimateMrr(metadata.totalMembers, pricing),
       email: this.firstEmail(metadata.description, metadata.lpDescription),
+      thumbnailUrl: metadata.coverSmallUrl,
+      logoUrl: metadata.logoUrl,
     };
   }
 

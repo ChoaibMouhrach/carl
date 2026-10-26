@@ -187,6 +187,78 @@ describe("pricing on real community pages", () => {
   });
 });
 
+describe("images", () => {
+  test("a community carries its cover thumbnail and logo", async () => {
+    const { scrapper } = createScrapper(fixtureFetcher(FIXTURES));
+
+    const community = await scrapper.about({
+      communityURL: aboutURL("barbenders"),
+    });
+
+    expect(community).toMatchObject({
+      thumbnailUrl:
+        "https://assets.skool.com/f/39ccd4e1bcc3438d8eaf61ba7c6cb49c/6ba56dad7f4c48f5bad4e480e7b1739bd462379232914ca8ae1c9c47322184c2-md.jpg",
+      logoUrl:
+        "https://assets.skool.com/f/39ccd4e1bcc3438d8eaf61ba7c6cb49c/0ae009ca483c48c685074eb814ff9e6ec88a2f80edc4459f94024bb627aeeb6e.jpg",
+    });
+  });
+
+  test("a lead carries the medium profile picture", async () => {
+    const { scrapper } = createScrapper(fixtureFetcher(FIXTURES));
+
+    const lead = await scrapper.lead({ leadURL: leadURL("term-sheet-9378") });
+
+    expect(lead?.pictureUrl).toBe(
+      "https://assets.skool.com/f/7b2e945c23664d7ba8d6e0353ece6dac/8c26189497d1430395ab924bce87d78e5c7a8d32dcaa4206ab6f83dd4bd49c26.jpg",
+    );
+  });
+
+  test("missing or empty images become null instead of failing the page", async () => {
+    const communityPage = (metadata: object) =>
+      pageHtml({
+        props: {
+          pageProps: {
+            currentGroup: {
+              name: "x",
+              metadata: {
+                displayName: "X",
+                description: "d",
+                totalMembers: 1,
+                owner: JSON.stringify({ name: "o" }),
+                ...metadata,
+              },
+            },
+          },
+        },
+      });
+    const { scrapper } = createScrapper(async (url) =>
+      respond(
+        url,
+        url.endsWith("/about")
+          ? communityPage({ logoUrl: "", coverSmallUrl: null })
+          : pageHtml({
+              props: {
+                pageProps: {
+                  currentUser: {
+                    name: "o",
+                    firstName: "O",
+                    lastName: "Wner",
+                    metadata: { bio: "", pictureProfile: "" },
+                  },
+                },
+              },
+            }),
+      ),
+    );
+
+    const community = await scrapper.about({ communityURL: aboutURL("x") });
+    const lead = await scrapper.lead({ leadURL: leadURL("o") });
+
+    expect(community).toMatchObject({ thumbnailUrl: null, logoUrl: null });
+    expect(lead?.pictureUrl).toBeNull();
+  });
+});
+
 describe("community email", () => {
   const communityPage = (metadata: object) =>
     pageHtml({
@@ -264,6 +336,10 @@ describe("discover on a real discovery page", () => {
       },
       mrr: 405 * 49,
       email: null,
+      thumbnailUrl:
+        "https://assets.skool.com/f/e44ffa14d5294d2b9cfa6ccd4981d292/9b45cf70b62c4a43b48193ab0df7166a7e81d5d49fd04e94a495c5aaf08e0c36-md.jpg",
+      logoUrl:
+        "https://assets.skool.com/f/e44ffa14d5294d2b9cfa6ccd4981d292/d069a7ff8f164c9e90fb2dbac8fe3342f71be8c78c7c40d8a76c7e03f0815d53",
     });
     expect(communities.every((community) => community.mrr >= 0)).toBe(true);
     expect(logger.records.filter((r) => r.level === "warn")).toHaveLength(0);
