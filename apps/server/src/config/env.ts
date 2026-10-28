@@ -45,31 +45,16 @@ const baseSchema = z.object({
   TRUST_PROXY: z.stringbool().default(false),
   QUEUE_CONCURRENCY: z.coerce.number().int().positive().default(5),
   QUEUE_BACKLOG_THRESHOLD: z.coerce.number().int().positive().default(100),
+  SCRAPE_CONCURRENCY: z.coerce.number().int().positive().default(2),
+  ENRICH_CONCURRENCY: z.coerce.number().int().positive().default(2),
+
+  // Web search (Tavily) — optional, enrichment is unavailable without it
+  TAVILY_API_KEY: optional(z.string().nonempty()),
 
   // Mail
   RESEND_API_KEY: z.string().nonempty(),
   MAIL_DOMAIN: z.string().nonempty(),
   MAIL_RATE_LIMIT_PER_SECOND: z.coerce.number().positive().default(2),
-
-  // Lets e2e tests script what Skool returns; anything unscripted still reaches Skool
-  SKOOL_SCRIPTING: z.stringbool().default(false),
-
-  // AI filter
-  OPENAI_API_KEY: z.string().nonempty(),
-  AI_FILTER_MODEL: z.string().nonempty().default("gpt-5-mini"),
-  // Leads sent to OpenAI at the same time; raise it with your usage tier
-  AI_FILTER_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(12),
-
-  // Web search (stage 3)
-  TAVILY_API_KEY: z.string().nonempty(),
-  // Leads searched on Tavily at the same time (1-32)
-  ENRICH_CONCURRENCY: z.preprocess(
-    emptyToUndefined,
-    z.coerce.number().int().min(1).max(32).default(5),
-  ),
-
-  // Email finder (stage 4)
-  FULLENRICH_API_KEY: z.string().nonempty(),
 
   // Error monitoring (Sentry-compatible, e.g. Bugsink) — optional
   SENTRY_DSN: z.url().optional(),

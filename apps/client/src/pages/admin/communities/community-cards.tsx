@@ -2,9 +2,10 @@ import { CardFacts } from "@/components/card-facts";
 import { CardFrame } from "@/components/card-frame";
 import { CardGrid } from "@/components/card-grid";
 import { CardIdentity } from "@/components/card-identity";
-import { SelectCheckbox } from "@/components/select-checkbox";
-import { initialsOf } from "@/lib/initials";
+import { CoverImage } from "@/components/cover-image";
+import { EmailLink } from "@/components/external-link";
 import { RowActions } from "@/components/row-actions";
+import { SelectCheckbox } from "@/components/select-checkbox";
 import { formatCurrency, formatNumber } from "@/lib/format";
 import {
   Card,
@@ -13,10 +14,15 @@ import {
   CardHeader,
 } from "@repo/ui/components/ui/card";
 import { Separator } from "@repo/ui/components/ui/separator";
-import { Link } from "@tanstack/react-router";
-import { BanknoteIcon, TagIcon, UsersIcon } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import {
+  BadgeDollarSignIcon,
+  MailIcon,
+  TagIcon,
+  UsersIcon,
+} from "lucide-react";
 import { CommunityPrice } from "./community-price";
-import type { CommunityTableProps } from "./community-table";
+import type { CommunityListProps } from "./community-row";
 
 export const CommunityCards = ({
   communities,
@@ -25,10 +31,8 @@ export const CommunityCards = ({
   removingCommunityId,
   selection,
   showLead,
-}: CommunityTableProps) => {
-  if (communities.length === 0) {
-    return <p className="text-muted-foreground">No communities found.</p>;
-  }
+}: CommunityListProps) => {
+  const navigate = useNavigate();
 
   return (
     <CardGrid>
@@ -36,6 +40,12 @@ export const CommunityCards = ({
         <CardFrame
           key={community.communityId}
           selected={selection.isSelected(community.communityId)}
+          onClick={() =>
+            navigate({
+              to: "/admin/communities/$communityId",
+              params: { communityId: community.communityId },
+            })
+          }
         >
           <Card>
             <CardHeader>
@@ -43,36 +53,20 @@ export const CommunityCards = ({
                 leading={
                   <SelectCheckbox
                     checked={selection.isSelected(community.communityId)}
+                    disabled={isMutating}
+                    label={`Select ${community.name}`}
                     onChange={() => selection.toggle(community.communityId)}
                   />
                 }
-                avatar={initialsOf(community.displayName)}
-                description={
-                  showLead && community.leadName ? (
-                    <Link
-                      className="hover:underline"
-                      params={{ leadId: community.leadId }}
-                      to="/admin/leads/$leadId"
-                    >
-                      {community.leadName}
-                    </Link>
-                  ) : undefined
-                }
-                title={
-                  <a
-                    className="hover:underline"
-                    href={community.communityUrl}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    {community.displayName}
-                  </a>
-                }
+                description={showLead ? community.lead?.name : undefined}
+                image={community.logoUrl ?? community.thumbnailUrl}
+                name={community.name}
+                title={community.name}
               />
               <CardAction>
                 <RowActions
                   cancelLabel="Cancel"
-                  deleteDescription="This permanently deletes the community. This action cannot be undone."
+                  deleteDescription={`This permanently deletes ${community.name}. This action cannot be undone.`}
                   deleteLabel="Delete"
                   deleteTitle="Delete this community?"
                   edit={
@@ -86,20 +80,26 @@ export const CommunityCards = ({
                     removingCommunityId === community.communityId && isMutating
                   }
                   isDisabled={isMutating}
-                  menuLabel="Actions"
+                  menuLabel="Community actions"
                   onDelete={() => onRemove(community.communityId)}
                 />
               </CardAction>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
+                {community.thumbnailUrl && (
+                  <CoverImage src={community.thumbnailUrl} />
+                )}
                 <Separator />
                 <CardFacts
                   facts={[
                     {
                       icon: UsersIcon,
                       label: "Members",
-                      value: formatNumber(community.memberCount),
+                      value:
+                        community.members === null
+                          ? "—"
+                          : formatNumber(community.members),
                     },
                     {
                       icon: TagIcon,
@@ -107,12 +107,17 @@ export const CommunityCards = ({
                       value: <CommunityPrice community={community} />,
                     },
                     {
-                      icon: BanknoteIcon,
-                      label: "Est. revenue",
+                      icon: BadgeDollarSignIcon,
+                      label: "MRR",
                       value:
-                        community.estMonthlyRevenue === null
+                        community.mrr === null
                           ? "—"
-                          : formatCurrency(community.estMonthlyRevenue, "USD"),
+                          : formatCurrency(community.mrr, "USD"),
+                    },
+                    {
+                      icon: MailIcon,
+                      label: "Email",
+                      value: <EmailLink email={community.email ?? undefined} />,
                     },
                   ]}
                 />

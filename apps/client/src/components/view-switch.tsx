@@ -1,3 +1,4 @@
+import { Tip } from "@/components/tip";
 import { views, type View } from "@/lib/view";
 import { useIsMobile } from "@repo/ui/hooks/use-mobile";
 import {
@@ -27,12 +28,18 @@ export const ViewSwitch = ({ onChange, view }: ViewSwitchProps) => {
       value={[view]}
       variant="outline"
     >
-      <ToggleGroupItem aria-label="Table view" value="table">
+      <Tip
+        label="Show as a table"
+        render={<ToggleGroupItem aria-label="Table view" value="table" />}
+      >
         <Rows3Icon />
-      </ToggleGroupItem>
-      <ToggleGroupItem aria-label="Card view" value="cards">
+      </Tip>
+      <Tip
+        label="Show as cards"
+        render={<ToggleGroupItem aria-label="Card view" value="cards" />}
+      >
         <LayoutGridIcon />
-      </ToggleGroupItem>
+      </Tip>
     </ToggleGroup>
   );
 };

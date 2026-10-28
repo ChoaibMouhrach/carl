@@ -17,7 +17,7 @@ export const AdminLeadEditPage = () => {
       <AdminPageHeader>
         <AdminPageTitle>Edit lead</AdminPageTitle>
         <AdminPageDescription>
-          Owner details and where to reach them.
+          Change the owner's details and where to reach them.
         </AdminPageDescription>
       </AdminPageHeader>
       <LeadEdit />

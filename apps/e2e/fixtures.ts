@@ -1,43 +1,28 @@
 import { test as base, type BrowserContext } from "@playwright/test";
 import { faker } from "@faker-js/faker";
 import {
-  attachCampaignLeads,
+  addCommunitiesToCampaign,
+  addLeadsToCampaign,
+  countCampaignsContaining,
+  countCommunitiesWithPrefix,
+  countLeadsWithPrefix,
   createCampaign,
   createCommunity,
   createEmailChangeUrl,
   createLead,
-  createScrapeRun,
+  createLeads,
+  createPipelineRun,
+  deleteCampaignsContaining,
+  listPipelineRuns,
+  updatePipelineRun,
   findCampaignByName,
-  findCommunityBySkoolId,
+  findCommunityBySlug,
   findLeadByUsername,
-  listCampaignLeads,
-  listCommunitiesByLeadId,
-  listLeadsByUsernamePrefix,
-  listOAuthTokens,
-  listFilterQuestions,
-  saveFilterQuestions,
-  sampleFilterQuestions,
-  listLeadAssessments,
-  scriptLeadAssessment,
-  scriptEmailFinder,
-  scriptWebSearch,
-  unscriptEmailFinder,
-  unscriptWebSearch,
-  type EmailFinderScript,
-  type WebSearchScript,
-  unscriptLeadAssessment,
-  type LeadScript,
-  expireOAuthTokens,
+  listCampaignCommunityIds,
+  listCampaignLeadIds,
   ageSessions,
   banUser,
   deleteUser,
-  listScrapeRuns,
-  scriptSkool,
-  unscriptSkool,
-  type SeedCampaignInput,
-  type SeedCommunityInput,
-  type SeedLeadInput,
-  type SkoolScript,
   createEmailVerificationUrl,
   createSessionCookie,
   createVerifiedAdmin,
@@ -49,67 +34,58 @@ import {
   getUserEmail,
   resetE2EAuthRateLimits,
   type CreateVerifiedUserInput,
+  type SeedCampaignInput,
+  type SeedCommunityInput,
+  type SeedPipelineRunInput,
+  type SeedLeadInput,
   type SeededUser,
 } from "@repo/server/testing/e2e-seed";
 import { CLIENT_URL, seedConfig } from "./config";
 
 interface Seed {
-  attachCampaignLeads: (
-    input: Parameters<typeof attachCampaignLeads>[1],
-  ) => ReturnType<typeof attachCampaignLeads>;
+  addCommunitiesToCampaign: (input: {
+    campaignId: number;
+    communityIds: number[];
+  }) => Promise<void>;
+  addLeadsToCampaign: (input: {
+    campaignId: number;
+    leadIds: number[];
+  }) => Promise<void>;
+  countCampaignsContaining: (fragment: string) => Promise<number>;
   createCampaign: (
     input: SeedCampaignInput,
   ) => ReturnType<typeof createCampaign>;
+  deleteCampaignsContaining: (fragment: string) => Promise<void>;
+  createPipelineRun: (
+    input: SeedPipelineRunInput,
+  ) => ReturnType<typeof createPipelineRun>;
+  updatePipelineRun: (input: {
+    runId: number;
+    status: "running" | "done" | "failed";
+    processed: number;
+    failed?: number;
+  }) => Promise<void>;
+  listPipelineRuns: (campaignId: number) => ReturnType<typeof listPipelineRuns>;
+  findCampaignByName: (name: string) => ReturnType<typeof findCampaignByName>;
+  listCampaignCommunityIds: (campaignId: number) => Promise<number[]>;
+  listCampaignLeadIds: (campaignId: number) => Promise<number[]>;
+  countCommunitiesWithPrefix: (prefix: string) => Promise<number>;
+  countLeadsWithPrefix: (prefix: string) => Promise<number>;
   createCommunity: (
     input: SeedCommunityInput,
   ) => ReturnType<typeof createCommunity>;
   createLead: (input: SeedLeadInput) => ReturnType<typeof createLead>;
-  createScrapeRun: (
-    input: Parameters<typeof createScrapeRun>[1],
-  ) => ReturnType<typeof createScrapeRun>;
-  findCampaignByName: (name: string) => ReturnType<typeof findCampaignByName>;
-  findCommunityBySkoolId: (
-    skoolId: string,
-  ) => ReturnType<typeof findCommunityBySkoolId>;
+  createLeads: (input: {
+    prefix: string;
+    count: number;
+  }) => ReturnType<typeof createLeads>;
+  findCommunityBySlug: (slug: string) => ReturnType<typeof findCommunityBySlug>;
   findLeadByUsername: (
-    skoolUsername: string,
+    username: string,
   ) => ReturnType<typeof findLeadByUsername>;
-  listCampaignLeads: (
-    campaignId: number,
-  ) => ReturnType<typeof listCampaignLeads>;
-  listCommunitiesByLeadId: (
-    leadId: number,
-  ) => ReturnType<typeof listCommunitiesByLeadId>;
-  listLeadsByUsernamePrefix: (
-    prefix: string,
-  ) => ReturnType<typeof listLeadsByUsernamePrefix>;
-  listScrapeRuns: (campaignId: number) => ReturnType<typeof listScrapeRuns>;
-  listOAuthTokens: (email: string) => ReturnType<typeof listOAuthTokens>;
-  listFilterQuestions: (
-    campaignId: number,
-  ) => ReturnType<typeof listFilterQuestions>;
-  saveFilterQuestions: (
-    campaignId: number,
-    questions?: typeof sampleFilterQuestions,
-  ) => Promise<void>;
-  listLeadAssessments: (
-    campaignId: number,
-  ) => ReturnType<typeof listLeadAssessments>;
-  scriptLeadAssessment: (username: string, script: LeadScript) => Promise<void>;
-  unscriptLeadAssessment: (username: string) => Promise<void>;
-  scriptWebSearch: (query: string, script: WebSearchScript) => Promise<void>;
-  unscriptWebSearch: (query: string) => Promise<void>;
-  scriptEmailFinder: (
-    identity: string,
-    script: EmailFinderScript,
-  ) => Promise<void>;
-  unscriptEmailFinder: (identity: string) => Promise<void>;
-  expireOAuthTokens: (email: string) => Promise<void>;
   ageSessions: (email: string) => Promise<void>;
   banUser: (email: string) => Promise<void>;
   deleteUser: (email: string) => Promise<void>;
-  scriptSkool: (script: SkoolScript) => Promise<void>;
-  unscriptSkool: (script: SkoolScript) => Promise<void>;
   authenticate: (
     context: BrowserContext,
     email: string,
@@ -156,45 +132,33 @@ export const test = base.extend<{ seed: Seed; resetRateLimits: void }>({
     const config = seedConfig();
 
     await use({
-      attachCampaignLeads: (input) => attachCampaignLeads(config, input),
+      addCommunitiesToCampaign: (input) =>
+        addCommunitiesToCampaign(config, input),
+      addLeadsToCampaign: (input) => addLeadsToCampaign(config, input),
+      countCampaignsContaining: (fragment) =>
+        countCampaignsContaining(config, fragment),
       createCampaign: (input) => createCampaign(config, input),
+      deleteCampaignsContaining: (fragment) =>
+        deleteCampaignsContaining(config, fragment),
+      createPipelineRun: (input) => createPipelineRun(config, input),
+      updatePipelineRun: (input) => updatePipelineRun(config, input),
+      listPipelineRuns: (campaignId) => listPipelineRuns(config, campaignId),
+      findCampaignByName: (name) => findCampaignByName(config, name),
+      listCampaignCommunityIds: (campaignId) =>
+        listCampaignCommunityIds(config, campaignId),
+      listCampaignLeadIds: (campaignId) =>
+        listCampaignLeadIds(config, campaignId),
+      countCommunitiesWithPrefix: (prefix) =>
+        countCommunitiesWithPrefix(config, prefix),
+      countLeadsWithPrefix: (prefix) => countLeadsWithPrefix(config, prefix),
       createCommunity: (input) => createCommunity(config, input),
       createLead: (input) => createLead(config, input),
-      createScrapeRun: (input) => createScrapeRun(config, input),
-      findCampaignByName: (name) => findCampaignByName(config, name),
-      findCommunityBySkoolId: (skoolId) =>
-        findCommunityBySkoolId(config, skoolId),
-      findLeadByUsername: (skoolUsername) =>
-        findLeadByUsername(config, skoolUsername),
-      listCampaignLeads: (campaignId) => listCampaignLeads(config, campaignId),
-      listCommunitiesByLeadId: (leadId) =>
-        listCommunitiesByLeadId(config, leadId),
-      listLeadsByUsernamePrefix: (prefix) =>
-        listLeadsByUsernamePrefix(config, prefix),
-      listScrapeRuns: (campaignId) => listScrapeRuns(config, campaignId),
-      listOAuthTokens: (email) => listOAuthTokens(config, email),
-      saveFilterQuestions: (campaignId, questions = sampleFilterQuestions) =>
-        saveFilterQuestions(config, { campaignId, questions }),
-      listFilterQuestions: (campaignId) =>
-        listFilterQuestions(config, campaignId),
-      listLeadAssessments: (campaignId) =>
-        listLeadAssessments(config, campaignId),
-      scriptLeadAssessment: (username, script) =>
-        scriptLeadAssessment(config, { username, script }),
-      unscriptLeadAssessment: (username) =>
-        unscriptLeadAssessment(config, username),
-      scriptWebSearch: (query, script) =>
-        scriptWebSearch(config, { query, script }),
-      unscriptWebSearch: (query) => unscriptWebSearch(config, query),
-      scriptEmailFinder: (identity, script) =>
-        scriptEmailFinder(config, { identity, script }),
-      unscriptEmailFinder: (identity) => unscriptEmailFinder(config, identity),
-      expireOAuthTokens: (email) => expireOAuthTokens(config, email),
+      createLeads: (input) => createLeads(config, input),
+      findCommunityBySlug: (slug) => findCommunityBySlug(config, slug),
+      findLeadByUsername: (username) => findLeadByUsername(config, username),
       ageSessions: (email) => ageSessions(config, email),
       banUser: (email) => banUser(config, email),
       deleteUser: (email) => deleteUser(config, email),
-      scriptSkool: (script) => scriptSkool(config, script),
-      unscriptSkool: (script) => unscriptSkool(config, script),
       authenticate: async (context, email, userAgent) => {
         const cookie = await createSessionCookie(config, { email, userAgent });
         await context.addCookies([

@@ -1,5 +1,4 @@
 import { BaseWorker } from "@server/lib/base-worker";
-import { Services } from "@server/services";
 import { QueueService } from "@server/services/queue";
 
 export class MaintenanceWorker extends BaseWorker {
@@ -10,9 +9,6 @@ export class MaintenanceWorker extends BaseWorker {
       switch (job.type) {
         case "check-queue-backlog":
           await this.checkQueueBacklog();
-          return;
-        case "sweep-email-batches":
-          await new Services({ context: this.context }).findEmail.sweep();
           return;
       }
     });

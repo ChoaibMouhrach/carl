@@ -1,219 +1,190 @@
-import {
-  csvFilename,
-  EXPORT_FETCH_LIMIT,
-  toCsv,
-  withinExportLimit,
-} from "@server/lib/csv";
 import { BaseService } from "@server/lib/base-service";
-import { derivePricing } from "@server/lib/pricing";
 import {
   BadRequestError,
   ConflictError,
   NotFoundError,
 } from "@server/lib/errors";
-import type { CommunitySortBy } from "@server/repositories/community";
 import type {
+  Community,
   CommunityInsert,
-  CommunityPrice,
 } from "@server/infrastructure/database/schemas";
-import type { PriceInput } from "@server/http/validations/community";
 
-type CommunityFields = Omit<
+interface ListCommunitiesInput {
+  page: number;
+  perPage: number;
+  search?: string;
+  leadId?: number;
+  campaignId?: number;
+  isFree?: boolean;
+  hasEmail?: boolean;
+  minMembers?: number;
+  maxMembers?: number;
+  minMrr?: number;
+  maxMrr?: number;
+  sort: "name" | "members" | "mrr" | "priceCents" | "createdAt";
+  order: "asc" | "desc";
+}
+
+type CreateCommunityInput = Omit<
   CommunityInsert,
-  | "communityId"
-  | "createdAt"
-  | "updatedAt"
-  | "prices"
-  | "pricingType"
-  | "pricingInterval"
-  | "priceAmount"
-  | "priceCurrency"
-  | "monthlyPriceUsd"
-  | "estMonthlyRevenue"
-> & { prices: PriceInput[] };
+  "communityId" | "createdAt" | "updatedAt"
+>;
 
 export class CommunityService extends BaseService {
-  public async list(query: {
-    page?: number;
-    search?: string;
-    pricingType?: CommunityPrice["type"];
-    leadId?: number;
-    minMembers?: number;
-    minRevenue?: number;
-    sortBy?: CommunitySortBy;
-    sortOrder?: "asc" | "desc";
-  }) {
-    const page = query.page || 1;
+  public async list(input: ListCommunitiesInput) {
+    const { page, perPage, ...filters } = input;
 
-    const { communities, lastPage } =
+    const { communities, total } =
       await this.context.repositories.community.list({
-        page,
-        search: query.search,
-        pricingType: query.pricingType,
-        leadId: query.leadId,
-        minMembers: query.minMembers,
-        minRevenue: query.minRevenue,
-        sortBy: query.sortBy ?? "estMonthlyRevenue",
-        sortOrder: query.sortOrder ?? "desc",
+        ...filters,
+        limit: perPage,
+        offset: (page - 1) * perPage,
       });
 
-    return { communities, meta: { page, lastPage } };
+    return {
+      communities,
+      meta: {
+        page,
+        perPage,
+        lastPage: Math.max(1, Math.ceil(total / perPage)),
+        total,
+      },
+    };
   }
 
-  public async exportCsv(query: {
-    search?: string;
-    pricingType?: CommunityPrice["type"];
-    leadId?: number;
-    minMembers?: number;
-    minRevenue?: number;
-    sortBy?: CommunitySortBy;
-    sortOrder?: "asc" | "desc";
-  }) {
-    const { communities } = await this.context.repositories.community.list({
-      page: 1,
-      limit: EXPORT_FETCH_LIMIT,
-      search: query.search,
-      pricingType: query.pricingType,
-      leadId: query.leadId,
-      minMembers: query.minMembers,
-      minRevenue: query.minRevenue,
-      sortBy: query.sortBy ?? "estMonthlyRevenue",
-      sortOrder: query.sortOrder ?? "desc",
-    });
+  public async get(where: { communityId: number }) {
+    const community =
+      await this.context.repositories.community.findByCommunityId(where);
 
-    const csv = toCsv(
-      [
-        { header: "Community", value: (item) => item.displayName },
-        { header: "Slug", value: (item) => item.name },
-        { header: "URL", value: (item) => item.communityUrl },
-        { header: "Owner", value: (item) => item.leadName },
-        { header: "Owner username", value: (item) => item.leadSkoolUsername },
-        { header: "Members", value: (item) => item.memberCount },
-        { header: "Pricing", value: (item) => item.pricingType },
-        { header: "Interval", value: (item) => item.pricingInterval },
-        { header: "Price", value: (item) => item.priceAmount / 100 },
-        { header: "Currency", value: (item) => item.priceCurrency },
-        {
-          header: "Monthly price (USD)",
-          value: (item) => item.monthlyPriceUsd,
-        },
-        {
-          header: "Est. monthly revenue (USD)",
-          value: (item) => item.estMonthlyRevenue,
-        },
-        { header: "Access", value: (item) => item.accessType },
-        { header: "Description", value: (item) => item.description },
-        { header: "Added", value: (item) => item.createdAt },
-      ],
-      withinExportLimit(communities),
-    );
-
-    return { csv, filename: csvFilename("communities") };
-  }
-
-  public async show(input: { communityId: number }) {
-    const community = await this.findOrFail(input.communityId);
+    if (!community) {
+      throw this.notFound();
+    }
 
     const lead = await this.context.repositories.lead.findByLeadId({
       leadId: community.leadId,
     });
 
-    return { community, lead: lead! };
+    return { ...community, lead };
   }
 
-  public async create(input: CommunityFields) {
+  public async create(input: CreateCommunityInput) {
+    this.assertPricing(input);
     await this.assertLeadExists(input.leadId);
+    await this.assertUnique({ skoolUrl: input.skoolUrl });
 
-    const existing = await this.context.repositories.community.findBySkoolId({
-      skoolId: input.skoolId,
-    });
-
-    if (existing) {
-      throw new ConflictError({
-        message: "A community with this Skool id already exists.",
-      });
-    }
-
-    const community = await this.context.repositories.community.create({
-      ...input,
-      ...derivePricing(this.normalizePrices(input.prices), input.memberCount),
-    });
-
-    await this.context.eventBus.publish("communities.changed", "leads.changed");
-
-    return community;
+    return await this.context.repositories.community.create(input);
   }
 
   public async update(
-    input: { communityId: number },
-    fields: Partial<Omit<CommunityFields, "skoolId">>,
+    where: { communityId: number },
+    input: Partial<CreateCommunityInput>,
   ) {
-    const current = await this.findOrFail(input.communityId);
-    const { prices, ...rest } = fields;
-
-    if (fields.leadId !== undefined) {
-      await this.assertLeadExists(fields.leadId);
-    }
-
-    const pricing =
-      prices !== undefined || fields.memberCount !== undefined
-        ? derivePricing(
-            this.normalizePrices(prices ?? current.prices),
-            fields.memberCount ?? current.memberCount,
-          )
-        : {};
-
-    await this.context.repositories.community.update(
-      { communityId: input.communityId },
-      { ...rest, ...pricing },
-    );
-    await this.context.eventBus.publish("communities.changed", "leads.changed");
-
-    return await this.findOrFail(input.communityId);
-  }
-
-  public async remove(input: { communityId: number }): Promise<void> {
-    await this.findOrFail(input.communityId);
-
-    await this.context.repositories.community.removeByCommunityId({
-      communityId: input.communityId,
-    });
-    await this.context.eventBus.publish("communities.changed", "leads.changed");
-  }
-
-  private async findOrFail(communityId: number) {
     const community =
-      await this.context.repositories.community.findByCommunityId({
-        communityId,
-      });
+      await this.context.repositories.community.findByCommunityId(where);
 
     if (!community) {
-      throw new NotFoundError({ message: "Community not found." });
+      throw this.notFound();
     }
 
-    return community;
+    this.assertPricing({ ...community, ...input });
+
+    if (input.leadId !== undefined) {
+      await this.assertLeadExists(input.leadId);
+    }
+
+    await this.assertUnique(input, where.communityId);
+    await this.context.repositories.community.update(where, input);
+
+    const updated =
+      await this.context.repositories.community.findByCommunityId(where);
+
+    return updated ?? community;
+  }
+
+  public async removeMany(input: {
+    communityIds: number[];
+  }): Promise<{ deleted: number }> {
+    // One statement, so the whole batch goes or none of it does
+    const deleted =
+      await this.context.repositories.community.removeByCommunityIds({
+        communityIds: [...new Set(input.communityIds)],
+      });
+
+    return { deleted };
+  }
+
+  public async remove(where: { communityId: number }): Promise<void> {
+    const community =
+      await this.context.repositories.community.findByCommunityId(where);
+
+    if (!community) {
+      throw this.notFound();
+    }
+
+    await this.context.repositories.community.removeByCommunityId(where);
+  }
+
+  // A free community has no price; a paid one needs the full price
+  private assertPricing(
+    state: Pick<Community, "isFree"> &
+      Partial<
+        Pick<Community, "priceCents" | "priceCurrency" | "priceInterval">
+      >,
+  ) {
+    const priced = [
+      state.priceCents,
+      state.priceCurrency,
+      state.priceInterval,
+    ].map((value) => value !== null && value !== undefined);
+
+    const valid = state.isFree
+      ? priced.every((isSet) => !isSet)
+      : priced.every((isSet) => isSet);
+
+    if (!valid) {
+      throw new BadRequestError({
+        message:
+          "A free community has no price, and a paid one needs an amount, currency and interval.",
+        code: "invalidCommunityPricing",
+      });
+    }
   }
 
   private async assertLeadExists(leadId: number) {
     const lead = await this.context.repositories.lead.findByLeadId({ leadId });
 
     if (!lead) {
-      throw new BadRequestError({ message: "Lead not found." });
+      throw new NotFoundError({
+        message: "Lead not found.",
+        code: "leadNotFound",
+      });
     }
   }
 
-  private normalizePrices(
-    inputPrices: (PriceInput | CommunityPrice)[],
-  ): CommunityPrice[] {
-    return inputPrices.map((price) =>
-      price.type === "free"
-        ? { type: "free", interval: null, amount: 0, currency: null }
-        : {
-            type: "paid",
-            interval: price.interval,
-            amount: price.amount,
-            currency: price.currency,
-          },
-    );
+  private async assertUnique(
+    input: { skoolUrl?: string },
+    exceptCommunityId?: number,
+  ) {
+    if (input.skoolUrl === undefined) {
+      return;
+    }
+
+    const taken = await this.context.repositories.community.findBySkoolUrl({
+      skoolUrl: input.skoolUrl,
+    });
+
+    if (taken && taken.communityId !== exceptCommunityId) {
+      throw new ConflictError({
+        message: "A community with that Skool URL already exists.",
+        code: "communitySkoolUrlTaken",
+      });
+    }
+  }
+
+  private notFound() {
+    return new NotFoundError({
+      message: "Community not found.",
+      code: "communityNotFound",
+    });
   }
 }

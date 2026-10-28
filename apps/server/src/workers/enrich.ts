@@ -1,17 +1,39 @@
+import { ZodError } from "zod";
 import { BaseWorker } from "@server/lib/base-worker";
-import { Services } from "@server/services";
+import { NonRetryableJobError } from "@server/lib/base-queue";
+import { WebSearchError } from "@server/lib/base-web-search";
+import { EnrichService } from "@server/services/enrich";
 
 export class EnrichWorker extends BaseWorker {
   public override async run(): Promise<void> {
-    await this.context.logger.info({
-      message: "The enrich worker is running.",
-      webSearch: this.context.webSearch.provider,
-    });
+    this.context.logger.info("The enrich worker is running.");
 
-    const services = new Services({ context: this.context });
+    const enrich = new EnrichService({ context: this.context });
 
-    await this.context.queueHub.enrich.consume(async (job) => {
-      await services.enrich.runCampaign({ campaignId: job.campaignId });
+    await this.context.queueHub.enrich.consume(async (job, meta) => {
+      try {
+        await enrich.enrichLead(job);
+      } catch (error) {
+        const classified = this.classify(error);
+
+        if (meta.isFinalAttempt || classified instanceof NonRetryableJobError) {
+          await enrich.recordFailure({ runId: job.runId, error: classified });
+        }
+
+        throw classified;
+      }
     });
+  }
+
+  private classify(error: unknown): unknown {
+    if (error instanceof ZodError) {
+      return new NonRetryableJobError(error.message, { cause: error });
+    }
+
+    if (error instanceof WebSearchError && !error.retryable) {
+      return new NonRetryableJobError(error.message, { cause: error });
+    }
+
+    return error;
   }
 }

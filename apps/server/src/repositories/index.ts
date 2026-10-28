@@ -5,13 +5,7 @@ import { HealthRepository } from "./health";
 import { LeadRepository } from "./lead";
 import { CommunityRepository } from "./community";
 import { CampaignRepository } from "./campaign";
-import { CampaignLeadRepository } from "./campaign-lead";
-import { ScrapeRunRepository } from "./scrape-run";
-import { OAuthClientRepository } from "./oauth-client";
-import { McpRequestRepository } from "./mcp-request";
-import { CampaignFilterRepository } from "./campaign-filter";
-import { LeadAssessmentRepository } from "./lead-assessment";
-import { EmailEnrichmentRepository } from "./email-enrichment";
+import { PipelineRunRepository } from "./pipeline-run";
 
 interface RepositoriesConstructorProps {
   dbConnection: DBConnection;
@@ -27,13 +21,7 @@ export class Repositories {
   public lead;
   public community;
   public campaign;
-  public campaignLead;
-  public scrapeRun;
-  public oauthClient;
-  public mcpRequest;
-  public campaignFilter;
-  public leadAssessment;
-  public emailEnrichment;
+  public pipelineRun;
 
   public constructor({ dbConnection }: RepositoriesConstructorProps) {
     this.pool = dbConnection.pool;
@@ -63,31 +51,7 @@ export class Repositories {
       db: dbConnection.db,
     });
 
-    this.campaignLead = new CampaignLeadRepository({
-      db: dbConnection.db,
-    });
-
-    this.scrapeRun = new ScrapeRunRepository({
-      db: dbConnection.db,
-    });
-
-    this.oauthClient = new OAuthClientRepository({
-      db: dbConnection.db,
-    });
-
-    this.mcpRequest = new McpRequestRepository({
-      db: dbConnection.db,
-    });
-
-    this.campaignFilter = new CampaignFilterRepository({
-      db: dbConnection.db,
-    });
-
-    this.leadAssessment = new LeadAssessmentRepository({
-      db: dbConnection.db,
-    });
-
-    this.emailEnrichment = new EmailEnrichmentRepository({
+    this.pipelineRun = new PipelineRunRepository({
       db: dbConnection.db,
     });
   }

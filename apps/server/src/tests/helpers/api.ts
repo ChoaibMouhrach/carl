@@ -1,8 +1,4 @@
 import type { Context } from "@server/context";
-import type {
-  CommunityInsert,
-  LeadInsert,
-} from "@server/infrastructure/database/schemas";
 import { createAuthenticatedApp } from "./http";
 
 interface RequestInit {
@@ -34,38 +30,4 @@ export const createAdminClient = async (context: Context, email: string) => {
     patch: (path: string, body?: object) => request("PATCH", path, { body }),
     delete: (path: string) => request("DELETE", path),
   };
-};
-
-let sequence = 0;
-
-export const seedLead = async (
-  context: Context,
-  overrides: Partial<LeadInsert> = {},
-) => {
-  sequence += 1;
-
-  return await context.repositories.lead.create({
-    skoolUsername: `lead-${sequence}`,
-    name: `Lead ${sequence}`,
-    ...overrides,
-  });
-};
-
-export const seedCommunity = async (
-  context: Context,
-  leadId: number,
-  overrides: Partial<CommunityInsert> = {},
-) => {
-  sequence += 1;
-
-  return await context.repositories.community.create({
-    leadId,
-    skoolId: `community-${sequence}`,
-    name: `community-${sequence}`,
-    displayName: `Community ${sequence}`,
-    communityUrl: `https://www.skool.com/community-${sequence}`,
-    memberCount: 100,
-    pricingType: "free",
-    ...overrides,
-  });
 };

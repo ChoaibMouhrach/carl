@@ -7,19 +7,18 @@ import { adminAccountRoute } from "./admin/account";
 import { adminDashboardRoute } from "./admin/dashboard";
 import { adminLayoutRoute } from "./admin/layout";
 import { adminQueuesRoute } from "./admin/queues";
-import { adminAgentRoute } from "./admin/agent";
 import { adminLeadsRoute } from "./admin/leads";
 import { adminLeadRoute } from "./admin/lead";
 import { adminLeadCreateRoute } from "./admin/lead-create";
 import { adminLeadEditRoute } from "./admin/lead-edit";
-import { adminCampaignsRoute } from "./admin/campaigns";
-import { adminCampaignRoute } from "./admin/campaign";
-import { adminCampaignCreateRoute } from "./admin/campaign-create";
-import { adminCampaignEditRoute } from "./admin/campaign-edit";
-import { adminCampaignFilterRoute } from "./admin/campaign-filter";
 import { adminCommunitiesRoute } from "./admin/communities";
+import { adminCommunityRoute } from "./admin/community";
 import { adminCommunityCreateRoute } from "./admin/community-create";
 import { adminCommunityEditRoute } from "./admin/community-edit";
+import { adminCampaignsRoute } from "./admin/campaigns";
+import { adminCampaignCreateRoute } from "./admin/campaign-create";
+import { adminCampaignRoute } from "./admin/campaign";
+import { adminCampaignEditRoute } from "./admin/campaign-edit";
 
 export const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -27,19 +26,18 @@ export const routeTree = rootRoute.addChildren([
     adminDashboardRoute,
     adminAccountRoute,
     adminQueuesRoute,
-    adminAgentRoute,
+    adminLeadsRoute,
+    adminLeadCreateRoute,
+    adminLeadRoute,
+    adminLeadEditRoute,
+    adminCommunitiesRoute,
+    adminCommunityCreateRoute,
+    adminCommunityRoute,
+    adminCommunityEditRoute,
     adminCampaignsRoute,
     adminCampaignCreateRoute,
     adminCampaignRoute,
     adminCampaignEditRoute,
-    adminCampaignFilterRoute,
-    adminLeadsRoute,
-    adminLeadRoute,
-    adminLeadCreateRoute,
-    adminLeadEditRoute,
-    adminCommunitiesRoute,
-    adminCommunityCreateRoute,
-    adminCommunityEditRoute,
   ]),
   authRouteTree,
   errorRoute,

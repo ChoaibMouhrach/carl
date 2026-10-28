@@ -6,56 +6,51 @@ export type CreateCommunityInput = InferRequestType<
   typeof http.api.communities.$post
 >["json"];
 
-export type UpdateCommunityInput = Partial<
-  Omit<CreateCommunityInput, "skoolId">
->;
+export type UpdateCommunityInput = InferRequestType<
+  (typeof http.api.communities)[":communityId"]["$patch"]
+>["json"];
+
+export type CommunitySort =
+  | "name"
+  | "members"
+  | "mrr"
+  | "priceCents"
+  | "createdAt";
+
+export interface CommunityListQuery {
+  page?: number;
+  perPage?: number;
+  search?: string;
+  leadId?: number;
+  campaignId?: number;
+  isFree?: boolean;
+  hasEmail?: boolean;
+  minMembers?: number;
+  maxMembers?: number;
+  minMrr?: number;
+  maxMrr?: number;
+  sort?: CommunitySort;
+  order?: "asc" | "desc";
+}
 
 export class CommunityApi extends BaseApi {
-  public list(query?: {
-    page?: number;
-    search?: string;
-    pricingType?: "free" | "paid";
-    leadId?: number;
-    minMembers?: number;
-    minRevenue?: number;
-    sortBy?: "estMonthlyRevenue" | "memberCount" | "createdAt" | "name";
-    sortOrder?: "asc" | "desc";
-  }) {
+  public list(query?: CommunityListQuery) {
     return this.call(() =>
       http.api.communities.$get({
         query: {
           page: query?.page?.toString(),
+          perPage: query?.perPage?.toString(),
           search: query?.search,
-          pricingType: query?.pricingType,
           leadId: query?.leadId?.toString(),
+          campaignId: query?.campaignId?.toString(),
+          isFree: query?.isFree?.toString(),
+          hasEmail: query?.hasEmail?.toString(),
           minMembers: query?.minMembers?.toString(),
-          minRevenue: query?.minRevenue?.toString(),
-          sortBy: query?.sortBy,
-          sortOrder: query?.sortOrder,
-        },
-      }),
-    );
-  }
-
-  public export(query?: {
-    search?: string;
-    pricingType?: "free" | "paid";
-    leadId?: number;
-    minMembers?: number;
-    minRevenue?: number;
-    sortBy?: "estMonthlyRevenue" | "memberCount" | "createdAt" | "name";
-    sortOrder?: "asc" | "desc";
-  }) {
-    return this.download(() =>
-      http.api.communities.export.$get({
-        query: {
-          search: query?.search,
-          pricingType: query?.pricingType,
-          leadId: query?.leadId?.toString(),
-          minMembers: query?.minMembers?.toString(),
-          minRevenue: query?.minRevenue?.toString(),
-          sortBy: query?.sortBy,
-          sortOrder: query?.sortOrder,
+          maxMembers: query?.maxMembers?.toString(),
+          minMrr: query?.minMrr?.toString(),
+          maxMrr: query?.maxMrr?.toString(),
+          sort: query?.sort,
+          order: query?.order,
         },
       }),
     );
@@ -79,6 +74,12 @@ export class CommunityApi extends BaseApi {
         param: { communityId: where.communityId.toString() },
         json: input,
       }),
+    );
+  }
+
+  public removeMany(input: { communityIds: number[] }) {
+    return this.call(() =>
+      http.api.communities["bulk-delete"].$post({ json: input }),
     );
   }
 

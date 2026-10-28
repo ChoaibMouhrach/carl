@@ -1,615 +1,485 @@
-import { test, expect } from "../fixtures";
 import type { Page } from "@playwright/test";
-import { confirmDelete, expectRequired, rowActions, token } from "./support";
+import { test as base, expect } from "../fixtures";
+import { API_URL } from "../config";
+import {
+  confirmDelete,
+  expectOptional,
+  expectRequired,
+  field,
+  rowActions,
+  token,
+} from "./support";
 
-const chips = (page: Page) => page.locator('[data-slot="combobox-chip"]');
+// Each test names its campaigns after a token and removes them afterwards, so the
+// pickers (which list the first 100 campaigns by name) never fill up with leftovers
+const test = base.extend<{ id: string }>({
+  id: async ({ seed }, use) => {
+    const id = token();
+    await use(id);
+    await seed.deleteCampaignsContaining(id);
+  },
+});
 
-const chooseType = async (page: Page, option: string) => {
-  await page.getByRole("combobox").filter({ hasText: "Select a type" }).click();
-  await page.getByRole("option", { name: option, exact: true }).click();
+const campaignName = (id: string, suffix = "") => `0-${id}${suffix}`;
+
+const addToCampaign = async (page: Page, name: string) => {
+  await page.getByRole("button", { name: "Add to campaign" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(
+    dialog.getByRole("button", { name: "Add to campaign" }),
+  ).toBeDisabled();
+  await dialog.getByRole("combobox", { name: "Campaign" }).click();
+  await page.getByRole("option", { name, exact: true }).click();
+  await dialog.getByRole("button", { name: "Add to campaign" }).click();
+  await expect(dialog).toHaveCount(0);
 };
 
-const choosePricing = async (page: Page, option: string) => {
-  await page
-    .getByRole("combobox")
-    .filter({ hasText: "Select a pricing model" })
-    .click();
-  await page.getByRole("option", { name: option, exact: true }).click();
-};
-
-const addKeyword = async (page: Page, keyword: string, key = "Enter") => {
-  const input = page.getByLabel(/^Search keywords/);
-  await input.click();
-  await input.pressSequentially(keyword);
-  await input.press(key);
-};
-
-test("an admin creates a campaign with keywords, search settings and limits", async ({
+test("creates a campaign from the form and stores every field", async ({
   page,
   seed,
+  id,
 }) => {
   const admin = await seed.createVerifiedAdmin();
   await seed.authenticate(page.context(), admin.email);
-  const id = token();
+  const name = campaignName(id);
 
-  await page.goto("/admin/campaigns");
-  await page.getByRole("link", { name: "New campaign" }).click();
-  await expect(page).toHaveURL(/\/admin\/campaigns\/new/);
+  await page.goto("/admin/campaigns/new");
 
-  await page.getByLabel(/^Name\s*\*?$/).fill(`Campaign ${id}`);
-  await page.getByLabel(/^Description/).fill("Gym owners in Europe");
-  await addKeyword(page, `alpha ${id}`);
-  await addKeyword(page, `beta ${id}`, ",");
-  await page.getByLabel(/^Search keywords/).pressSequentially(`gamma ${id}`);
-  await page.getByLabel(/^Name\s*\*?$/).click();
-  await expect(chips(page)).toHaveText([
-    `alpha ${id}`,
-    `beta ${id}`,
-    `gamma ${id}`,
-  ]);
+  await expectRequired(page, "Name", "Fitness coaches");
+  await expectRequired(page, "Search keyword", "fitness coaching");
+  await expectOptional(page, "Description");
+  await expectOptional(page, "Minimum price");
+  await expectOptional(page, "Minimum members");
 
-  await chooseType(page, "Private");
-  await choosePricing(page, "Free trial");
-  await page.getByLabel(/^Min price per month/).fill("9.5");
-  await page.getByLabel(/^Max price per month/).fill("199");
-  await page.getByLabel(/^Min members/).fill("50");
-  await page.getByLabel(/^Max members/).fill("5000");
-  await page.getByRole("button", { name: "Save" }).click();
+  await field(page, "Name").fill(name);
+  await page.getByLabel("Description").fill("Paid fitness communities");
+  await field(page, "Search keyword").fill("fitness coaching");
+  await page.getByLabel("Minimum price").fill("49.99");
+  await page.getByLabel("Minimum members").fill("100");
+  await page.getByRole("button", { name: "Create campaign" }).click();
 
-  await expect(page).toHaveURL(/\/admin\/campaigns\/\d+/);
-  await expect
-    .poll(() => seed.findCampaignByName(`Campaign ${id}`))
-    .toMatchObject({
-      description: "Gym owners in Europe",
-      status: "draft",
-      keywords: [`alpha ${id}`, `beta ${id}`, `gamma ${id}`],
-      types: ["private"],
-      pricingModels: ["free-trial"],
-      minMonthlyPriceUsd: 9.5,
-      maxMonthlyPriceUsd: 199,
-      minMembers: 50,
-      maxMembers: 5000,
-    });
+  await expect(page).toHaveURL(/\/admin\/campaigns(\?.*)?$/);
+  expect(await seed.findCampaignByName(name)).toMatchObject({
+    name,
+    description: "Paid fitness communities",
+    keyword: "fitness coaching",
+    minPriceCents: 4999,
+    minMembers: 100,
+  });
 
   await page.goto(`/admin/campaigns?search=${id}`);
-  await expect(
-    page.getByRole("row").filter({ hasText: `Campaign ${id}` }),
-  ).toHaveCount(1);
+  const row = page.getByRole("row").filter({ hasText: name });
+  await expect(row).toContainText("$49.99 / mo");
+  await expect(row).toContainText("100");
 });
 
-test("the campaign form marks its required fields and shows placeholders", async ({
+test("a campaign with only a name and keyword stores the rest as empty", async ({
   page,
   seed,
+  id,
+}) => {
+  const admin = await seed.createVerifiedAdmin();
+  await seed.authenticate(page.context(), admin.email);
+  const name = campaignName(id);
+
+  await page.goto("/admin/campaigns/new");
+  await field(page, "Name").fill(name);
+  await field(page, "Search keyword").fill("yoga");
+  await page.getByRole("button", { name: "Create campaign" }).click();
+
+  await expect(page).toHaveURL(/\/admin\/campaigns(\?.*)?$/);
+  expect(await seed.findCampaignByName(name)).toMatchObject({
+    name,
+    keyword: "yoga",
+    description: null,
+    minPriceCents: null,
+    minMembers: null,
+  });
+
+  await page.goto(`/admin/campaigns?search=${id}`);
+  await expect(page.getByRole("row").filter({ hasText: name })).toContainText(
+    "No description",
+  );
+});
+
+test("refuses invalid input and creates no campaign", async ({
+  page,
+  seed,
+  id,
 }) => {
   const admin = await seed.createVerifiedAdmin();
   await seed.authenticate(page.context(), admin.email);
 
   await page.goto("/admin/campaigns/new");
+  await page.getByRole("button", { name: "Create campaign" }).click();
 
-  await expectRequired(page, "Name", "Fitness coaches, Q4");
-  await expectRequired(
-    page,
-    "Search keywords",
-    "Type a keyword and press Enter",
+  await expect(page).toHaveURL(/\/admin\/campaigns\/new$/);
+  await expect(field(page, "Name")).toHaveAttribute("aria-invalid", "true");
+  await expect(field(page, "Search keyword")).toHaveAttribute(
+    "aria-invalid",
+    "true",
   );
-  await expectRequired(page, "Type", "Select a type");
-  await expectRequired(page, "Pricing model", "Select a pricing model");
-  await expect(page.getByLabel(/^Description/)).toHaveAttribute(
-    "placeholder",
-    /.+/,
+
+  await field(page, "Name").fill(campaignName(id));
+  await field(page, "Search keyword").fill("yoga");
+  await page.getByLabel("Minimum price").fill("cheap");
+  await page.getByLabel("Minimum members").fill("1.5");
+  await page.getByRole("button", { name: "Create campaign" }).click();
+
+  await expect(page).toHaveURL(/\/admin\/campaigns\/new$/);
+  await expect(page.getByLabel("Minimum price")).toHaveAttribute(
+    "aria-invalid",
+    "true",
   );
-  await expect(page.getByLabel(/^Min price per month/)).toHaveAttribute(
-    "placeholder",
-    "No minimum",
+  await expect(page.getByLabel("Minimum members")).toHaveAttribute(
+    "aria-invalid",
+    "true",
   );
-  await expect(page.getByLabel(/^Max price per month/)).toHaveAttribute(
-    "placeholder",
-    "No maximum",
-  );
-  await expect(page.getByLabel(/^Min members/)).toHaveAttribute(
-    "placeholder",
-    "No minimum",
-  );
-  await expect(page.getByLabel(/^Max members/)).toHaveAttribute(
-    "placeholder",
-    "No maximum",
-  );
+  expect(await seed.countCampaignsContaining(id)).toBe(0);
 });
 
-test("the type and pricing model start empty and nothing is stored until everything required is set", async ({
+test("editing fills the form, saves only real changes and can clear a minimum", async ({
   page,
   seed,
+  id,
 }) => {
   const admin = await seed.createVerifiedAdmin();
   await seed.authenticate(page.context(), admin.email);
-  const id = token();
-  const save = () => page.getByRole("button", { name: "Save" }).click();
-
-  await page.goto("/admin/campaigns/new");
-  await expect(
-    page.getByRole("combobox").filter({ hasText: "Select a type" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("combobox").filter({ hasText: "Select a pricing model" }),
-  ).toBeVisible();
-
-  await page.getByLabel(/^Name\s*\*?$/).fill(`Campaign ${id}`);
-  await save();
-  await expect(page).toHaveURL(/\/admin\/campaigns\/new/);
-
-  await addKeyword(page, `alpha ${id}`);
-  await save();
-  await expect(page).toHaveURL(/\/admin\/campaigns\/new/);
-
-  await chooseType(page, "Public");
-  await save();
-  await expect(page).toHaveURL(/\/admin\/campaigns\/new/);
-
-  // Without a name the form must also refuse, even with everything else filled in
-  await choosePricing(page, "Paid");
-  await page.getByLabel(/^Name\s*\*?$/).fill("");
-  await save();
-  await expect(page).toHaveURL(/\/admin\/campaigns\/new/);
-
-  // Every attempt was stopped by the form's own checks, so nothing may exist for this token
-  expect(await seed.findCampaignByName(`Campaign ${id}`)).toBeNull();
-});
-
-test("a minimum above a maximum is refused with a message on the maximum", async ({
-  page,
-  seed,
-}) => {
-  const admin = await seed.createVerifiedAdmin();
-  await seed.authenticate(page.context(), admin.email);
-  const id = token();
-
-  await page.goto("/admin/campaigns/new");
-  await page.getByLabel(/^Name\s*\*?$/).fill(`Campaign ${id}`);
-  await addKeyword(page, `alpha ${id}`);
-  await chooseType(page, "Public");
-  await choosePricing(page, "Paid");
-
-  await page.getByLabel(/^Min price per month/).fill("50");
-  await page.getByLabel(/^Max price per month/).fill("10");
-  await page.getByRole("button", { name: "Save" }).click();
-  await expect(page).toHaveURL(/\/admin\/campaigns\/new/);
-  await expect(
-    page.getByText("Minimum cannot be greater than maximum."),
-  ).toBeVisible();
-
-  await page.getByLabel(/^Max price per month/).fill("60");
-  await page.getByLabel(/^Min members/).fill("100");
-  await page.getByLabel(/^Max members/).fill("10");
-  await page.getByRole("button", { name: "Save" }).click();
-  await expect(page).toHaveURL(/\/admin\/campaigns\/new/);
-
-  await page.getByLabel(/^Min members/).fill("-5");
-  await page.getByLabel(/^Max members/).fill("");
-  await page.getByRole("button", { name: "Save" }).click();
-  await expect(page).toHaveURL(/\/admin\/campaigns\/new/);
-
-  await page.getByLabel(/^Min members/).fill("12.5");
-  await page.getByRole("button", { name: "Save" }).click();
-  await expect(page).toHaveURL(/\/admin\/campaigns\/new/);
-
-  expect(await seed.findCampaignByName(`Campaign ${id}`)).toBeNull();
-});
-
-test("keywords are added with Enter, a comma or leaving the field, and never twice", async ({
-  page,
-  seed,
-}) => {
-  const admin = await seed.createVerifiedAdmin();
-  await seed.authenticate(page.context(), admin.email);
-  const input = page.getByLabel(/^Search keywords/);
-
-  await page.goto("/admin/campaigns/new");
-  await addKeyword(page, "alpha");
-  await addKeyword(page, "beta", ",");
-  await addKeyword(page, "ALPHA");
-  await addKeyword(page, "   ");
-  await input.pressSequentially("gamma");
-  await page.getByLabel(/^Name\s*\*?$/).click();
-
-  await expect(chips(page)).toHaveText(["alpha", "beta", "gamma"]);
-  // Typing never opens a dropdown of suggestions
-  await input.click();
-  await input.pressSequentially("al");
-  await expect(page.getByRole("listbox")).toHaveCount(0);
-  await expect(page.getByRole("option")).toHaveCount(0);
-  await input.fill("");
-
-  await page.locator('[data-slot="combobox-chip-remove"]').first().click();
-  await expect(chips(page)).toHaveText(["beta", "gamma"]);
-  await input.press("Backspace");
-  await expect(chips(page)).toHaveText(["beta"]);
-  void admin;
-  void seed;
-});
-
-test("a campaign holds at most ten keywords", async ({ page, seed }) => {
-  const admin = await seed.createVerifiedAdmin();
-  await seed.authenticate(page.context(), admin.email);
-
-  await page.goto("/admin/campaigns/new");
-  for (let index = 1; index <= 11; index += 1) {
-    await addKeyword(page, `keyword ${index}`);
-  }
-
-  await expect(chips(page)).toHaveCount(10);
-  await expect(chips(page).last()).toHaveText("keyword 10");
-});
-
-test("editing a campaign loads its saved values and saves the changes", async ({
-  page,
-  seed,
-}) => {
-  const admin = await seed.createVerifiedAdmin();
-  await seed.authenticate(page.context(), admin.email);
-  const id = token();
   const campaign = await seed.createCampaign({
-    name: `Before ${id}`,
-    description: "Keep me",
-    keywords: [`one ${id}`, `two ${id}`],
-    types: ["public"],
-    pricingModels: ["paid"],
-    minMonthlyPriceUsd: 10,
-    maxMonthlyPriceUsd: 100,
-    minMembers: 5,
+    name: campaignName(id),
+    keyword: "fitness",
+    description: "Keep this description",
+    minPriceCents: 4900,
+    minMembers: 250,
   });
 
   await page.goto(`/admin/campaigns/${campaign.campaignId}/edit`);
-  await expect(page.getByLabel(/^Name\s*\*?$/)).toHaveValue(`Before ${id}`);
-  await expect(chips(page)).toHaveText([`one ${id}`, `two ${id}`]);
+
+  await expect(field(page, "Name")).toHaveValue(campaignName(id));
+  await expect(page.getByLabel("Minimum price")).toHaveValue("49");
+  await expect(page.getByLabel("Minimum members")).toHaveValue("250");
+  // Nothing has changed yet, so there is nothing to save
   await expect(
-    page.getByRole("combobox").filter({ hasText: "Public" }),
-  ).toBeVisible();
+    page.getByRole("button", { name: "Save changes" }),
+  ).toBeDisabled();
+
+  await field(page, "Search keyword").fill("yoga");
+  await page.getByLabel("Minimum price").fill("");
   await expect(
-    page.getByRole("combobox").filter({ hasText: "Paid" }),
-  ).toBeVisible();
-  await expect(page.getByLabel(/^Min price per month/)).toHaveValue("10");
-  await expect(page.getByLabel(/^Max price per month/)).toHaveValue("100");
+    page.getByRole("button", { name: "Save changes" }),
+  ).toBeEnabled();
+  await page.getByRole("button", { name: "Save changes" }).click();
 
-  await page.getByLabel(/^Name\s*\*?$/).fill(`After ${id}`);
-  await page.locator('[data-slot="combobox-chip-remove"]').first().click();
-  await addKeyword(page, `three ${id}`);
-  await page.getByLabel(/^Max price per month/).fill("");
-  await page.getByRole("combobox").filter({ hasText: "Public" }).click();
-  await page.getByRole("option", { name: "Private", exact: true }).click();
-  await page.getByRole("button", { name: "Save" }).click();
-
-  await expect(page).toHaveURL(
-    new RegExp(`/admin/campaigns/${campaign.campaignId}(\\?|$)`),
-  );
-  await expect
-    .poll(() => seed.findCampaignByName(`After ${id}`))
-    .toMatchObject({
-      description: "Keep me",
-      keywords: [`two ${id}`, `three ${id}`],
-      types: ["private"],
-      pricingModels: ["paid"],
-      minMonthlyPriceUsd: 10,
-      maxMonthlyPriceUsd: null,
-      minMembers: 5,
-    });
-});
-
-test("a campaign moves from draft to active, pauses and resumes, and a completed one has no toggle", async ({
-  page,
-  seed,
-}) => {
-  const admin = await seed.createVerifiedAdmin();
-  await seed.authenticate(page.context(), admin.email);
-  const id = token();
-  const campaign = await seed.createCampaign({ name: `Status ${id}` });
-  const finished = await seed.createCampaign({
-    name: `Finished ${id}`,
-    status: "completed",
-  });
-
-  await page.goto(`/admin/campaigns/${campaign.campaignId}`);
-  await page.getByRole("button", { name: "Activate" }).click();
-  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
-  await expect
-    .poll(async () => (await seed.findCampaignByName(`Status ${id}`))?.status)
-    .toBe("active");
-
-  await page.getByRole("button", { name: "Pause" }).click();
-  await expect(page.getByRole("button", { name: "Resume" })).toBeVisible();
-  await expect
-    .poll(async () => (await seed.findCampaignByName(`Status ${id}`))?.status)
-    .toBe("paused");
-
-  await page.getByRole("button", { name: "Resume" }).click();
-  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
-  await expect
-    .poll(async () => (await seed.findCampaignByName(`Status ${id}`))?.status)
-    .toBe("active");
-
-  await page.goto(`/admin/campaigns/${finished.campaignId}`);
-  await expect(page.getByRole("link", { name: "Edit" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Activate" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Pause" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Resume" })).toHaveCount(0);
-});
-
-test("the campaign list searches, filters by status and shows each campaign's pipeline", async ({
-  page,
-  seed,
-}) => {
-  const admin = await seed.createVerifiedAdmin();
-  await seed.authenticate(page.context(), admin.email);
-  const id = token();
-  const active = await seed.createCampaign({
-    name: `Alpha ${id}`,
-    description: `Gym owners ${id}`,
-    status: "active",
-  });
-  await seed.createCampaign({ name: `Beta ${id}`, status: "paused" });
-  const leads = [];
-  for (let index = 1; index <= 3; index += 1) {
-    leads.push(
-      await seed.createLead({
-        skoolUsername: `e2e-${id}-${index}`,
-        name: `Lead ${id} ${index}`,
-      }),
-    );
-  }
-  await seed.attachCampaignLeads({
-    campaignId: active.campaignId,
-    leads: [
-      { leadId: leads[0]!.leadId, stage: 1, status: "done" },
-      { leadId: leads[1]!.leadId, stage: 1, status: "pending" },
-      { leadId: leads[2]!.leadId, stage: 2, status: "pending" },
-    ],
-  });
-  const rows = (text: string) =>
-    page.getByRole("row").filter({ hasText: text });
-
-  await page.goto(`/admin/campaigns?search=${id}`);
-  await expect(rows(`Alpha ${id}`)).toHaveCount(1);
-  await expect(rows(`Beta ${id}`)).toHaveCount(1);
-
-  const alpha = rows(`Alpha ${id}`);
-  await expect(alpha).toContainText("Active");
-  await expect(
-    alpha.getByRole("cell", { name: "3", exact: true }),
-  ).toBeVisible();
-  const pipeline = alpha.getByRole("img", { name: "Leads per stage" });
-  await expect(pipeline.locator('[title="Stage 1: 2 leads"]')).toHaveCount(1);
-  await expect(pipeline.locator('[title="Stage 2: 1 leads"]')).toHaveCount(1);
-  await expect(pipeline.locator('[title="Stage 3: 0 leads"]')).toHaveCount(1);
-
-  await page.getByRole("combobox").filter({ hasText: "All statuses" }).click();
-  await page.getByRole("option", { name: "Paused", exact: true }).click();
-  await expect(page).toHaveURL(/status=paused/);
-  await expect(rows(`Beta ${id}`)).toHaveCount(1);
-  await expect(rows(`Alpha ${id}`)).toHaveCount(0);
-
-  await page.goto(`/admin/campaigns?search=gym+owners+${id}`);
-  await expect(rows(`Alpha ${id}`)).toHaveCount(1);
-  await expect(rows(`Beta ${id}`)).toHaveCount(0);
-
-  await rows(`Alpha ${id}`).getByText(`Alpha ${id}`).click();
-  await expect(page).toHaveURL(
-    new RegExp(`/admin/campaigns/${active.campaignId}`),
-  );
-});
-
-test("deleting a campaign removes it and its links but keeps the leads", async ({
-  page,
-  seed,
-}) => {
-  const admin = await seed.createVerifiedAdmin();
-  await seed.authenticate(page.context(), admin.email);
-  const id = token();
-  const campaign = await seed.createCampaign({ name: `Doomed ${id}` });
-  const other = await seed.createCampaign({ name: `Other ${id}` });
-  const lead = await seed.createLead({
-    skoolUsername: `e2e-${id}`,
-    name: `Lead ${id}`,
-  });
-  for (const target of [campaign, other]) {
-    await seed.attachCampaignLeads({
-      campaignId: target.campaignId,
-      leads: [{ leadId: lead.leadId, stage: 1, status: "done" }],
-    });
-  }
-  await seed.createScrapeRun({
+  await expect(page).toHaveURL(/\/admin\/campaigns(\?.*)?$/);
+  expect(await seed.findCampaignByName(campaignName(id))).toMatchObject({
     campaignId: campaign.campaignId,
-    status: "completed",
+    keyword: "yoga",
+    minPriceCents: null,
+    description: "Keep this description",
+    minMembers: 250,
+  });
+});
+
+test("shows a skeleton while the campaigns load", async ({
+  page,
+  seed,
+  id,
+}) => {
+  const admin = await seed.createVerifiedAdmin();
+  await seed.authenticate(page.context(), admin.email);
+  await seed.createCampaign({ name: campaignName(id), keyword: "slow" });
+
+  await page.route(
+    (url) => url.pathname === "/api/campaigns",
+    async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      await route.continue();
+    },
+  );
+  await page.goto(`/admin/campaigns?search=${id}`);
+
+  await expect(page.locator('[data-slot="skeleton"]').first()).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: campaignName(id) }),
+  ).toBeVisible();
+  await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
+});
+
+test("shows a skeleton while a campaign loads", async ({ page, seed, id }) => {
+  const admin = await seed.createVerifiedAdmin();
+  await seed.authenticate(page.context(), admin.email);
+  const campaign = await seed.createCampaign({
+    name: campaignName(id),
+    keyword: "slow",
+  });
+
+  await page.route(
+    (url) => url.pathname === `/api/campaigns/${campaign.campaignId}`,
+    async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      await route.continue();
+    },
+  );
+  await page.goto(`/admin/campaigns/${campaign.campaignId}`);
+
+  await expect(page.locator('[data-slot="skeleton"]').first()).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: campaignName(id) }),
+  ).toBeVisible();
+  await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
+});
+
+test("deleting a campaign from its row keeps its leads and communities", async ({
+  page,
+  seed,
+  id,
+}) => {
+  const admin = await seed.createVerifiedAdmin();
+  await seed.authenticate(page.context(), admin.email);
+  const lead = await seed.createLead({
+    name: `Member ${id}`,
+    username: `member-${id}`,
+  });
+  const community = await seed.createCommunity({
+    leadId: lead.leadId,
+    name: `Member community ${id}`,
+    slug: `member-community-${id}`,
+  });
+  const campaign = await seed.createCampaign({
+    name: campaignName(id),
+    keyword: "doomed",
+  });
+  await seed.addLeadsToCampaign({
+    campaignId: campaign.campaignId,
+    leadIds: [lead.leadId],
+  });
+  await seed.addCommunitiesToCampaign({
+    campaignId: campaign.campaignId,
+    communityIds: [community.communityId],
   });
 
   await page.goto(`/admin/campaigns?search=${id}`);
-  await rowActions(page, `Doomed ${id}`).click();
+  await rowActions(page, campaignName(id)).click();
   await confirmDelete(page);
 
-  await expect(
-    page.getByRole("row").filter({ hasText: `Doomed ${id}` }),
-  ).toHaveCount(0);
-  await expect.poll(() => seed.findCampaignByName(`Doomed ${id}`)).toBeNull();
-  expect(await seed.listCampaignLeads(campaign.campaignId)).toEqual([]);
-  expect(await seed.listScrapeRuns(campaign.campaignId)).toEqual([]);
-  expect(await seed.listCampaignLeads(other.campaignId)).toHaveLength(1);
-  expect(await seed.findLeadByUsername(`e2e-${id}`)).not.toBeNull();
-});
-
-test("the campaign page shows every stage's count and the stage panel's breakdown", async ({
-  page,
-  seed,
-}) => {
-  const admin = await seed.createVerifiedAdmin();
-  await seed.authenticate(page.context(), admin.email);
-  const id = token();
-  const campaign = await seed.createCampaign({
-    name: `Stages ${id}`,
-    status: "active",
-  });
-  const leads = [];
-  for (let index = 1; index <= 6; index += 1) {
-    leads.push(
-      await seed.createLead({
-        skoolUsername: `e2e-${id}-${index}`,
-        name: `Lead ${id} ${index}`,
-      }),
-    );
-  }
-  await seed.attachCampaignLeads({
-    campaignId: campaign.campaignId,
-    leads: [
-      { leadId: leads[0]!.leadId, stage: 1, status: "done" },
-      { leadId: leads[1]!.leadId, stage: 1, status: "done" },
-      { leadId: leads[2]!.leadId, stage: 1, status: "pending" },
-      { leadId: leads[3]!.leadId, stage: 1, status: "failed" },
-      { leadId: leads[4]!.leadId, stage: 2, status: "pending" },
-      { leadId: leads[5]!.leadId, stage: 2, status: "running" },
-    ],
-  });
-
-  await page.goto(`/admin/campaigns/${campaign.campaignId}`);
-  await expect(page.getByRole("tab", { name: /All stages/ })).toContainText(
-    "6",
+  await expect(page.getByRole("link", { name: campaignName(id) })).toHaveCount(
+    0,
   );
-  await expect(page.getByRole("tab", { name: /Stage 1/ })).toContainText("4");
-  await expect(page.getByRole("tab", { name: /Stage 2/ })).toContainText("2");
-  await expect(page.getByRole("tab", { name: /Stage 3/ })).toContainText("0");
-
-  // The stage panel only exists once a stage is chosen
-  await expect(page.getByRole("button", { name: "Run scrape" })).toHaveCount(0);
-  await page.getByRole("tab", { name: /Stage 1/ }).click();
-  await expect(page).toHaveURL(/stage=1/);
-  const panel = page
-    .locator('[data-slot="card"]')
-    .filter({ hasText: "Ready to run" });
-  const stat = (label: string) =>
-    panel
-      .getByText(label, { exact: true })
-      .locator("xpath=following-sibling::*[1]");
-  await expect(stat("Ready to run")).toHaveText("1");
-  await expect(stat("Pending")).toHaveText("1");
-  await expect(stat("Running")).toHaveText("0");
-  await expect(stat("Done")).toHaveText("2");
-  await expect(stat("Failed")).toHaveText("1");
-
-  await page.getByRole("tab", { name: /Stage 2/ }).click();
-  // Stage 2 is ready for its own pending lead and for the two that finished stage 1
-  await expect(stat("Ready to run")).toHaveText("3");
-  await expect(stat("Pending")).toHaveText("1");
-  await expect(stat("Running")).toHaveText("1");
+  expect(await seed.findCampaignByName(campaignName(id))).toBeNull();
+  expect(await seed.listCampaignLeadIds(campaign.campaignId)).toEqual([]);
+  expect(await seed.listCampaignCommunityIds(campaign.campaignId)).toEqual([]);
+  expect(await seed.findLeadByUsername(`member-${id}`)).not.toBeNull();
+  expect(
+    await seed.findCommunityBySlug(`member-community-${id}`),
+  ).not.toBeNull();
 });
 
-test("the campaign's lead list searches, filters and opens a lead", async ({
+test("adds the selected leads to a campaign once, however often it is repeated", async ({
   page,
   seed,
+  id,
 }) => {
   const admin = await seed.createVerifiedAdmin();
   await seed.authenticate(page.context(), admin.email);
-  const id = token();
+  const prefix = `add-${id}`;
+  await seed.createLeads({ prefix, count: 3 });
+  const [first, second, third] = await Promise.all(
+    ["01", "02", "03"].map((number) =>
+      seed.findLeadByUsername(`${prefix}-${number}`),
+    ),
+  );
+  if (!first || !second || !third)
+    throw new Error("the seeded leads are missing");
   const campaign = await seed.createCampaign({
-    name: `Leads ${id}`,
-    status: "active",
+    name: campaignName(id),
+    keyword: "adding",
   });
-  const amy = await seed.createLead({
-    skoolUsername: `e2e-${id}-amy`,
-    name: `Amy ${id}`,
-    emails: [`amy-${id}@example.com`],
-    website: "https://amy.example.com",
-    linkedinUrl: "https://linkedin.com/in/amy",
+
+  await page.goto(`/admin/leads?search=${id}`);
+  await page.getByRole("checkbox", { name: `Select ${prefix} 01` }).check();
+  await page.getByRole("checkbox", { name: `Select ${prefix} 02` }).check();
+  await expect(
+    page.getByRole("button", { name: "Add to campaign" }),
+  ).toBeVisible();
+  await addToCampaign(page, campaignName(id));
+
+  await expect
+    .poll(() => seed.listCampaignLeadIds(campaign.campaignId))
+    .toEqual([first.leadId, second.leadId]);
+  await expect(page.getByText("2 selected")).toHaveCount(0);
+
+  await page.getByRole("checkbox", { name: `Select ${prefix} 01` }).check();
+  await page.getByRole("checkbox", { name: `Select ${prefix} 03` }).check();
+  await addToCampaign(page, campaignName(id));
+
+  await expect
+    .poll(() => seed.listCampaignLeadIds(campaign.campaignId))
+    .toEqual([first.leadId, second.leadId, third.leadId]);
+});
+
+test("adds the selected communities to a campaign", async ({
+  page,
+  seed,
+  id,
+}) => {
+  const admin = await seed.createVerifiedAdmin();
+  await seed.authenticate(page.context(), admin.email);
+  const lead = await seed.createLead({
+    name: `Owner ${id}`,
+    username: `owner-${id}`,
   });
-  const ben = await seed.createLead({
-    skoolUsername: `e2e-${id}-ben`,
-    name: `Ben ${id}`,
-  });
-  const cat = await seed.createLead({
-    skoolUsername: `e2e-${id}-cat`,
-    name: `Cat ${id}`,
+  const chosen = await seed.createCommunity({
+    leadId: lead.leadId,
+    name: `Chosen ${id}`,
+    slug: `chosen-${id}`,
   });
   await seed.createCommunity({
-    leadId: cat.leadId,
-    skoolId: `skool-${id}`,
-    name: `club-${id}`,
-    displayName: `Sunrise ${id}`,
-    memberCount: 321,
+    leadId: lead.leadId,
+    name: `Skipped ${id}`,
+    slug: `skipped-${id}`,
   });
-  await seed.attachCampaignLeads({
-    campaignId: campaign.campaignId,
-    leads: [
-      { leadId: amy.leadId, stage: 1, status: "done", keyword: `yoga ${id}` },
-      { leadId: ben.leadId, stage: 1, status: "pending" },
-      {
-        leadId: cat.leadId,
-        stage: 2,
-        status: "pending",
-        keyword: `chess ${id}`,
-      },
-    ],
+  const campaign = await seed.createCampaign({
+    name: campaignName(id),
+    keyword: "communities",
   });
-  const rows = (text: string) =>
-    page.getByRole("row").filter({ hasText: text });
 
-  await page.goto(`/admin/campaigns/${campaign.campaignId}`);
-  await expect(rows(id)).toHaveCount(3);
+  await page.goto(`/admin/communities?search=${id}`);
+  await page.getByRole("checkbox", { name: `Select Chosen ${id}` }).check();
+  await addToCampaign(page, campaignName(id));
 
-  const amyRow = rows(`Amy ${id}`);
-  await expect(amyRow).toContainText(`yoga ${id}`);
-  await expect(
-    amyRow.getByRole("link", { name: `amy-${id}@example.com` }),
-  ).toHaveAttribute("href", `mailto:amy-${id}@example.com`);
-  await expect(
-    amyRow.getByRole("link", { name: "linkedin.com/in/amy" }),
-  ).toBeVisible();
-  await expect(
-    amyRow.getByRole("link", { name: "amy.example.com" }),
-  ).toHaveAttribute("target", "_blank");
-  await expect(rows(`Ben ${id}`)).toContainText("—");
-
-  await page
-    .getByPlaceholder("Search by lead, username or community")
-    .fill(`Sunrise ${id}`);
-  await expect(rows(id)).toHaveCount(1);
-  await expect(rows(`Cat ${id}`)).toContainText("321");
-  await page.getByPlaceholder("Search by lead, username or community").fill("");
-
-  await page.getByRole("combobox").filter({ hasText: "Any status" }).click();
-  await page.getByRole("option", { name: "Pending", exact: true }).click();
-  await expect(rows(`Amy ${id}`)).toHaveCount(0);
-  await expect(rows(id)).toHaveCount(2);
-
-  await page.getByRole("tab", { name: /Stage 2/ }).click();
-  await expect(rows(id)).toHaveCount(1);
-  await expect(rows(`Cat ${id}`)).toHaveCount(1);
-
-  await page.getByRole("combobox").filter({ hasText: "Pending" }).click();
-  await page.getByRole("option", { name: "Failed", exact: true }).click();
-  await expect(page.getByText("No leads match these filters.")).toBeVisible();
-
-  await page.goto(`/admin/campaigns/${campaign.campaignId}`);
-  await amyRow.getByText(`Amy ${id}`).click();
-  await expect(page).toHaveURL(new RegExp(`/admin/leads/${amy.leadId}$`));
+  await expect
+    .poll(() => seed.listCampaignCommunityIds(campaign.campaignId))
+    .toEqual([chosen.communityId]);
 });
 
-test("clicking a link inside a campaign lead row does not open the lead", async ({
+test("filters leads and communities by campaign and the chip clears it", async ({
   page,
   seed,
+  id,
 }) => {
   const admin = await seed.createVerifiedAdmin();
   await seed.authenticate(page.context(), admin.email);
-  const id = token();
-  const campaign = await seed.createCampaign({ name: `Links ${id}` });
-  const lead = await seed.createLead({
-    skoolUsername: `e2e-${id}`,
-    name: `Linked ${id}`,
-    emails: [`linked-${id}@example.com`],
+  const inside = await seed.createLead({
+    name: `Inside ${id}`,
+    username: `inside-${id}`,
   });
-  await seed.attachCampaignLeads({
+  const outside = await seed.createLead({
+    name: `Outside ${id}`,
+    username: `outside-${id}`,
+  });
+  const insideCommunity = await seed.createCommunity({
+    leadId: inside.leadId,
+    name: `Inside community ${id}`,
+    slug: `inside-community-${id}`,
+  });
+  await seed.createCommunity({
+    leadId: outside.leadId,
+    name: `Outside community ${id}`,
+    slug: `outside-community-${id}`,
+  });
+  const campaign = await seed.createCampaign({
+    name: campaignName(id),
+    keyword: "filtering",
+  });
+  await seed.addLeadsToCampaign({
     campaignId: campaign.campaignId,
-    leads: [{ leadId: lead.leadId, stage: 1, status: "done" }],
+    leadIds: [inside.leadId],
+  });
+  await seed.addCommunitiesToCampaign({
+    campaignId: campaign.campaignId,
+    communityIds: [insideCommunity.communityId],
+  });
+
+  await page.goto(
+    `/admin/leads?search=${id}&campaignId=${campaign.campaignId}`,
+  );
+  await expect(page.locator("tbody tr")).toHaveCount(1);
+  await expect(page.getByRole("link", { name: `Inside ${id}` })).toBeVisible();
+  await expect(page.getByText(`Campaign: ${campaignName(id)}`)).toBeVisible();
+
+  await page
+    .getByRole("button", {
+      name: `Remove filter: Campaign: ${campaignName(id)}`,
+    })
+    .click();
+  await expect(page).not.toHaveURL(/campaignId=/);
+  await expect(page.locator("tbody tr")).toHaveCount(2);
+
+  await page.goto(
+    `/admin/communities?search=${id}&campaignId=${campaign.campaignId}`,
+  );
+  await expect(page.locator("tbody tr")).toHaveCount(1);
+  await expect(
+    page.getByRole("link", { name: `Inside community ${id}` }),
+  ).toBeVisible();
+});
+
+test("the campaign page walks through the pipeline steps and remembers the one you were on", async ({
+  page,
+  seed,
+  id,
+}) => {
+  const admin = await seed.createVerifiedAdmin();
+  await seed.authenticate(page.context(), admin.email);
+  const campaign = await seed.createCampaign({
+    name: campaignName(id),
+    keyword: "pipeline",
   });
 
   await page.goto(`/admin/campaigns/${campaign.campaignId}`);
-  // The mailto link is handed to the browser, so only the page's own navigation is observed
-  await page.getByRole("link", { name: `linked-${id}@example.com` }).click();
-  await expect(page).toHaveURL(
-    new RegExp(`/admin/campaigns/${campaign.campaignId}(\\?|$)`),
+  await expect(
+    page.getByRole("heading", { name: campaignName(id) }),
+  ).toBeVisible();
+  await expect(page.getByRole("tab")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Run scrape" })).toBeVisible();
+
+  await page.getByRole("button", { name: /Tavily/ }).click();
+  await expect(page.getByText("Waiting for the scrape")).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByText("Waiting for the scrape")).toBeVisible();
+
+  await page
+    .getByRole("button", { name: /Scrape/ })
+    .first()
+    .click();
+  await expect(page.getByRole("button", { name: "Run scrape" })).toBeVisible();
+
+  await page.getByRole("button", { name: /AI filter/ }).click();
+  await expect(page.getByText("AI filter is coming soon")).toBeVisible();
+  await page
+    .getByRole("button", { name: /Scrape/ })
+    .first()
+    .click();
+  await expect(page.getByRole("button", { name: "Run scrape" })).toBeVisible();
+});
+
+test("a non-admin cannot create a campaign or change its members", async ({
+  page,
+  seed,
+  id,
+}) => {
+  const member = await seed.createVerifiedMember();
+  await seed.authenticate(page.context(), member.email);
+  const lead = await seed.createLead({
+    name: `Guarded ${id}`,
+    username: `guarded-${id}`,
+  });
+  const campaign = await seed.createCampaign({
+    name: campaignName(id),
+    keyword: "guarded",
+  });
+
+  const created = await page.request.post(`${API_URL}/api/campaigns`, {
+    data: { name: campaignName(id, "-new"), keyword: "sneaky" },
+  });
+  const added = await page.request.post(
+    `${API_URL}/api/campaigns/${campaign.campaignId}/leads`,
+    { data: { leadIds: [lead.leadId] } },
   );
+
+  expect(created.status()).toBe(403);
+  expect(added.status()).toBe(403);
+  expect(await seed.findCampaignByName(campaignName(id, "-new"))).toBeNull();
+  expect(await seed.listCampaignLeadIds(campaign.campaignId)).toEqual([]);
 });

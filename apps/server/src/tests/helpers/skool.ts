@@ -1,175 +1,130 @@
 import {
-  BaseSkoolScraper,
-  type SkoolAbout,
-  type SkoolDiscoveryGroup,
-  type SkoolDiscoveryPage,
-  type SkoolDiscoveryQuery,
-  type SkoolOwner,
-  type SkoolProfile,
-} from "@server/lib/base-skool-scraper";
+  communitiesTable,
+  leadsTable,
+} from "@server/infrastructure/database/schemas";
+import type { DB } from "@server/infrastructure/database/client";
+import {
+  BaseSkoolScrapper,
+  type Community,
+  type FullCommunity,
+  type FullLead,
+} from "@server/lib/base-skool-scrapper";
 
-export const group = (
-  name: string,
-  overrides: Partial<SkoolDiscoveryGroup> = {},
-): SkoolDiscoveryGroup => ({
-  skoolId: `id-${name}`,
-  name,
-  displayName: name,
-  description: null,
-  memberCount: 100,
-  createdAt: null,
-  updatedAt: null,
-  isPublic: true,
-  membershipModel: null,
-  displayPrice: null,
-  monthlyPrice: null,
-  annualPrice: null,
-  reviewCount: null,
-  reviewRating: null,
-  logoUrl: null,
-  coverUrl: null,
-  ...overrides,
+export const paidMonthly = (slug: string, members = 10): Community => ({
+  name: slug.toUpperCase(),
+  communityURL: `https://www.skool.com/${slug}`,
+  description: `About ${slug}`,
+  members,
+  pricing: {
+    type: "paid",
+    amountCents: 2700,
+    currency: "usd",
+    interval: "month",
+    source: "displayPrice",
+  },
+  mrr: members * 27,
+  email: `${slug}@example.com`,
+  thumbnailUrl: `https://assets.skool.com/${slug}-md.jpg`,
+  logoUrl: `https://assets.skool.com/${slug}-logo.jpg`,
 });
 
-export const owner = (
-  username: string,
-  bio: string | null = null,
-): SkoolOwner => ({
-  skoolUserId: `user-${username}`,
-  username,
-  name: username,
-  firstName: null,
-  lastName: null,
+export const freeCommunity = (slug: string): Community => ({
+  ...paidMonthly(slug),
+  pricing: { type: "free" },
+  mrr: 0,
   email: null,
-  bio,
-  location: null,
-  timeZone: null,
-  pictureUrl: null,
-  joinedAt: new Date("2024-01-01T00:00:00Z"),
-  lastOnlineAt: null,
+});
+
+export const lead = (username: string): FullLead => ({
+  name: `Lead ${username}`,
+  username,
+  leadURL: `https://www.skool.com/@${username}`,
+  bio: `Bio of ${username}`,
+  instagram: null,
+  facebook: null,
+  linkedin: null,
   website: null,
-  linkedinUrl: null,
-  facebookUrl: null,
-  instagramUrl: "https://instagram.com/jane",
-  twitterUrl: null,
-  youtubeUrl: null,
-  tiktokUrl: null,
+  email: `${username}@example.com`,
+  pictureUrl: `https://assets.skool.com/${username}-md.jpg`,
 });
 
-const about = (
-  name: string,
-  communityOwner: SkoolOwner | null,
-  memberCount: number,
-): SkoolAbout => ({
-  skoolId: `id-${name}`,
-  name,
-  displayName: name,
-  description: "desc",
-  longDescription: "long desc",
-  memberCount,
-  createdAt: null,
-  updatedAt: null,
-  isPublic: true,
-  membershipModel: 4,
-  plan: "pro",
-  freeTrialEnabled: false,
-  logoUrl: null,
-  coverUrl: null,
-  postCount: 10,
-  adminCount: 1,
-  courseCount: 2,
-  moduleCount: 3,
-  reviewCount: null,
-  reviewRating: null,
-  affiliatePercent: 40,
-  freeBenefits: [],
-  links: [],
-  membershipQuestions: [],
-  tiers: [],
-  owner: communityOwner,
-});
-
-export class FakeSkoolScraper extends BaseSkoolScraper {
+export class FakeSkoolScrapper extends BaseSkoolScrapper {
   public aboutCalls: string[] = [];
-  public profileCalls: string[] = [];
-  public failingProfiles = new Set<string>();
-  public discoverError: Error | null = null;
-  public memberCounts: Record<string, number> = {};
-  public byKeyword: Record<string, Record<string, SkoolDiscoveryGroup[]>> = {};
-  public ownerless = new Set<string>();
-  public failingAbout = new Set<string>();
-  public profileBios: Record<string, string> = {};
-  public totals: Record<string, number> = {};
-  public laterPages: Record<string, SkoolDiscoveryGroup[]> = {};
-  public failingPages = new Set<number>();
-  public discoverCalls: string[] = [];
+  public leadCalls: string[] = [];
+  public discoverCalls: { search: string }[] = [];
+  public leadOverrides: Record<string, Partial<FullLead>> = {};
+  /** Fails the next `remaining` lead fetches for a username, then recovers */
+  public leadFailures: Record<string, { error: Error; remaining: number }> = {};
 
   public constructor(
-    public pages: Record<string, SkoolDiscoveryGroup[]>,
-    private owners: Record<string, SkoolOwner>,
+    private readonly data: {
+      pages: Record<number, Community[]>;
+      owners: Record<string, string>;
+      missingCommunities?: string[];
+      missingLeads?: string[];
+      leadError?: Error;
+    },
   ) {
     super();
   }
 
-  public override async discover(
-    query: SkoolDiscoveryQuery,
-  ): Promise<SkoolDiscoveryPage> {
-    if (this.discoverError) throw this.discoverError;
-    const key = `${query.visibility}-${query.price}`;
-    this.discoverCalls.push(`${query.keyword}/${key}/${query.page}`);
+  public override async discover(query: {
+    search: string;
+  }): Promise<Community[]> {
+    this.discoverCalls.push(query);
 
-    if (query.page > 1) {
-      if (this.failingPages.has(query.page)) {
-        throw new Error(`page ${query.page} failed`);
-      }
-
-      return {
-        totalGroups: this.totals[key] ?? 0,
-        groups: query.page === 2 ? (this.laterPages[key] ?? []) : [],
-      };
-    }
-
-    const source = this.byKeyword[query.keyword] ?? this.pages;
-    const groups = source[key] ?? [];
-    return { totalGroups: this.totals[key] ?? groups.length, groups };
+    return Object.values(this.data.pages).flat();
   }
 
-  public override async about(communityName: string): Promise<SkoolAbout> {
-    this.aboutCalls.push(communityName);
-    if (this.failingAbout.has(communityName)) throw new Error("about failed");
+  public override async about(input: {
+    communityURL: string;
+  }): Promise<FullCommunity | null> {
+    this.aboutCalls.push(input.communityURL);
 
-    const communityOwner = this.ownerless.has(communityName)
-      ? null
-      : this.owners[communityName];
-    if (communityOwner === undefined) {
-      throw new Error(`no owner for ${communityName}`);
+    if (this.data.missingCommunities?.includes(input.communityURL)) {
+      return null;
     }
-    return about(
-      communityName,
-      communityOwner,
-      this.memberCounts[communityName] ?? 120,
-    );
+
+    const community = Object.values(this.data.pages)
+      .flat()
+      .find((candidate) => candidate.communityURL === input.communityURL);
+    const owner = this.data.owners[input.communityURL];
+
+    if (!community || !owner) {
+      throw new Error(`Unknown community ${input.communityURL}`);
+    }
+
+    return { ...community, leadURL: `https://www.skool.com/@${owner}` };
   }
 
-  public override async profile(username: string): Promise<SkoolProfile> {
-    this.profileCalls.push(username);
-    if (this.failingProfiles.has(username)) throw new Error("profile failed");
-    return {
-      owner: owner(
-        username,
-        this.profileBios[username] ??
-          "Reach me at Jane.Doe@Example.com or @jane",
-      ),
-      followerCount: 12,
-      followingCount: 3,
-      postCount: 40,
-      ownedCommunities: [],
-    };
+  public override async lead(input: {
+    leadURL: string;
+  }): Promise<FullLead | null> {
+    this.leadCalls.push(input.leadURL);
+
+    if (this.data.leadError) {
+      throw this.data.leadError;
+    }
+
+    const failure =
+      this.leadFailures[input.leadURL.replace("https://www.skool.com/@", "")];
+
+    if (failure && failure.remaining > 0) {
+      failure.remaining -= 1;
+      throw failure.error;
+    }
+
+    if (this.data.missingLeads?.includes(input.leadURL)) {
+      return null;
+    }
+
+    const username = input.leadURL.replace("https://www.skool.com/@", "");
+
+    return { ...lead(username), ...this.leadOverrides[username] };
   }
 }
 
-export const paidMonthly = {
-  currency: "usd",
-  amount: 2900,
-  interval: "month" as const,
-};
+export const tableRows = async (db: DB) => ({
+  leads: await db.select().from(leadsTable),
+  communities: await db.select().from(communitiesTable),
+});

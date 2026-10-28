@@ -1,7 +1,10 @@
+import { EmailLink } from "@/components/external-link";
+import { PictureAvatar } from "@/components/picture-avatar";
 import { RowActions } from "@/components/row-actions";
 import { SelectCheckbox } from "@/components/select-checkbox";
-import type { Selection } from "@/lib/use-selection";
+import { Tip } from "@/components/tip";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import { Button } from "@repo/ui/components/ui/button";
 import {
   Table,
   TableBody,
@@ -10,25 +13,10 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/ui/table";
-import { Link } from "@tanstack/react-router";
-import { type CommunityFormSource } from "./community-form";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { ExternalLinkIcon } from "lucide-react";
 import { CommunityPrice } from "./community-price";
-
-interface CommunityRow extends CommunityFormSource {
-  communityId: number;
-  leadId: number;
-  leadName?: string;
-  estMonthlyRevenue: number | null;
-}
-
-export interface CommunityTableProps {
-  communities: CommunityRow[];
-  isMutating: boolean;
-  onRemove: (communityId: number) => void;
-  removingCommunityId?: number;
-  selection: Selection;
-  showLead: boolean;
-}
+import type { CommunityListProps } from "./community-row";
 
 export const CommunityTable = ({
   communities,
@@ -37,7 +25,9 @@ export const CommunityTable = ({
   removingCommunityId,
   selection,
   showLead,
-}: CommunityTableProps) => {
+}: CommunityListProps) => {
+  const navigate = useNavigate();
+
   return (
     <Table>
       <TableHeader>
@@ -45,68 +35,111 @@ export const CommunityTable = ({
           <TableHead className="w-10">
             <SelectCheckbox
               checked={selection.allSelected}
+              disabled={isMutating}
               indeterminate={selection.someSelected}
-              label="Select all"
+              label="Select all communities on this page"
               onChange={selection.toggleAll}
             />
           </TableHead>
           <TableHead>Community</TableHead>
           <TableHead>Members</TableHead>
           <TableHead>Price</TableHead>
-          <TableHead>Est. revenue</TableHead>
-          <TableHead>
+          <TableHead>MRR</TableHead>
+          <TableHead>Email</TableHead>
+          <TableHead className="w-24">
             <span className="sr-only">Actions</span>
           </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {communities.length === 0 ? (
-          <TableRow>
-            <TableCell colSpan={6}>No communities found.</TableCell>
-          </TableRow>
-        ) : (
-          communities.map((community) => (
-            <TableRow key={community.communityId}>
-              <TableCell>
-                <SelectCheckbox
-                  checked={selection.isSelected(community.communityId)}
-                  onChange={() => selection.toggle(community.communityId)}
+        {communities.map((community) => (
+          <TableRow
+            className="cursor-pointer"
+            key={community.communityId}
+            onClick={() =>
+              navigate({
+                to: "/admin/communities/$communityId",
+                params: { communityId: community.communityId },
+              })
+            }
+          >
+            <TableCell onClick={(event) => event.stopPropagation()}>
+              <SelectCheckbox
+                checked={selection.isSelected(community.communityId)}
+                disabled={isMutating}
+                label={`Select ${community.name}`}
+                onChange={() => selection.toggle(community.communityId)}
+              />
+            </TableCell>
+            <TableCell>
+              <div className="flex items-center gap-3">
+                <PictureAvatar
+                  name={community.name}
+                  src={community.logoUrl ?? community.thumbnailUrl}
                 />
-              </TableCell>
-              <TableCell>
-                <a
-                  className="font-medium hover:underline"
-                  href={community.communityUrl}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  {community.displayName}
-                </a>
-                {showLead && community.leadName && (
-                  <div>
+                <div className="min-w-0">
+                  <Link
+                    className="block max-w-64 truncate font-medium hover:underline"
+                    onClick={(event) => event.stopPropagation()}
+                    params={{ communityId: community.communityId }}
+                    to="/admin/communities/$communityId"
+                  >
+                    {community.name}
+                  </Link>
+                  {showLead && community.lead && (
                     <Link
-                      className="text-muted-foreground hover:underline"
-                      params={{ leadId: community.leadId }}
+                      className="block max-w-64 truncate text-muted-foreground hover:underline"
+                      onClick={(event) => event.stopPropagation()}
+                      params={{ leadId: community.lead.leadId }}
                       to="/admin/leads/$leadId"
                     >
-                      {community.leadName}
+                      {community.lead.name}
                     </Link>
-                  </div>
-                )}
-              </TableCell>
-              <TableCell>{formatNumber(community.memberCount)}</TableCell>
-              <TableCell>
-                <CommunityPrice community={community} />
-              </TableCell>
-              <TableCell>
-                {community.estMonthlyRevenue === null
-                  ? "—"
-                  : formatCurrency(community.estMonthlyRevenue, "USD")}
-              </TableCell>
-              <TableCell>
+                  )}
+                </div>
+              </div>
+            </TableCell>
+            <TableCell>
+              {community.members === null
+                ? "—"
+                : formatNumber(community.members)}
+            </TableCell>
+            <TableCell>
+              <CommunityPrice community={community} />
+            </TableCell>
+            <TableCell>
+              {community.mrr === null
+                ? "—"
+                : formatCurrency(community.mrr, "USD")}
+            </TableCell>
+            <TableCell>
+              <EmailLink email={community.email ?? undefined} />
+            </TableCell>
+            <TableCell>
+              <div className="flex items-center justify-end gap-1">
+                <Tip
+                  label="Open on Skool in a new tab"
+                  render={
+                    <Button
+                      aria-label="Open on Skool"
+                      onClick={(event) => event.stopPropagation()}
+                      render={
+                        <a
+                          href={community.skoolUrl}
+                          rel="noreferrer"
+                          target="_blank"
+                        />
+                      }
+                      size="icon"
+                      variant="ghost"
+                    />
+                  }
+                >
+                  <ExternalLinkIcon />
+                </Tip>
                 <RowActions
                   cancelLabel="Cancel"
-                  deleteDescription="This permanently deletes the community. This action cannot be undone."
+                  deleteDescription={`This permanently deletes ${community.name}. This action cannot be undone.`}
                   deleteLabel="Delete"
                   deleteTitle="Delete this community?"
                   edit={
@@ -120,13 +153,13 @@ export const CommunityTable = ({
                     removingCommunityId === community.communityId && isMutating
                   }
                   isDisabled={isMutating}
-                  menuLabel="Actions"
+                  menuLabel="Community actions"
                   onDelete={() => onRemove(community.communityId)}
                 />
-              </TableCell>
-            </TableRow>
-          ))
-        )}
+              </div>
+            </TableCell>
+          </TableRow>
+        ))}
       </TableBody>
     </Table>
   );

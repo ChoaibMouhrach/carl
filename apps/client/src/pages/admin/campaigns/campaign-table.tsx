@@ -1,8 +1,8 @@
-import type { CampaignSummary } from "@/api/campaign";
+import { api } from "@/api";
 import { RowActions } from "@/components/row-actions";
-import { SelectCheckbox } from "@/components/select-checkbox";
-import type { Selection } from "@/lib/use-selection";
-import { formatDate, formatNumber } from "@/lib/format";
+import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
+import { Badge } from "@repo/ui/components/ui/badge";
+import { DropdownMenuItem } from "@repo/ui/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -12,23 +12,26 @@ import {
   TableRow,
 } from "@repo/ui/components/ui/table";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { CampaignStatusBadge } from "./campaign-status-badge";
-import { StageBars } from "./stage-bars";
+import { PauseIcon, PlayIcon } from "lucide-react";
+
+type Campaign = Awaited<
+  ReturnType<typeof api.campaign.list>
+>["campaigns"][number];
 
 interface CampaignTableProps {
-  campaigns: CampaignSummary[];
+  campaigns: Campaign[];
   isMutating: boolean;
   onRemove: (campaignId: number) => void;
+  onToggleActive: (campaignId: number, isActive: boolean) => void;
   removingCampaignId?: number;
-  selection: Selection;
 }
 
 export const CampaignTable = ({
   campaigns,
   isMutating,
   onRemove,
+  onToggleActive,
   removingCampaignId,
-  selection,
 }: CampaignTableProps) => {
   const navigate = useNavigate();
 
@@ -36,88 +39,114 @@ export const CampaignTable = ({
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="w-10">
-            <SelectCheckbox
-              checked={selection.allSelected}
-              indeterminate={selection.someSelected}
-              label="Select all"
-              onChange={selection.toggleAll}
-            />
-          </TableHead>
           <TableHead>Campaign</TableHead>
           <TableHead>Status</TableHead>
-          <TableHead>Pipeline</TableHead>
+          <TableHead>Keyword</TableHead>
+          <TableHead>Min price</TableHead>
+          <TableHead>Min members</TableHead>
           <TableHead>Leads</TableHead>
-          <TableHead>Updated</TableHead>
-          <TableHead>
+          <TableHead>Communities</TableHead>
+          <TableHead>Created</TableHead>
+          <TableHead className="w-12">
             <span className="sr-only">Actions</span>
           </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {campaigns.length === 0 ? (
-          <TableRow>
-            <TableCell colSpan={7}>No campaigns found.</TableCell>
+        {campaigns.map((campaign) => (
+          <TableRow
+            className="cursor-pointer"
+            key={campaign.campaignId}
+            onClick={() =>
+              navigate({
+                to: "/admin/campaigns/$campaignId",
+                params: { campaignId: campaign.campaignId },
+                search: { step: "scrape", page: 1 },
+              })
+            }
+          >
+            <TableCell>
+              <div className="max-w-72 min-w-0">
+                <Link
+                  className="block truncate font-medium hover:underline"
+                  onClick={(event) => event.stopPropagation()}
+                  params={{ campaignId: campaign.campaignId }}
+                  search={{ step: "scrape", page: 1 }}
+                  to="/admin/campaigns/$campaignId"
+                >
+                  {campaign.name}
+                </Link>
+                <div className="truncate text-muted-foreground">
+                  {campaign.description ?? "No description"}
+                </div>
+              </div>
+            </TableCell>
+            <TableCell>
+              <Badge variant={campaign.isActive ? "default" : "outline"}>
+                {campaign.isActive ? "Active" : "Inactive"}
+              </Badge>
+            </TableCell>
+            <TableCell>
+              <Badge variant="outline">{campaign.keyword}</Badge>
+            </TableCell>
+            <TableCell>
+              {!campaign.minPriceCents
+                ? "Any"
+                : `${formatCurrency(campaign.minPriceCents / 100, "USD")} / mo`}
+            </TableCell>
+            <TableCell>
+              {!campaign.minMembers ? "Any" : formatNumber(campaign.minMembers)}
+            </TableCell>
+            <TableCell>
+              <Badge
+                variant={campaign.leadsCount === 0 ? "outline" : "secondary"}
+              >
+                {campaign.leadsCount}
+              </Badge>
+            </TableCell>
+            <TableCell>
+              <Badge
+                variant={
+                  campaign.communitiesCount === 0 ? "outline" : "secondary"
+                }
+              >
+                {campaign.communitiesCount}
+              </Badge>
+            </TableCell>
+            <TableCell>{formatDate(campaign.createdAt)}</TableCell>
+            <TableCell>
+              <RowActions
+                cancelLabel="Cancel"
+                deleteDescription={`This permanently deletes ${campaign.name}. Its leads and communities are kept. This action cannot be undone.`}
+                deleteLabel="Delete"
+                deleteTitle="Delete this campaign?"
+                edit={
+                  <Link
+                    params={{ campaignId: campaign.campaignId }}
+                    to="/admin/campaigns/$campaignId/edit"
+                  />
+                }
+                editLabel="Edit"
+                extraActions={
+                  <DropdownMenuItem
+                    onClick={() =>
+                      onToggleActive(campaign.campaignId, !campaign.isActive)
+                    }
+                  >
+                    {campaign.isActive ? <PauseIcon /> : <PlayIcon />}
+                    {campaign.isActive ? "Deactivate" : "Activate"}
+                  </DropdownMenuItem>
+                }
+                isDeleting={
+                  removingCampaignId === campaign.campaignId && isMutating
+                }
+                isDisabled={isMutating}
+                menuLabel="Campaign actions"
+                onDelete={() => onRemove(campaign.campaignId)}
+              />
+            </TableCell>
           </TableRow>
-        ) : (
-          campaigns.map((campaign) => (
-            <TableRow
-              className="cursor-pointer"
-              key={campaign.campaignId}
-              onClick={() =>
-                navigate({
-                  to: "/admin/campaigns/$campaignId",
-                  params: { campaignId: campaign.campaignId },
-                  search: { page: 1 },
-                })
-              }
-            >
-              <TableCell>
-                <SelectCheckbox
-                  checked={selection.isSelected(campaign.campaignId)}
-                  onChange={() => selection.toggle(campaign.campaignId)}
-                />
-              </TableCell>
-              <TableCell>
-                <div className="font-medium">{campaign.name}</div>
-                {campaign.description && (
-                  <div className="max-w-xs truncate text-muted-foreground">
-                    {campaign.description}
-                  </div>
-                )}
-              </TableCell>
-              <TableCell>
-                <CampaignStatusBadge status={campaign.status} />
-              </TableCell>
-              <TableCell>
-                <StageBars stages={campaign.stages} />
-              </TableCell>
-              <TableCell>{formatNumber(campaign.leadCount)}</TableCell>
-              <TableCell>{formatDate(campaign.updatedAt)}</TableCell>
-              <TableCell>
-                <RowActions
-                  cancelLabel="Cancel"
-                  deleteDescription="This permanently deletes the campaign and all of its leads. This action cannot be undone."
-                  deleteLabel="Delete"
-                  deleteTitle="Delete this campaign?"
-                  edit={
-                    <Link
-                      params={{ campaignId: campaign.campaignId }}
-                      to="/admin/campaigns/$campaignId/edit"
-                    />
-                  }
-                  editLabel="Edit"
-                  isDeleting={
-                    removingCampaignId === campaign.campaignId && isMutating
-                  }
-                  isDisabled={isMutating}
-                  menuLabel="Actions"
-                  onDelete={() => onRemove(campaign.campaignId)}
-                />
-              </TableCell>
-            </TableRow>
-          ))
-        )}
+        ))}
       </TableBody>
     </Table>
   );

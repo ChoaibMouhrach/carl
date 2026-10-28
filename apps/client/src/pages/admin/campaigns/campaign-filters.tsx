@@ -1,76 +1,35 @@
+import { FilterSelect } from "@/components/filter-select";
 import { Search } from "@/components/search";
-import { campaignStatusLabels } from "@/lib/campaign";
-import { campaignStatuses, type CampaignStatus } from "@/lib/campaign";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@repo/ui/components/ui/select";
+import { campaignSortOptions } from "@/lib/sort-options";
 
 interface CampaignFiltersProps {
   createAction: React.ReactNode;
-  exportAction: React.ReactNode;
-  viewSwitch: React.ReactNode;
   onSearch: (search: string | undefined) => void;
-  onStatusChange: (status: CampaignStatus | undefined) => void;
+  onSortChange: (value: string) => void;
   search?: string;
-  status?: CampaignStatus;
+  sort: string;
 }
 
 export const CampaignFilters = ({
   createAction,
-  exportAction,
-  viewSwitch,
   onSearch,
-  onStatusChange,
+  onSortChange,
   search,
-  status,
-}: CampaignFiltersProps) => {
-  const statusItems = [
-    { value: "all", label: "All statuses" },
-    ...campaignStatuses.map((value) => ({
-      value,
-      label: campaignStatusLabels[value],
-    })),
-  ];
-
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Search
-        onSearch={onSearch}
-        placeholder="Search campaigns"
-        value={search}
-      />
-      <Select
-        items={statusItems}
-        onValueChange={(value) =>
-          onStatusChange(campaignStatuses.find((item) => item === value))
-        }
-        value={status ?? "all"}
-      >
-        <SelectTrigger aria-label="Status">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            <SelectLabel>Status</SelectLabel>
-            {statusItems.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                {item.label}
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
-      <div className="ml-auto flex items-center gap-2">
-        {viewSwitch}
-        {exportAction}
-        {createAction}
-      </div>
-    </div>
-  );
-};
+  sort,
+}: CampaignFiltersProps) => (
+  <div className="flex flex-wrap items-center gap-2">
+    <Search
+      id="campaign-search"
+      onSearch={onSearch}
+      placeholder="Search name, description or keyword"
+      value={search}
+    />
+    <FilterSelect
+      label="Sort by"
+      onChange={onSortChange}
+      options={campaignSortOptions}
+      value={sort}
+    />
+    <div className="ml-auto">{createAction}</div>
+  </div>
+);

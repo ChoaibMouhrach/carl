@@ -1,6 +1,6 @@
 import { api } from "@/api";
+import { Tip } from "@/components/tip";
 import { onError } from "@/lib/base-api";
-import { invalidateCampaignData } from "@/lib/invalidate";
 import { Button } from "@repo/ui/components/ui/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -17,26 +17,27 @@ export const CampaignCreate = () => {
   const create = useMutation({
     mutationFn: (values: CampaignFormValues) => api.campaign.create(values),
     onError,
-    onSuccess: async ({ campaign }) => {
+    onSuccess: async () => {
       toast.success("Campaign created.");
-      await invalidateCampaignData(queryClient);
-      await navigate({
-        to: "/admin/campaigns/$campaignId",
-        params: { campaignId: campaign.campaignId },
-        search: { page: 1 },
-      });
+      await queryClient.invalidateQueries({ queryKey: ["admin", "campaigns"] });
+      await navigate({ to: "/admin/campaigns", search: { page: 1 } });
     },
   });
 
   return (
     <CampaignForm
       cancelAction={
-        <Button
-          render={<Link search={{ page: 1 }} to="/admin/campaigns" />}
-          variant="outline"
+        <Tip
+          label="Go back without saving"
+          render={
+            <Button
+              render={<Link search={{ page: 1 }} to="/admin/campaigns" />}
+              variant="outline"
+            />
+          }
         >
           Cancel
-        </Button>
+        </Tip>
       }
       isPending={create.isPending}
       onSubmit={(values) => create.mutateAsync(values)}

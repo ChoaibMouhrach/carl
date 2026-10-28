@@ -6,12 +6,12 @@ import { initDB, type DB } from "@server/infrastructure/database/client";
 import type { Context } from "@server/context";
 import type { Pool } from "pg";
 import { TEST_DB_TEMPLATE } from "../setup";
-import { createContext, type TestEventBus } from "./context";
+import { createContext } from "./context";
 import { withDatabaseName } from "./database-url";
 
 interface TestDatabase {
   databaseUrl: string;
-  context: Context & { eventBus: TestEventBus };
+  context: Context;
   db: DB;
   pool: Pool;
 }

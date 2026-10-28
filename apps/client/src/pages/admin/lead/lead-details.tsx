@@ -1,5 +1,8 @@
-import { urlFieldLabels } from "@/lib/lead";
 import { api } from "@/api";
+import { CopyButton } from "@/components/copy-button";
+import { ExternalLink } from "@/components/external-link";
+import { formatDate } from "@/lib/format";
+import { socialFields, socialLabels } from "@/lib/lead";
 import {
   Card,
   CardContent,
@@ -7,23 +10,14 @@ import {
   CardTitle,
 } from "@repo/ui/components/ui/card";
 
-type Lead = Awaited<ReturnType<typeof api.lead.show>>["lead"];
+type Lead = Awaited<ReturnType<typeof api.lead.show>>;
 
 interface LeadDetailsProps {
   lead: Lead;
 }
 
-const linkFields = [
-  "website",
-  "linkedinUrl",
-  "facebookUrl",
-  "instagramUrl",
-  "twitterUrl",
-  "youtubeUrl",
-] as const;
-
 export const LeadDetails = ({ lead }: LeadDetailsProps) => {
-  const links = linkFields.flatMap((field) => {
+  const links = socialFields.flatMap((field) => {
     const url = lead[field];
     return url ? [{ field, url }] : [];
   });
@@ -34,23 +28,38 @@ export const LeadDetails = ({ lead }: LeadDetailsProps) => {
         <CardTitle>Details</CardTitle>
       </CardHeader>
       <CardContent>
-        <dl className="grid gap-4">
+        <dl className="grid gap-5">
           <div>
-            <dt className="text-sm text-muted-foreground">Location</dt>
-            <dd>{lead.location ?? "Not set"}</dd>
+            <dt className="text-sm text-muted-foreground">Email</dt>
+            <dd className="mt-1 flex items-center gap-2">
+              {lead.email ? (
+                <>
+                  <a
+                    className="min-w-0 break-all hover:underline"
+                    href={`mailto:${lead.email}`}
+                  >
+                    {lead.email}
+                  </a>
+                  <CopyButton label="Copy email address" value={lead.email} />
+                </>
+              ) : (
+                <span className="text-muted-foreground">No email yet</span>
+              )}
+            </dd>
           </div>
           <div>
-            <dt className="text-sm text-muted-foreground">Emails</dt>
-            <dd>
-              {lead.emails.length === 0 ? (
-                "Not set"
+            <dt className="text-sm text-muted-foreground">Links</dt>
+            <dd className="mt-1">
+              {links.length === 0 ? (
+                <span className="text-muted-foreground">No links yet</span>
               ) : (
                 <ul className="space-y-1">
-                  {lead.emails.map((email) => (
-                    <li className="break-all" key={email}>
-                      <a className="hover:underline" href={`mailto:${email}`}>
-                        {email}
-                      </a>
+                  {links.map(({ field, url }) => (
+                    <li className="flex items-baseline gap-2" key={field}>
+                      <span className="w-20 shrink-0 text-muted-foreground">
+                        {socialLabels[field]}
+                      </span>
+                      <ExternalLink href={url} />
                     </li>
                   ))}
                 </ul>
@@ -59,35 +68,15 @@ export const LeadDetails = ({ lead }: LeadDetailsProps) => {
           </div>
           <div>
             <dt className="text-sm text-muted-foreground">Bio</dt>
-            <dd className="whitespace-pre-wrap wrap-anywhere">
-              {lead.bio ?? "Not set"}
+            <dd className="mt-1 whitespace-pre-wrap wrap-anywhere">
+              {lead.bio ?? (
+                <span className="text-muted-foreground">No bio yet</span>
+              )}
             </dd>
           </div>
           <div>
-            <dt className="text-sm text-muted-foreground">Links</dt>
-            <dd>
-              {links.length === 0 ? (
-                "No links yet."
-              ) : (
-                <ul className="space-y-1">
-                  {links.map(({ field, url }) => (
-                    <li className="break-all" key={field}>
-                      <span className="text-muted-foreground">
-                        {urlFieldLabels[field]}:{" "}
-                      </span>
-                      <a
-                        className="hover:underline"
-                        href={url}
-                        rel="noreferrer"
-                        target="_blank"
-                      >
-                        {url}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </dd>
+            <dt className="text-sm text-muted-foreground">Added</dt>
+            <dd className="mt-1">{formatDate(lead.createdAt)}</dd>
           </div>
         </dl>
       </CardContent>

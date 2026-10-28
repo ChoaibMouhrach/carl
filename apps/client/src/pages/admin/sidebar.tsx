@@ -16,9 +16,9 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { Logo, LogoWithText } from "@repo/ui/logo-mark";
 import {
   Building2Icon,
-  MegaphoneIcon,
   LayersIcon,
   LayoutDashboardIcon,
+  MegaphoneIcon,
   UsersIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -35,9 +35,9 @@ interface NavigationItem {
   label: string;
   to:
     | "/admin/dashboard"
-    | "/admin/campaigns"
     | "/admin/leads"
     | "/admin/communities"
+    | "/admin/campaigns"
     | "/admin/queues";
   icon: LucideIcon;
 }

@@ -6,7 +6,7 @@ import {
   timestamp,
   index,
 } from "drizzle-orm/pg-core";
-import { createdAt, id, timestamps } from "../utils";
+import { timestamps } from "../utils";
 
 export const userTable = pgTable("user", {
   id: text().primaryKey(),
@@ -106,114 +106,6 @@ export const passkeyTable = pgTable(
   ],
 );
 
-export const oauthApplicationTable = pgTable(
-  "oauth_application",
-  {
-    id: text().primaryKey(),
-
-    // -- fields
-    name: text().notNull(),
-    icon: text(),
-    metadata: text(),
-    clientId: text().notNull().unique(),
-    clientSecret: text(),
-    redirectUrls: text().notNull(),
-    type: text().notNull(),
-    disabled: boolean().default(false),
-    userId: text().references(() => userTable.id, { onDelete: "cascade" }),
-
-    // -- timestamps
-    ...timestamps(),
-  },
-  (table) => [index("oauth_application_userId_idx").on(table.userId)],
-);
-
-export const oauthAccessTokenTable = pgTable(
-  "oauth_access_token",
-  {
-    id: text().primaryKey(),
-
-    // -- fields
-    accessToken: text().notNull().unique(),
-    refreshToken: text().notNull().unique(),
-    accessTokenExpiresAt: timestamp().notNull(),
-    refreshTokenExpiresAt: timestamp().notNull(),
-    clientId: text()
-      .notNull()
-      .references(() => oauthApplicationTable.clientId, {
-        onDelete: "cascade",
-      }),
-    userId: text().references(() => userTable.id, { onDelete: "cascade" }),
-    scopes: text().notNull(),
-
-    // -- timestamps
-    ...timestamps(),
-  },
-  (table) => [
-    index("oauth_access_token_clientId_idx").on(table.clientId),
-    index("oauth_access_token_userId_idx").on(table.userId),
-  ],
-);
-
-export const oauthConsentTable = pgTable(
-  "oauth_consent",
-  {
-    id: text().primaryKey(),
-
-    // -- fields
-    clientId: text()
-      .notNull()
-      .references(() => oauthApplicationTable.clientId, {
-        onDelete: "cascade",
-      }),
-    userId: text()
-      .notNull()
-      .references(() => userTable.id, { onDelete: "cascade" }),
-    scopes: text().notNull(),
-    consentGiven: boolean(),
-
-    // -- timestamps
-    ...timestamps(),
-  },
-  (table) => [
-    index("oauth_consent_clientId_idx").on(table.clientId),
-    index("oauth_consent_userId_idx").on(table.userId),
-  ],
-);
-
-export const mcpRequestsTable = pgTable(
-  "mcp_requests",
-  {
-    mcpRequestId: id(),
-
-    // -- fields
-    clientId: text()
-      .notNull()
-      .references(() => oauthApplicationTable.clientId, {
-        onDelete: "cascade",
-      }),
-    userId: text().references(() => userTable.id, { onDelete: "set null" }),
-    rpcMethod: text().notNull(),
-    toolName: text(),
-    requestBody: text().notNull(),
-    responseBody: text().notNull(),
-    statusCode: integer().notNull(),
-    isError: boolean().notNull().default(false),
-    durationMs: integer().notNull(),
-
-    // -- timestamps
-    createdAt: createdAt(),
-  },
-  (table) => [
-    index("mcp_requests_clientId_createdAt_idx").on(
-      table.clientId,
-      table.createdAt,
-    ),
-  ],
-);
-
 export type User = typeof userTable.$inferSelect;
-export type McpRequest = typeof mcpRequestsTable.$inferSelect;
 export type Session = typeof sessionTable.$inferSelect;
-export type OAuthApplication = typeof oauthApplicationTable.$inferSelect;
 export const usersTable = userTable;

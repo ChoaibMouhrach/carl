@@ -1,4 +1,4 @@
-import { Queue, Worker } from "bullmq";
+import { Queue, UnrecoverableError, Worker } from "bullmq";
 import IORedis from "ioredis";
 import type { BaseLogger } from "@server/lib/base-logger";
 import type { BaseErrorMonitor } from "@server/lib/base-error-monitor";
@@ -8,15 +8,14 @@ import {
   type AddJobOptions,
   type EmailJob,
   type EnrichJob,
-  type FindEmailJob,
-  type FilterJob,
   type ListFailedInput,
   type ListFailedResult,
   type MaintenanceJob,
-  type ScrapeJob,
+  NonRetryableJobError,
   type QueueConsumer,
   type QueueJobCounts,
   type RegisteredQueue,
+  type ScrapeJob,
   type ScheduleJobOptions,
 } from "@server/lib/base-queue";
 
@@ -29,18 +28,9 @@ const maintenanceConcurrency = 1;
 
 const scrapeQueueName = "scrape";
 const scrapeJobName = "run";
-const scrapeConcurrency = 1;
-
-const filterQueueName = "filter";
-const filterJobName = "run";
-const filterConcurrency = 1;
 
 const enrichQueueName = "enrich";
 const enrichJobName = "run";
-const enrichConcurrency = 1;
-const findEmailQueueName = "find-email";
-const findEmailJobName = "run";
-const findEmailConcurrency = 1;
 
 const FAILED_JOB_RETENTION_SECONDS = 60 * 60 * 24 * 7;
 const FAILED_JOB_RETENTION_COUNT = 5_000;
@@ -131,7 +121,17 @@ export class BullQueue<Input> extends BaseQueue<Input> {
     this.worker = new Worker<Input, void, string>(
       this.name,
       async (job) => {
-        await consumer(job.data);
+        try {
+          await consumer(job.data, {
+            isFinalAttempt: job.attemptsMade + 1 >= (job.opts.attempts ?? 1),
+          });
+        } catch (error) {
+          if (error instanceof NonRetryableJobError) {
+            throw new UnrecoverableError(error.message);
+          }
+
+          throw error;
+        }
       },
       {
         connection: this.workerConnection,
@@ -141,7 +141,9 @@ export class BullQueue<Input> extends BaseQueue<Input> {
 
     this.worker.on("failed", (job, error) => {
       const attempts = job?.opts.attempts ?? 1;
-      const exhausted = job ? job.attemptsMade >= attempts : false;
+      const exhausted =
+        error instanceof UnrecoverableError ||
+        (job ? job.attemptsMade >= attempts : false);
       const entry = {
         message: exhausted ? "A job failed for good." : "A job failed.",
         attemptsMade: job?.attemptsMade,
@@ -152,7 +154,7 @@ export class BullQueue<Input> extends BaseQueue<Input> {
       if (exhausted) void this.logger.error(entry, error);
       else void this.logger.warn({ ...entry, reason: error.message });
 
-      if (job && job.attemptsMade >= attempts) {
+      if (job && exhausted) {
         this.errorMonitor.captureException(error, {
           tags: {
             signal: "job_failed",
@@ -298,82 +300,65 @@ export class MaintenanceQueue extends BullQueue<MaintenanceJob> {
   }
 }
 
+interface ScrapeQueueInit {
+  concurrency: number;
+  /** Only tests set this, to keep their jobs out of the real queue */
+  name?: string;
+  errorMonitor: BaseErrorMonitor;
+  logger: BaseLogger;
+  redisUrl: string;
+}
+
 export class ScrapeQueue extends BullQueue<ScrapeJob> {
-  public constructor(init: MaintenanceQueueInit) {
+  public constructor(init: ScrapeQueueInit) {
     super({
       ...init,
-      concurrency: scrapeConcurrency,
       jobName: scrapeJobName,
-      name: scrapeQueueName,
+      name: init.name ?? scrapeQueueName,
     });
   }
 }
 
-export class FilterQueue extends BullQueue<FilterJob> {
-  public constructor(init: MaintenanceQueueInit) {
-    super({
-      ...init,
-      concurrency: filterConcurrency,
-      jobName: filterJobName,
-      name: filterQueueName,
-    });
-  }
+interface EnrichQueueInit {
+  concurrency: number;
+  errorMonitor: BaseErrorMonitor;
+  logger: BaseLogger;
+  redisUrl: string;
 }
 
 export class EnrichQueue extends BullQueue<EnrichJob> {
-  public constructor(init: MaintenanceQueueInit) {
-    super({
-      ...init,
-      concurrency: enrichConcurrency,
-      jobName: enrichJobName,
-      name: enrichQueueName,
-    });
+  public constructor(init: EnrichQueueInit) {
+    super({ ...init, jobName: enrichJobName, name: enrichQueueName });
   }
 }
 
-export class FindEmailQueue extends BullQueue<FindEmailJob> {
-  public constructor(init: MaintenanceQueueInit) {
-    super({
-      ...init,
-      concurrency: findEmailConcurrency,
-      jobName: findEmailJobName,
-      name: findEmailQueueName,
-    });
-  }
+interface QueueHubInit extends EmailQueueInit {
+  scrapeConcurrency: number;
+  enrichConcurrency: number;
 }
 
 export class QueueHub extends BaseQueueHub {
   public email: EmailQueue;
   public maintenance: MaintenanceQueue;
   public scrape: ScrapeQueue;
-  public filter: FilterQueue;
   public enrich: EnrichQueue;
-  public findEmail: FindEmailQueue;
 
-  public constructor(init: EmailQueueInit) {
+  public constructor(init: QueueHubInit) {
     super();
     this.email = new EmailQueue(init);
-    this.maintenance = new MaintenanceQueue({
-      errorMonitor: init.errorMonitor,
-      logger: init.logger,
-      redisUrl: init.redisUrl,
-    });
     this.scrape = new ScrapeQueue({
-      errorMonitor: init.errorMonitor,
-      logger: init.logger,
-      redisUrl: init.redisUrl,
-    });
-    this.filter = new FilterQueue({
+      concurrency: init.scrapeConcurrency,
       errorMonitor: init.errorMonitor,
       logger: init.logger,
       redisUrl: init.redisUrl,
     });
     this.enrich = new EnrichQueue({
+      concurrency: init.enrichConcurrency,
       errorMonitor: init.errorMonitor,
       logger: init.logger,
       redisUrl: init.redisUrl,
     });
-    this.findEmail = new FindEmailQueue({
+    this.maintenance = new MaintenanceQueue({
       errorMonitor: init.errorMonitor,
       logger: init.logger,
       redisUrl: init.redisUrl,
@@ -385,9 +370,7 @@ export class QueueHub extends BaseQueueHub {
       { name: emailQueueName, queue: this.email },
       { name: maintenanceQueueName, queue: this.maintenance },
       { name: scrapeQueueName, queue: this.scrape },
-      { name: filterQueueName, queue: this.filter },
       { name: enrichQueueName, queue: this.enrich },
-      { name: findEmailQueueName, queue: this.findEmail },
     ];
   }
 
@@ -395,8 +378,6 @@ export class QueueHub extends BaseQueueHub {
     await this.email.close();
     await this.maintenance.close();
     await this.scrape.close();
-    await this.filter.close();
     await this.enrich.close();
-    await this.findEmail.close();
   }
 }

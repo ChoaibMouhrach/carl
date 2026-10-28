@@ -8,41 +8,18 @@ import {
   BaseQueueHub,
   type AddJobOptions,
   type EmailJob,
+  type EnrichJob,
   type FailedJob,
   type ListFailedInput,
   type ListFailedResult,
   type MaintenanceJob,
-  type EnrichJob,
-  type FindEmailJob,
-  type FilterJob,
-  type ScrapeJob,
   type QueueConsumer,
   type QueueJobCounts,
   type RegisteredQueue,
   type ScheduleJobOptions,
+  type ScrapeJob,
 } from "@server/lib/base-queue";
-import { BaseCache } from "@server/lib/base-cache";
-import {
-  BaseLeadClassifier,
-  type ClassifierInput,
-  type ClassifierOutput,
-} from "@server/lib/base-lead-classifier";
-import {
-  BaseEmailFinder,
-  type EmailBatchSnapshot,
-  type EmailBatchStart,
-  type EmailLookup,
-} from "@server/lib/base-email-finder";
-import {
-  BaseWebSearch,
-  type WebSearchInput,
-  type WebSearchResult,
-} from "@server/lib/base-web-search";
-import { BaseEventBus } from "@server/lib/base-event-bus";
-import type {
-  LiveEventListener,
-  LiveEventType,
-} from "@server/lib/base-event-bus";
+import { BaseSkoolScrapper } from "@server/lib/base-skool-scrapper";
 import { BaseRateLimiter } from "@server/lib/base-rate-limiter";
 import { Repositories } from "@server/repositories";
 import { DisabledErrorMonitor } from "@server/infrastructure/error-monitor/disabled";
@@ -50,9 +27,7 @@ import type { AppContext, AuthAppContext } from "@server/app";
 import type { MiddlewareHandler } from "hono";
 import type { Pool } from "pg";
 import { createAuth } from "@server/infrastructure/auth";
-import type { BaseSkoolScraper } from "@server/lib/base-skool-scraper";
-import { CustomSkoolScraper } from "@server/infrastructure/skool/custom";
-import { DEFAULT_SKOOL_SEARCHES } from "@server/config/constants";
+import { DisabledWebSearch } from "@server/infrastructure/web-search/disabled";
 
 export interface LogRecord {
   level: "debug" | "info" | "warn" | "error";
@@ -236,7 +211,7 @@ export class TestQueue<Input> extends BaseQueue<Input> {
     job.attemptsMade += 1;
 
     try {
-      await handler(job.data);
+      await handler(job.data, { isFinalAttempt: false });
       job.status = "completed";
       job.failedReason = null;
     } catch (error) {
@@ -258,13 +233,25 @@ const toTestFailedJob = <Input>(job: TestJob<Input>): FailedJob => ({
   stacktrace: [],
 });
 
+export class UnconfiguredSkoolScrapper extends BaseSkoolScrapper {
+  public override discover(): Promise<never> {
+    return Promise.reject(new Error("Skool scrapper not configured."));
+  }
+
+  public override about(): Promise<never> {
+    return Promise.reject(new Error("Skool scrapper not configured."));
+  }
+
+  public override lead(): Promise<never> {
+    return Promise.reject(new Error("Skool scrapper not configured."));
+  }
+}
+
 export class TestQueueHub extends BaseQueueHub {
   public email: TestQueue<EmailJob>;
   public maintenance: TestQueue<MaintenanceJob>;
   public scrape: TestQueue<ScrapeJob>;
-  public filter: TestQueue<FilterJob>;
   public enrich: TestQueue<EnrichJob>;
-  public findEmail: TestQueue<FindEmailJob>;
 
   public constructor(init: { mailer: BaseMailer }) {
     super();
@@ -279,13 +266,7 @@ export class TestQueueHub extends BaseQueueHub {
     this.scrape = new TestQueue<ScrapeJob>({
       process: async () => {},
     });
-    this.filter = new TestQueue<FilterJob>({
-      process: async () => {},
-    });
     this.enrich = new TestQueue<EnrichJob>({
-      process: async () => {},
-    });
-    this.findEmail = new TestQueue<FindEmailJob>({
       process: async () => {},
     });
   }
@@ -295,200 +276,8 @@ export class TestQueueHub extends BaseQueueHub {
       { name: "email", queue: this.email },
       { name: "maintenance", queue: this.maintenance },
       { name: "scrape", queue: this.scrape },
-      { name: "filter", queue: this.filter },
       { name: "enrich", queue: this.enrich },
-      { name: "find-email", queue: this.findEmail },
     ];
-  }
-
-  public override async close(): Promise<void> {}
-}
-
-export class FakeLeadClassifier extends BaseLeadClassifier {
-  public provider = "fake";
-  public model = "fake";
-  public calls: ClassifierInput[] = [];
-  public error: Error | null = null;
-  public inFlight = 0;
-  public peakInFlight = 0;
-  public delayMs = 0;
-  /** Decides the answers; by default every requirement and evidence question is a yes quoting the first line of the facts and every competitor or disqualifier question is a no */
-  public answer: (input: ClassifierInput) => ClassifierOutput = (input) => ({
-    answers: input.questions.map((question) =>
-      question.role === "competitor" || question.role === "disqualifier"
-        ? { questionId: question.questionId, answer: "no", evidence: null }
-        : {
-            questionId: question.questionId,
-            answer: "yes",
-            evidence: input.facts.split("\n")[0] ?? null,
-          },
-    ),
-    summary: "Looks like a fit.",
-    model: "fake",
-  });
-
-  public override async classify(input: ClassifierInput) {
-    this.calls.push(input);
-    this.inFlight += 1;
-    this.peakInFlight = Math.max(this.peakInFlight, this.inFlight);
-
-    try {
-      if (this.delayMs > 0) {
-        await new Promise((resolve) => setTimeout(resolve, this.delayMs));
-      }
-
-      if (this.error) throw this.error;
-
-      return this.answer(input);
-    } finally {
-      this.inFlight -= 1;
-    }
-  }
-}
-
-export class TestCache extends BaseCache {
-  public entries = new Map<string, string>();
-  public ttls = new Map<string, number>();
-
-  public async get(key: string) {
-    return this.entries.get(key) ?? null;
-  }
-
-  public async set(key: string, value: string, ttlSeconds: number) {
-    this.entries.set(key, value);
-    this.ttls.set(key, ttlSeconds);
-  }
-
-  public async close() {}
-}
-
-export class FakeWebSearch extends BaseWebSearch {
-  public readonly provider = "fake";
-
-  public calls: WebSearchInput[] = [];
-  public error: Error | null = null;
-  public inFlight = 0;
-  public peakInFlight = 0;
-  public delayMs = 0;
-  /** Decides the results; by default nothing is found */
-  public answer: (input: WebSearchInput) => WebSearchResult[] = () => [];
-
-  public override async search(input: WebSearchInput) {
-    this.calls.push(input);
-    this.inFlight += 1;
-    this.peakInFlight = Math.max(this.peakInFlight, this.inFlight);
-
-    try {
-      if (this.delayMs > 0) {
-        await new Promise((resolve) => setTimeout(resolve, this.delayMs));
-      }
-
-      if (this.error) throw this.error;
-
-      return this.answer(input);
-    } finally {
-      this.inFlight -= 1;
-    }
-  }
-}
-
-export interface FakeBatchStart {
-  batchId: string;
-  lookups: EmailLookup[];
-}
-
-export class FakeEmailFinder extends BaseEmailFinder {
-  public readonly provider = "fake";
-
-  public calls: EmailLookup[][] = [];
-  public starts: FakeBatchStart[] = [];
-  public fetched: string[] = [];
-  public error: Error | null = null;
-  public inFlight = 0;
-  public peakInFlight = 0;
-  public delayMs = 0;
-  /** When true a batch is left waiting, as with a real provider, until a fetch brings the answer */
-  public deferred = false;
-  /** What fetch answers for a batch, by provider id */
-  public snapshots = new Map<string, EmailBatchSnapshot>();
-  /** Makes a call fail when it returns an error for the lookups it is given */
-  public failWhen: (lookups: EmailLookup[]) => Error | null = () => null;
-  /** Decides the email for each lookup; by default none is found */
-  public answer: (lookup: EmailLookup) => string | null = () => null;
-
-  public override async start(input: FakeBatchStart): Promise<EmailBatchStart> {
-    const failure = this.failWhen(input.lookups);
-
-    this.calls.push(input.lookups);
-    this.starts.push(input);
-    this.inFlight += 1;
-    this.peakInFlight = Math.max(this.peakInFlight, this.inFlight);
-
-    try {
-      if (this.delayMs > 0) {
-        await new Promise((resolve) => setTimeout(resolve, this.delayMs));
-      }
-
-      if (failure) throw failure;
-      if (this.error) throw this.error;
-
-      const providerId = `fake-${this.starts.length}`;
-
-      return {
-        providerId,
-        snapshot: this.deferred
-          ? null
-          : {
-              providerId,
-              batchId: input.batchId,
-              state: "finished",
-              reason: null,
-              results: input.lookups.map((lookup, ref) => ({
-                ref,
-                email: this.answer(lookup),
-              })),
-            },
-      };
-    } finally {
-      this.inFlight -= 1;
-    }
-  }
-
-  public override async fetch(providerId: string): Promise<EmailBatchSnapshot> {
-    this.fetched.push(providerId);
-
-    const snapshot = this.snapshots.get(providerId);
-
-    if (!snapshot) throw new Error(`No answer prepared for ${providerId}.`);
-
-    return snapshot;
-  }
-}
-
-export class TestEventBus extends BaseEventBus {
-  public published: LiveEventType[] = [];
-  private listeners = new Set<LiveEventListener>();
-
-  public get listenerCount() {
-    return this.listeners.size;
-  }
-
-  public override async publish(...types: LiveEventType[]): Promise<void> {
-    for (const type of types) {
-      this.published.push(type);
-
-      for (const listener of this.listeners) {
-        listener(type);
-      }
-    }
-  }
-
-  public override subscribe(listener: LiveEventListener): () => void {
-    this.listeners.add(listener);
-
-    return () => {
-      this.listeners.delete(listener);
-    };
   }
 
   public override async close(): Promise<void> {}
@@ -528,18 +317,7 @@ export const createContext = (
   env: ENV,
   mailer: BaseMailer = new TestMailer(),
   rateLimiter: BaseRateLimiter = new TestRateLimiter(),
-  skoolScraper: BaseSkoolScraper = new CustomSkoolScraper(),
-  leadClassifier: FakeLeadClassifier = new FakeLeadClassifier(),
-  webSearch: FakeWebSearch = new FakeWebSearch(),
-  emailFinder: FakeEmailFinder = new FakeEmailFinder(),
-): Context & {
-  queueHub: TestQueueHub;
-  eventBus: TestEventBus;
-  cache: TestCache;
-  leadClassifier: FakeLeadClassifier;
-  webSearch: FakeWebSearch;
-  emailFinder: FakeEmailFinder;
-} => {
+): Context & { queueHub: TestQueueHub } => {
   const queueHub = new TestQueueHub({ mailer });
 
   return {
@@ -549,15 +327,9 @@ export const createContext = (
     logger: new TestLogger(),
     mailer,
     queueHub,
-    eventBus: new TestEventBus(),
-    cache: new TestCache(),
     rateLimiter,
     repositories: new Repositories({ dbConnection: { db, pool } }),
-    skoolScraper,
-    leadClassifier,
-    webSearch,
-    emailFinder,
-    eventStreamHeartbeatMs: 50,
-    discoveryCriteria: DEFAULT_SKOOL_SEARCHES,
+    skoolScrapper: new UnconfiguredSkoolScrapper(),
+    webSearch: new DisabledWebSearch(),
   };
 };

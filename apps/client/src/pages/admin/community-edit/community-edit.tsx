@@ -1,6 +1,7 @@
 import { api } from "@/api";
+import { Tip } from "@/components/tip";
+import { useLeadOptions } from "@/hooks/use-lead-options";
 import { onError } from "@/lib/base-api";
-import { toCommunityUpdate } from "@/lib/community-update";
 import { invalidateLeadData } from "@/lib/invalidate";
 import { adminCommunityEditRoute } from "@/routes/admin/community-edit";
 import { Button } from "@repo/ui/components/ui/button";
@@ -8,9 +9,7 @@ import { Card, CardContent } from "@repo/ui/components/ui/card";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
 import { toast } from "sonner";
-import { useDebounce } from "use-debounce";
 import {
   CommunityForm,
   type CommunityFormValues,
@@ -20,8 +19,7 @@ export const CommunityEdit = () => {
   const { communityId } = adminCommunityEditRoute.useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [leadSearch, setLeadSearch] = useState("");
-  const [debouncedLeadSearch] = useDebounce(leadSearch, 300);
+  const { leads, onSearch } = useLeadOptions();
 
   const community = useQuery({
     queryKey: ["admin", "communities", communityId],
@@ -29,24 +27,17 @@ export const CommunityEdit = () => {
     placeholderData: (previousData) => previousData,
   });
 
-  const leads = useQuery({
-    queryKey: ["admin", "leads", "options", debouncedLeadSearch],
-    queryFn: () =>
-      api.lead.list({ search: debouncedLeadSearch.trim() || undefined }),
-    placeholderData: (previousData) => previousData,
-  });
-
   const update = useMutation({
     mutationFn: (values: CommunityFormValues) =>
-      api.community.update(
-        { communityId },
-        toCommunityUpdate(values, community.data?.community.prices ?? []),
-      ),
+      api.community.update({ communityId }, values),
     onError,
     onSuccess: async () => {
       toast.success("Community updated.");
       await invalidateLeadData(queryClient);
-      await navigate({ to: "/admin/communities", search: { page: 1 } });
+      await navigate({
+        to: "/admin/communities/$communityId",
+        params: { communityId },
+      });
     },
   });
 
@@ -61,7 +52,7 @@ export const CommunityEdit = () => {
             </div>
           ))}
           <div className="flex gap-2">
-            <Skeleton className="h-9 w-20" />
+            <Skeleton className="h-9 w-32" />
             <Skeleton className="h-9 w-20" />
           </div>
         </CardContent>
@@ -76,18 +67,28 @@ export const CommunityEdit = () => {
   return (
     <CommunityForm
       cancelAction={
-        <Button
-          render={<Link search={{ page: 1 }} to="/admin/communities" />}
-          variant="outline"
+        <Tip
+          label="Go back without saving"
+          render={
+            <Button
+              render={
+                <Link
+                  params={{ communityId }}
+                  to="/admin/communities/$communityId"
+                />
+              }
+              variant="outline"
+            />
+          }
         >
           Cancel
-        </Button>
+        </Tip>
       }
-      community={community.data.community}
+      community={community.data}
       initialLead={community.data.lead}
       isPending={update.isPending}
-      leads={leads.data?.leads ?? []}
-      onLeadSearch={setLeadSearch}
+      leads={leads}
+      onLeadSearch={onSearch}
       onSubmit={(values) => update.mutateAsync(values)}
     />
   );

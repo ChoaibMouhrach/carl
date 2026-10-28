@@ -17,7 +17,7 @@ export const AdminLeadCreatePage = () => {
       <AdminPageHeader>
         <AdminPageTitle>New lead</AdminPageTitle>
         <AdminPageDescription>
-          Owner details and where to reach them.
+          Add a community owner by hand.
         </AdminPageDescription>
       </AdminPageHeader>
       <LeadCreate />

@@ -17,7 +17,7 @@ export const AdminCampaignEditPage = () => {
       <AdminPageHeader>
         <AdminPageTitle>Edit campaign</AdminPageTitle>
         <AdminPageDescription>
-          Name the campaign and say what it is for.
+          Change what this campaign searches for and its minimums.
         </AdminPageDescription>
       </AdminPageHeader>
       <CampaignEdit />

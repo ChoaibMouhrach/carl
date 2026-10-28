@@ -1,25 +1,29 @@
 import { TextField } from "@/components/text-field";
+import { Tip } from "@/components/tip";
+import { skoolProfileUrl, socialFields, socialLabels } from "@/lib/lead";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
+import {
+  FieldDescription,
+  FieldLegend,
+  FieldSet,
+} from "@repo/ui/components/ui/field";
 import { Spinner } from "@repo/ui/components/ui/spinner";
-import { useForm } from "react-hook-form";
+import { useEffect } from "react";
+import { useForm, useWatch } from "react-hook-form";
 import z from "zod";
-import { urlFieldLabels } from "@/lib/lead";
 
 export interface LeadFormValues {
-  skoolUsername: string;
   name: string;
-  firstName: string | null;
-  lastName: string | null;
+  username: string;
+  skoolUrl: string;
+  email: string | null;
   bio: string | null;
-  location: string | null;
+  instagram: string | null;
+  facebook: string | null;
+  linkedin: string | null;
   website: string | null;
-  linkedinUrl: string | null;
-  facebookUrl: string | null;
-  instagramUrl: string | null;
-  twitterUrl: string | null;
-  youtubeUrl: string | null;
 }
 
 interface LeadFormProps {
@@ -29,33 +33,57 @@ interface LeadFormProps {
   onSubmit: (values: LeadFormValues) => Promise<unknown>;
 }
 
-const emptyToNull = (value: string) => value.trim() || null;
+const required = z.string().trim().min(1, "This field is required").max(255);
+
+const optionalUrl = z
+  .string()
+  .trim()
+  .max(2048)
+  .refine(
+    (value) => value === "" || z.url().safeParse(value).success,
+    "Enter a valid link, e.g. https://example.com",
+  );
 
 const schema = z.object({
-  skoolUsername: z.string().trim().min(1).max(255),
-  name: z.string().trim().min(1).max(255),
-  firstName: z.string().trim().max(255),
-  lastName: z.string().trim().max(255),
+  name: required,
+  username: required,
+  skoolUrl: z
+    .string()
+    .trim()
+    .min(1, "This field is required")
+    .refine((value) => {
+      try {
+        const { hostname } = new URL(value);
+        return hostname === "skool.com" || hostname.endsWith(".skool.com");
+      } catch {
+        return false;
+      }
+    }, "Enter a skool.com link, e.g. https://www.skool.com/@jane"),
+  email: z
+    .string()
+    .trim()
+    .max(255)
+    .refine(
+      (value) => value === "" || z.email().safeParse(value).success,
+      "Enter a valid email address",
+    ),
   bio: z.string().trim().max(5000),
-  location: z.string().trim().max(255),
-  website: z.string().trim().max(2048),
-  linkedinUrl: z.string().trim().max(2048),
-  facebookUrl: z.string().trim().max(2048),
-  instagramUrl: z.string().trim().max(2048),
-  twitterUrl: z.string().trim().max(2048),
-  youtubeUrl: z.string().trim().max(2048),
+  instagram: optionalUrl,
+  facebook: optionalUrl,
+  linkedin: optionalUrl,
+  website: optionalUrl,
 });
 
 type FormInput = z.input<typeof schema>;
 
-const urlFields = [
-  "website",
-  "linkedinUrl",
-  "facebookUrl",
-  "instagramUrl",
-  "twitterUrl",
-  "youtubeUrl",
-] as const;
+const emptyToNull = (value: string) => value.trim() || null;
+
+const socialPlaceholders = {
+  instagram: "https://instagram.com/jane",
+  facebook: "https://facebook.com/jane",
+  linkedin: "https://linkedin.com/in/jane",
+  website: "https://example.com",
+} as const;
 
 export const LeadForm = ({
   cancelAction,
@@ -65,47 +93,42 @@ export const LeadForm = ({
 }: LeadFormProps) => {
   const form = useForm<FormInput>({
     defaultValues: {
-      skoolUsername: lead?.skoolUsername ?? "",
       name: lead?.name ?? "",
-      firstName: lead?.firstName ?? "",
-      lastName: lead?.lastName ?? "",
+      username: lead?.username ?? "",
+      skoolUrl: lead?.skoolUrl ?? "",
+      email: lead?.email ?? "",
       bio: lead?.bio ?? "",
-      location: lead?.location ?? "",
+      instagram: lead?.instagram ?? "",
+      facebook: lead?.facebook ?? "",
+      linkedin: lead?.linkedin ?? "",
       website: lead?.website ?? "",
-      linkedinUrl: lead?.linkedinUrl ?? "",
-      facebookUrl: lead?.facebookUrl ?? "",
-      instagramUrl: lead?.instagramUrl ?? "",
-      twitterUrl: lead?.twitterUrl ?? "",
-      youtubeUrl: lead?.youtubeUrl ?? "",
     },
     resolver: zodResolver(schema),
   });
 
+  const username = useWatch({ control: form.control, name: "username" });
+  const skoolUrlEdited = Boolean(form.formState.dirtyFields.skoolUrl);
+
+  // On a new lead, typing the username fills the Skool link until it is edited by hand
+  useEffect(() => {
+    if (lead || skoolUrlEdited) return;
+
+    const trimmed = username.trim();
+    form.setValue("skoolUrl", trimmed ? skoolProfileUrl(trimmed) : "");
+  }, [form, lead, skoolUrlEdited, username]);
+
   const submit = form.handleSubmit(async (input) => {
-    const invalidUrlField = urlFields.find(
-      (field) =>
-        input[field] !== "" && !z.url().safeParse(input[field]).success,
-    );
-
-    if (invalidUrlField) {
-      form.setError(invalidUrlField, { message: "Enter a valid URL." });
-      return;
-    }
-
     try {
       await onSubmit({
-        skoolUsername: input.skoolUsername,
         name: input.name,
-        firstName: emptyToNull(input.firstName),
-        lastName: emptyToNull(input.lastName),
+        username: input.username,
+        skoolUrl: input.skoolUrl,
+        email: emptyToNull(input.email),
         bio: emptyToNull(input.bio),
-        location: emptyToNull(input.location),
+        instagram: emptyToNull(input.instagram),
+        facebook: emptyToNull(input.facebook),
+        linkedin: emptyToNull(input.linkedin),
         website: emptyToNull(input.website),
-        linkedinUrl: emptyToNull(input.linkedinUrl),
-        facebookUrl: emptyToNull(input.facebookUrl),
-        instagramUrl: emptyToNull(input.instagramUrl),
-        twitterUrl: emptyToNull(input.twitterUrl),
-        youtubeUrl: emptyToNull(input.youtubeUrl),
       });
     } catch {
       return;
@@ -116,64 +139,79 @@ export const LeadForm = ({
     <form onSubmit={submit}>
       <Card>
         <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <TextField
-              control={form.control}
-              disabled={Boolean(lead)}
-              label="Skool username"
-              name="skoolUsername"
-              placeholder="jane-doe"
-              required
-            />
-            <TextField
-              control={form.control}
-              label="Name"
-              name="name"
-              placeholder="Jane Doe"
-              required
-            />
-            <TextField
-              control={form.control}
-              label="First name"
-              name="firstName"
-              placeholder="Jane"
-            />
-            <TextField
-              control={form.control}
-              label="Last name"
-              name="lastName"
-              placeholder="Doe"
-            />
-            <TextField
-              control={form.control}
-              label="Location"
-              name="location"
-              placeholder="Austin, TX"
-            />
-            {urlFields.map((field) => (
-              <TextField
-                control={form.control}
-                inputMode="url"
-                key={field}
-                label={urlFieldLabels[field]}
-                name={field}
-                placeholder="https://example.com"
-              />
-            ))}
-            <TextField
-              control={form.control}
-              label="Bio"
-              multiline
-              name="bio"
-              placeholder="A few words about the owner"
-              wrapperClassName="sm:col-span-2"
-            />
+          <div className="space-y-8">
+            <FieldSet>
+              <FieldLegend>Profile</FieldLegend>
+              <FieldDescription>Who the owner is on Skool.</FieldDescription>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <TextField
+                  control={form.control}
+                  label="Name"
+                  name="name"
+                  placeholder="Jane Doe"
+                  required
+                />
+                <TextField
+                  control={form.control}
+                  description="The part after @ in their Skool profile link."
+                  label="Username"
+                  name="username"
+                  placeholder="jane-doe"
+                  required
+                />
+                <TextField
+                  control={form.control}
+                  inputMode="url"
+                  label="Skool profile link"
+                  name="skoolUrl"
+                  placeholder="https://www.skool.com/@jane-doe"
+                  required
+                  wrapperClassName="sm:col-span-2"
+                />
+                <TextField
+                  control={form.control}
+                  label="Bio"
+                  multiline
+                  name="bio"
+                  placeholder="A few words about the owner"
+                  wrapperClassName="sm:col-span-2"
+                />
+              </div>
+            </FieldSet>
+            <FieldSet>
+              <FieldLegend>Contact</FieldLegend>
+              <FieldDescription>
+                Where to reach them. Everything here is optional.
+              </FieldDescription>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <TextField
+                  control={form.control}
+                  label="Email"
+                  name="email"
+                  placeholder="jane@example.com"
+                  wrapperClassName="sm:col-span-2"
+                />
+                {socialFields.map((field) => (
+                  <TextField
+                    control={form.control}
+                    inputMode="url"
+                    key={field}
+                    label={socialLabels[field]}
+                    name={field}
+                    placeholder={socialPlaceholders[field]}
+                  />
+                ))}
+              </div>
+            </FieldSet>
           </div>
-          <div className="mt-6 flex gap-2">
-            <Button disabled={isPending} type="submit">
+          <div className="mt-8 flex gap-2">
+            <Tip
+              label={isPending ? "Saving…" : "Save this lead"}
+              render={<Button disabled={isPending} type="submit" />}
+            >
               {isPending && <Spinner />}
-              Save
-            </Button>
+              Save lead
+            </Tip>
             {cancelAction}
           </div>
         </CardContent>

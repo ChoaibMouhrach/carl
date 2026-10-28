@@ -1,3 +1,4 @@
+import { Tip } from "@/components/tip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +26,7 @@ interface RowActionsProps {
   deleteLabel: string;
   deleteTitle: string;
   edit?: React.ReactElement;
+  extraActions?: React.ReactNode;
   editLabel?: string;
   isDeleting: boolean;
   isDisabled: boolean;
@@ -38,6 +40,7 @@ export const RowActions = ({
   deleteLabel,
   deleteTitle,
   edit,
+  extraActions,
   editLabel,
   isDeleting,
   isDisabled,
@@ -52,18 +55,23 @@ export const RowActions = ({
       onClick={(event) => event.stopPropagation()}
     >
       <DropdownMenu>
-        <DropdownMenuTrigger
+        <Tip
+          label={menuLabel}
           render={
-            <Button
-              aria-label={menuLabel}
-              disabled={isDisabled}
-              size="icon"
-              variant="ghost"
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  aria-label={menuLabel}
+                  disabled={isDisabled}
+                  size="icon"
+                  variant="ghost"
+                />
+              }
             />
           }
         >
           {isDeleting ? <Spinner /> : <MoreHorizontalIcon />}
-        </DropdownMenuTrigger>
+        </Tip>
         <DropdownMenuContent align="end">
           {edit && (
             <DropdownMenuItem render={edit}>
@@ -71,6 +79,7 @@ export const RowActions = ({
               {editLabel}
             </DropdownMenuItem>
           )}
+          {extraActions}
           <DropdownMenuItem
             onClick={() => setIsDeleteOpen(true)}
             variant="destructive"

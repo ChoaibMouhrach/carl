@@ -1,6 +1,6 @@
 import { api } from "@/api";
+import { Tip } from "@/components/tip";
 import { onError } from "@/lib/base-api";
-import { invalidateCampaignData } from "@/lib/invalidate";
 import { adminCampaignEditRoute } from "@/routes/admin/campaign-edit";
 import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
@@ -30,12 +30,8 @@ export const CampaignEdit = () => {
     onError,
     onSuccess: async () => {
       toast.success("Campaign updated.");
-      await invalidateCampaignData(queryClient);
-      await navigate({
-        to: "/admin/campaigns/$campaignId",
-        params: { campaignId },
-        search: { page: 1 },
-      });
+      await queryClient.invalidateQueries({ queryKey: ["admin", "campaigns"] });
+      await navigate({ to: "/admin/campaigns", search: { page: 1 } });
     },
   });
 
@@ -43,14 +39,14 @@ export const CampaignEdit = () => {
     return (
       <Card>
         <CardContent className="space-y-6">
-          {Array.from({ length: 2 }, (_, index) => (
+          {Array.from({ length: 5 }, (_, index) => (
             <div className="space-y-2" key={index}>
               <Skeleton className="h-4 w-32" />
               <Skeleton className="h-9 w-full" />
             </div>
           ))}
           <div className="flex gap-2">
-            <Skeleton className="h-9 w-20" />
+            <Skeleton className="h-9 w-32" />
             <Skeleton className="h-9 w-20" />
           </div>
         </CardContent>
@@ -64,20 +60,19 @@ export const CampaignEdit = () => {
 
   return (
     <CampaignForm
-      campaign={campaign.data.campaign}
+      campaign={campaign.data}
       cancelAction={
-        <Button
+        <Tip
+          label="Go back without saving"
           render={
-            <Link
-              params={{ campaignId }}
-              search={{ page: 1 }}
-              to="/admin/campaigns/$campaignId"
+            <Button
+              render={<Link search={{ page: 1 }} to="/admin/campaigns" />}
+              variant="outline"
             />
           }
-          variant="outline"
         >
           Cancel
-        </Button>
+        </Tip>
       }
       isPending={update.isPending}
       onSubmit={(values) => update.mutateAsync(values)}

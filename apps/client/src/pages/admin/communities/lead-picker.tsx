@@ -1,3 +1,4 @@
+import { PictureAvatar } from "@/components/picture-avatar";
 import {
   Combobox,
   ComboboxContent,
@@ -10,26 +11,25 @@ import {
 export interface LeadOption {
   leadId: number;
   name: string;
-  skoolUsername: string;
+  username: string;
+  pictureUrl?: string | null;
 }
 
 interface LeadPickerProps {
-  emptyLabel: string;
   id: string;
+  invalid?: boolean;
   leads: LeadOption[];
   onChange: (lead: LeadOption | null) => void;
   onSearch: (search: string) => void;
-  placeholder: string;
   value: LeadOption | null;
 }
 
 export const LeadPicker = ({
-  emptyLabel,
   id,
+  invalid,
   leads,
   onChange,
   onSearch,
-  placeholder,
   value,
 }: LeadPickerProps) => (
   <Combobox
@@ -43,14 +43,20 @@ export const LeadPicker = ({
     onValueChange={onChange}
     value={value}
   >
-    <ComboboxInput id={id} placeholder={placeholder} showClear />
+    <ComboboxInput
+      aria-invalid={invalid}
+      id={id}
+      placeholder="Search leads by name, username or email"
+      showClear
+    />
     <ComboboxContent>
-      <ComboboxEmpty>{emptyLabel}</ComboboxEmpty>
+      <ComboboxEmpty>No leads found.</ComboboxEmpty>
       <ComboboxList>
         {(lead: LeadOption) => (
           <ComboboxItem key={lead.leadId} value={lead}>
+            <PictureAvatar name={lead.name} size="sm" src={lead.pictureUrl} />
             {lead.name}
-            <span className="text-muted-foreground">@{lead.skoolUsername}</span>
+            <span className="text-muted-foreground">@{lead.username}</span>
           </ComboboxItem>
         )}
       </ComboboxList>

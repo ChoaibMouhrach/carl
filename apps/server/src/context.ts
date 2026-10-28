@@ -1,32 +1,14 @@
 import { initDB } from "./infrastructure/database/client";
 import { createPinoLogger } from "./infrastructure/logger/pino";
 import { initENV } from "./config/env";
-import {
-  DEFAULT_SKOOL_SEARCHES,
-  EVENT_STREAM_HEARTBEAT_MS,
-} from "./config/constants";
 import { Repositories } from "./repositories";
 import type { BaseLogger } from "./lib/base-logger";
 import type { BaseMailer } from "./lib/base-mailer";
 import { DevMailer } from "./infrastructure/mailer/dev";
 import { ResendMailer } from "./infrastructure/mailer/resend";
 import { RateLimitedMailer } from "./infrastructure/mailer/rate-limited";
-import type { BaseEventBus } from "./lib/base-event-bus";
-import { RedisEventBus } from "./infrastructure/event-bus/redis";
 import type { BaseQueueHub } from "./lib/base-queue";
 import { QueueHub } from "./infrastructure/queue/bullmq";
-import type { BaseLeadClassifier } from "./lib/base-lead-classifier";
-import { LlmLeadClassifier } from "./infrastructure/ai/llm-classifier";
-import { createLlm } from "./infrastructure/llm";
-import { ScriptedLeadClassifier } from "./infrastructure/ai/scripted";
-import type { BaseWebSearch } from "./lib/base-web-search";
-import { FullEnrichEmailFinder } from "./infrastructure/email-finder/fullenrich";
-import { ScriptedEmailFinder } from "./infrastructure/email-finder/scripted";
-import type { BaseEmailFinder } from "./lib/base-email-finder";
-import { TavilyWebSearch } from "./infrastructure/search/tavily";
-import { ScriptedWebSearch } from "./infrastructure/search/scripted";
-import type { BaseCache } from "./lib/base-cache";
-import { RedisCache } from "./infrastructure/cache/redis";
 import type { BaseRateLimiter } from "./lib/base-rate-limiter";
 import { RedisRateLimiter } from "./infrastructure/rate-limiter/redis";
 import { DisabledRateLimiter } from "./infrastructure/rate-limiter/disabled";
@@ -34,9 +16,11 @@ import { createAuth } from "./infrastructure/auth";
 import type { BaseErrorMonitor } from "./lib/base-error-monitor";
 import { DisabledErrorMonitor } from "./infrastructure/error-monitor/disabled";
 import { SentryErrorMonitor } from "./infrastructure/error-monitor/sentry";
-import type { BaseSkoolScraper } from "./lib/base-skool-scraper";
-import { CustomSkoolScraper } from "./infrastructure/skool/custom";
-import { ScriptedSkoolScraper } from "./infrastructure/skool/scripted";
+import type { BaseSkoolScrapper } from "./lib/base-skool-scrapper";
+import { CustomSkoolScrapper } from "./infrastructure/skool-scrapper/custom";
+import type { BaseWebSearch } from "./lib/base-web-search";
+import { TavilyWebSearch } from "./infrastructure/web-search/tavily";
+import { DisabledWebSearch } from "./infrastructure/web-search/disabled";
 
 export const initContext = async () => {
   const env = initENV();
@@ -85,17 +69,9 @@ export const initContext = async () => {
 
   const queueHub: BaseQueueHub = new QueueHub({
     concurrency: env.QUEUE_CONCURRENCY,
+    scrapeConcurrency: env.SCRAPE_CONCURRENCY,
+    enrichConcurrency: env.ENRICH_CONCURRENCY,
     errorMonitor,
-    logger,
-    redisUrl: env.REDIS_CONNECTION_STRING,
-  });
-
-  const eventBus: BaseEventBus = new RedisEventBus({
-    logger,
-    redisUrl: env.REDIS_CONNECTION_STRING,
-  });
-
-  const cache: BaseCache = new RedisCache({
     logger,
     redisUrl: env.REDIS_CONNECTION_STRING,
   });
@@ -107,45 +83,25 @@ export const initContext = async () => {
         redisUrl: env.REDIS_CONNECTION_STRING,
       });
 
-  const customScraper = new CustomSkoolScraper();
-  const skoolScraper: BaseSkoolScraper = env.SKOOL_SCRIPTING
-    ? new ScriptedSkoolScraper({
-        fallback: customScraper,
-        redisUrl: env.REDIS_CONNECTION_STRING,
-      })
-    : customScraper;
+  const skoolScrapper: BaseSkoolScrapper = new CustomSkoolScrapper({ logger });
 
-  const leadClassifier: BaseLeadClassifier = env.SKOOL_SCRIPTING
-    ? new ScriptedLeadClassifier({ redisUrl: env.REDIS_CONNECTION_STRING })
-    : new LlmLeadClassifier({ llm: createLlm(env) });
-
-  const webSearch: BaseWebSearch = env.SKOOL_SCRIPTING
-    ? new ScriptedWebSearch({ redisUrl: env.REDIS_CONNECTION_STRING })
-    : new TavilyWebSearch({ apiKey: env.TAVILY_API_KEY });
-
-  const emailFinder: BaseEmailFinder = env.SKOOL_SCRIPTING
-    ? new ScriptedEmailFinder({ redisUrl: env.REDIS_CONNECTION_STRING })
-    : new FullEnrichEmailFinder({ apiKey: env.FULLENRICH_API_KEY });
+  const webSearch: BaseWebSearch = env.TAVILY_API_KEY
+    ? new TavilyWebSearch({ apiKey: env.TAVILY_API_KEY })
+    : new DisabledWebSearch();
 
   const auth = createAuth({ db: dbConnection.db, env, queueHub });
 
   return {
     repositories,
     queueHub,
-    eventBus,
-    cache,
     rateLimiter,
     logger,
     mailer,
     env,
     auth,
     errorMonitor,
-    skoolScraper,
-    leadClassifier,
+    skoolScrapper,
     webSearch,
-    emailFinder,
-    eventStreamHeartbeatMs: EVENT_STREAM_HEARTBEAT_MS,
-    discoveryCriteria: DEFAULT_SKOOL_SEARCHES,
   };
 };
 

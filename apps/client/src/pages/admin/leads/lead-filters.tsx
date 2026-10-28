@@ -1,138 +1,76 @@
+import { CampaignFilter } from "@/components/campaign-filter";
+import type { CampaignOption } from "@/hooks/use-campaign-options";
+import { FilterSelect } from "@/components/filter-select";
 import { Search } from "@/components/search";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@repo/ui/components/ui/select";
+import { leadSortOptions } from "@/lib/sort-options";
 
-type SortBy = "createdAt" | "name" | "communityCount";
-type SortOrder = "asc" | "desc";
+type EmailFilter = "any" | "with" | "without";
+
+const emailOptions: { value: EmailFilter; label: string }[] = [
+  { value: "any", label: "Any email" },
+  { value: "with", label: "Has email" },
+  { value: "without", label: "No email" },
+];
 
 interface LeadFiltersProps {
+  campaignId?: number;
+  campaigns: CampaignOption[];
+  onCampaignChange: (campaignId: number | undefined) => void;
   createAction: React.ReactNode;
-  exportAction: React.ReactNode;
-  viewSwitch: React.ReactNode;
-  hasWebsite?: boolean;
-  onHasWebsiteChange: (hasWebsite: boolean | undefined) => void;
+  hasEmail?: boolean;
+  onHasEmailChange: (hasEmail: boolean | undefined) => void;
   onSearch: (search: string | undefined) => void;
-  onSortByChange: (sortBy: SortBy) => void;
-  onSortOrderChange: (sortOrder: SortOrder) => void;
+  onSortChange: (value: string) => void;
   search?: string;
-  sortBy: SortBy;
-  sortOrder: SortOrder;
+  sort: string;
+  viewSwitch: React.ReactNode;
 }
 
 export const LeadFilters = ({
+  campaignId,
+  campaigns,
+  onCampaignChange,
   createAction,
-  exportAction,
-  viewSwitch,
-  hasWebsite,
-  onHasWebsiteChange,
+  hasEmail,
+  onHasEmailChange,
   onSearch,
-  onSortByChange,
-  onSortOrderChange,
+  onSortChange,
   search,
-  sortBy,
-  sortOrder,
+  sort,
+  viewSwitch,
 }: LeadFiltersProps) => {
-  const websiteItems = [
-    { value: "all", label: "Any website" },
-    { value: "true", label: "Has website" },
-    { value: "false", label: "No website" },
-  ];
-
-  const sortByItems: { value: SortBy; label: string }[] = [
-    { value: "createdAt", label: "Date added" },
-    { value: "name", label: "Name" },
-    { value: "communityCount", label: "Communities" },
-  ];
-
-  const sortOrderItems: { value: SortOrder; label: string }[] = [
-    { value: "desc", label: "Descending" },
-    { value: "asc", label: "Ascending" },
-  ];
+  const emailValue: EmailFilter =
+    hasEmail === undefined ? "any" : hasEmail ? "with" : "without";
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Search
+        id="lead-search"
         onSearch={onSearch}
-        placeholder="Search by name or username"
+        placeholder="Search name, username, email or link"
         value={search}
       />
-      <Select
-        items={websiteItems}
-        onValueChange={(value) =>
-          onHasWebsiteChange(
-            value === "true" ? true : value === "false" ? false : undefined,
-          )
+      <FilterSelect
+        label="Email"
+        onChange={(value) =>
+          onHasEmailChange(value === "any" ? undefined : value === "with")
         }
-        value={hasWebsite === undefined ? "all" : String(hasWebsite)}
-      >
-        <SelectTrigger aria-label="Website">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            <SelectLabel>Website</SelectLabel>
-            {websiteItems.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                {item.label}
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
-      <Select
-        items={sortByItems}
-        onValueChange={(value) => {
-          const item = sortByItems.find((option) => option.value === value);
-          if (item) onSortByChange(item.value);
-        }}
-        value={sortBy}
-      >
-        <SelectTrigger aria-label="Sort by">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            <SelectLabel>Sort by</SelectLabel>
-            {sortByItems.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                {item.label}
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
-      <Select
-        items={sortOrderItems}
-        onValueChange={(value) => {
-          const item = sortOrderItems.find((option) => option.value === value);
-          if (item) onSortOrderChange(item.value);
-        }}
-        value={sortOrder}
-      >
-        <SelectTrigger aria-label="Order">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            <SelectLabel>Order</SelectLabel>
-            {sortOrderItems.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                {item.label}
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
+        options={emailOptions}
+        value={emailValue}
+      />
+      <CampaignFilter
+        campaignId={campaignId}
+        campaigns={campaigns}
+        onChange={onCampaignChange}
+      />
+      <FilterSelect
+        label="Sort by"
+        onChange={onSortChange}
+        options={leadSortOptions}
+        value={sort}
+      />
       <div className="ml-auto flex items-center gap-2">
         {viewSwitch}
-        {exportAction}
         {createAction}
       </div>
     </div>

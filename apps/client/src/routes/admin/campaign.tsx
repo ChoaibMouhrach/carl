@@ -1,7 +1,8 @@
 import { AdminCampaignPage } from "@/pages/admin/campaign/page";
-import { leadStatuses, stageNumbers } from "@/lib/campaign";
 import { createRoute } from "@tanstack/react-router";
+import { perPageSearchSchema } from "@/lib/page-size";
 import z from "zod";
+import { pipelineStepSchema } from "@/pages/admin/campaign/pipeline/pipeline-step";
 import { adminLayoutRoute } from "./layout";
 
 const paramsSchema = z.object({
@@ -17,13 +18,8 @@ export const adminCampaignRoute = createRoute({
     stringify: ({ campaignId }) => ({ campaignId: String(campaignId) }),
   },
   validateSearch: z.object({
+    step: pipelineStepSchema.catch("scrape"),
     page: z.coerce.number().int().min(1).catch(1),
-    search: z.string().trim().min(1).optional().catch(undefined),
-    stage: z.coerce
-      .number()
-      .pipe(z.literal(stageNumbers))
-      .optional()
-      .catch(undefined),
-    status: z.enum(leadStatuses).optional().catch(undefined),
+    perPage: perPageSearchSchema,
   }),
 });

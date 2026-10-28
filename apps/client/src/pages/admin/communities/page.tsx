@@ -12,7 +12,7 @@ export const AdminCommunitiesPage = () => {
       <AdminPageHeader>
         <AdminPageTitle>Communities</AdminPageTitle>
         <AdminPageDescription>
-          Skool communities and their estimated revenue.
+          Paid and free Skool communities, with who owns them.
         </AdminPageDescription>
       </AdminPageHeader>
       <Communities />

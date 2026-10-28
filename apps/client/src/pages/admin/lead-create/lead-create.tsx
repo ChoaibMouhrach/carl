@@ -1,4 +1,5 @@
 import { api } from "@/api";
+import { Tip } from "@/components/tip";
 import { onError } from "@/lib/base-api";
 import { invalidateLeadData } from "@/lib/invalidate";
 import { Button } from "@repo/ui/components/ui/button";
@@ -14,7 +15,7 @@ export const LeadCreate = () => {
   const create = useMutation({
     mutationFn: (values: LeadFormValues) => api.lead.create(values),
     onError,
-    onSuccess: async ({ lead }) => {
+    onSuccess: async (lead) => {
       toast.success("Lead created.");
       await invalidateLeadData(queryClient);
       await navigate({
@@ -27,12 +28,17 @@ export const LeadCreate = () => {
   return (
     <LeadForm
       cancelAction={
-        <Button
-          render={<Link search={{ page: 1 }} to="/admin/leads" />}
-          variant="outline"
+        <Tip
+          label="Go back without saving"
+          render={
+            <Button
+              render={<Link search={{ page: 1 }} to="/admin/leads" />}
+              variant="outline"
+            />
+          }
         >
           Cancel
-        </Button>
+        </Tip>
       }
       isPending={create.isPending}
       onSubmit={(values) => create.mutateAsync(values)}

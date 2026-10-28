@@ -10,40 +10,28 @@ export type UpdateLeadInput = InferRequestType<
   (typeof http.api.leads)[":leadId"]["$patch"]
 >["json"];
 
+export type LeadSort = "name" | "username" | "createdAt";
+
 export class LeadApi extends BaseApi {
   public list(query?: {
     page?: number;
+    perPage?: number;
     search?: string;
-    hasWebsite?: boolean;
-    sortBy?: "createdAt" | "name" | "communityCount";
-    sortOrder?: "asc" | "desc";
+    hasEmail?: boolean;
+    campaignId?: number;
+    sort?: LeadSort;
+    order?: "asc" | "desc";
   }) {
     return this.call(() =>
       http.api.leads.$get({
         query: {
           page: query?.page?.toString(),
+          perPage: query?.perPage?.toString(),
           search: query?.search,
-          hasWebsite: query?.hasWebsite?.toString(),
-          sortBy: query?.sortBy,
-          sortOrder: query?.sortOrder,
-        },
-      }),
-    );
-  }
-
-  public export(query?: {
-    search?: string;
-    hasWebsite?: boolean;
-    sortBy?: "createdAt" | "name" | "communityCount";
-    sortOrder?: "asc" | "desc";
-  }) {
-    return this.download(() =>
-      http.api.leads.export.$get({
-        query: {
-          search: query?.search,
-          hasWebsite: query?.hasWebsite?.toString(),
-          sortBy: query?.sortBy,
-          sortOrder: query?.sortOrder,
+          hasEmail: query?.hasEmail?.toString(),
+          campaignId: query?.campaignId?.toString(),
+          sort: query?.sort,
+          order: query?.order,
         },
       }),
     );
@@ -67,6 +55,12 @@ export class LeadApi extends BaseApi {
         param: { leadId: where.leadId.toString() },
         json: input,
       }),
+    );
+  }
+
+  public removeMany(input: { leadIds: number[] }) {
+    return this.call(() =>
+      http.api.leads["bulk-delete"].$post({ json: input }),
     );
   }
 

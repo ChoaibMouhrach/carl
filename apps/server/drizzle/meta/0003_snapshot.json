@@ -1,6 +1,6 @@
 {
-  "id": "c2ae5832-5a70-4c91-a8a4-106935d5dee5",
-  "prevId": "68076c02-9bf4-4290-8c5c-986d82785f2f",
+  "id": "9ab300af-7629-49b1-a603-cf3a2d168a05",
+  "prevId": "9932ee37-9376-455f-9e60-27655b382359",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -453,6 +453,210 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.campaign_communities": {
+      "name": "campaign_communities",
+      "schema": "",
+      "columns": {
+        "campaignId": {
+          "name": "campaignId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "communityId": {
+          "name": "communityId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "campaign_communities_community_id_idx": {
+          "name": "campaign_communities_community_id_idx",
+          "columns": [
+            {
+              "expression": "communityId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "campaign_communities_campaignId_campaigns_campaignId_fk": {
+          "name": "campaign_communities_campaignId_campaigns_campaignId_fk",
+          "tableFrom": "campaign_communities",
+          "tableTo": "campaigns",
+          "columnsFrom": ["campaignId"],
+          "columnsTo": ["campaignId"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "campaign_communities_communityId_communities_communityId_fk": {
+          "name": "campaign_communities_communityId_communities_communityId_fk",
+          "tableFrom": "campaign_communities",
+          "tableTo": "communities",
+          "columnsFrom": ["communityId"],
+          "columnsTo": ["communityId"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "campaign_communities_campaignId_communityId_pk": {
+          "name": "campaign_communities_campaignId_communityId_pk",
+          "columns": ["campaignId", "communityId"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.campaign_leads": {
+      "name": "campaign_leads",
+      "schema": "",
+      "columns": {
+        "campaignId": {
+          "name": "campaignId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "leadId": {
+          "name": "leadId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "campaign_leads_lead_id_idx": {
+          "name": "campaign_leads_lead_id_idx",
+          "columns": [
+            {
+              "expression": "leadId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "campaign_leads_campaignId_campaigns_campaignId_fk": {
+          "name": "campaign_leads_campaignId_campaigns_campaignId_fk",
+          "tableFrom": "campaign_leads",
+          "tableTo": "campaigns",
+          "columnsFrom": ["campaignId"],
+          "columnsTo": ["campaignId"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "campaign_leads_leadId_leads_leadId_fk": {
+          "name": "campaign_leads_leadId_leads_leadId_fk",
+          "tableFrom": "campaign_leads",
+          "tableTo": "leads",
+          "columnsFrom": ["leadId"],
+          "columnsTo": ["leadId"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "campaign_leads_campaignId_leadId_pk": {
+          "name": "campaign_leads_campaignId_leadId_pk",
+          "columns": ["campaignId", "leadId"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.campaigns": {
+      "name": "campaigns",
+      "schema": "",
+      "columns": {
+        "campaignId": {
+          "name": "campaignId",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "campaigns_campaignId_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1000",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "keyword": {
+          "name": "keyword",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "minPriceCents": {
+          "name": "minPriceCents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "minMembers": {
+          "name": "minMembers",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.communities": {
       "name": "communities",
       "schema": "",
@@ -480,26 +684,14 @@
           "primaryKey": false,
           "notNull": true
         },
-        "skoolId": {
-          "name": "skoolId",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
         "name": {
           "name": "name",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "displayName": {
-          "name": "displayName",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "communityUrl": {
-          "name": "communityUrl",
+        "skoolUrl": {
+          "name": "skoolUrl",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -510,61 +702,29 @@
           "primaryKey": false,
           "notNull": false
         },
-        "longDescription": {
-          "name": "longDescription",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "memberCount": {
-          "name": "memberCount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "skoolCreatedAt": {
-          "name": "skoolCreatedAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "recentActivity": {
-          "name": "recentActivity",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "membershipQuestions": {
-          "name": "membershipQuestions",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "accessType": {
-          "name": "accessType",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "membershipModel": {
-          "name": "membershipModel",
+        "members": {
+          "name": "members",
           "type": "integer",
           "primaryKey": false,
           "notNull": false
         },
-        "plan": {
-          "name": "plan",
+        "mrr": {
+          "name": "mrr",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "freeTrialEnabled": {
-          "name": "freeTrialEnabled",
-          "type": "boolean",
+        "thumbnailUrl": {
+          "name": "thumbnailUrl",
+          "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": false
+          "notNull": false
         },
         "logoUrl": {
           "name": "logoUrl",
@@ -572,105 +732,17 @@
           "primaryKey": false,
           "notNull": false
         },
-        "coverUrl": {
-          "name": "coverUrl",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "freeBenefits": {
-          "name": "freeBenefits",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "tiers": {
-          "name": "tiers",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "links": {
-          "name": "links",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "postCount": {
-          "name": "postCount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "adminCount": {
-          "name": "adminCount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "courseCount": {
-          "name": "courseCount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "moduleCount": {
-          "name": "moduleCount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reviewCount": {
-          "name": "reviewCount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reviewRating": {
-          "name": "reviewRating",
-          "type": "double precision",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "affiliatePercent": {
-          "name": "affiliatePercent",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "discoveryKeyword": {
-          "name": "discoveryKeyword",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "discoverySearch": {
-          "name": "discoverySearch",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "pricingType": {
-          "name": "pricingType",
-          "type": "text",
+        "isFree": {
+          "name": "isFree",
+          "type": "boolean",
           "primaryKey": false,
           "notNull": true
         },
-        "pricingInterval": {
-          "name": "pricingInterval",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "priceAmount": {
-          "name": "priceAmount",
+        "priceCents": {
+          "name": "priceCents",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
-          "default": 0
+          "notNull": false
         },
         "priceCurrency": {
           "name": "priceCurrency",
@@ -678,27 +750,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "prices": {
-          "name": "prices",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "monthlyPriceUsd": {
-          "name": "monthlyPriceUsd",
-          "type": "double precision",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "estMonthlyRevenue": {
-          "name": "estMonthlyRevenue",
-          "type": "double precision",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "salesMotionQuote": {
-          "name": "salesMotionQuote",
+        "priceInterval": {
+          "name": "priceInterval",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -718,7 +771,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "communities_lead_id_idx": {
+          "name": "communities_lead_id_idx",
+          "columns": [
+            {
+              "expression": "leadId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "communities_leadId_leads_leadId_fk": {
           "name": "communities_leadId_leads_leadId_fk",
@@ -732,10 +801,10 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "communities_skoolId_unique": {
-          "name": "communities_skoolId_unique",
+        "communities_skoolUrl_unique": {
+          "name": "communities_skoolUrl_unique",
           "nullsNotDistinct": false,
-          "columns": ["skoolId"]
+          "columns": ["skoolUrl"]
         }
       },
       "policies": {},
@@ -763,35 +832,23 @@
             "cycle": false
           }
         },
-        "skoolUserId": {
-          "name": "skoolUserId",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "skoolUsername": {
-          "name": "skoolUsername",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
         "name": {
           "name": "name",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "firstName": {
-          "name": "firstName",
+        "username": {
+          "name": "username",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
-        "lastName": {
-          "name": "lastName",
+        "skoolUrl": {
+          "name": "skoolUrl",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "bio": {
           "name": "bio",
@@ -799,60 +856,23 @@
           "primaryKey": false,
           "notNull": false
         },
-        "location": {
-          "name": "location",
+        "instagram": {
+          "name": "instagram",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "timeZone": {
-          "name": "timeZone",
+        "facebook": {
+          "name": "facebook",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "pictureUrl": {
-          "name": "pictureUrl",
+        "linkedin": {
+          "name": "linkedin",
           "type": "text",
           "primaryKey": false,
           "notNull": false
-        },
-        "skoolJoinedAt": {
-          "name": "skoolJoinedAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "lastOnlineAt": {
-          "name": "lastOnlineAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "followerCount": {
-          "name": "followerCount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "followingCount": {
-          "name": "followingCount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "postCount": {
-          "name": "postCount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "emails": {
-          "name": "emails",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
         },
         "website": {
           "name": "website",
@@ -860,52 +880,15 @@
           "primaryKey": false,
           "notNull": false
         },
-        "linkedinUrl": {
-          "name": "linkedinUrl",
+        "email": {
+          "name": "email",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "facebookUrl": {
-          "name": "facebookUrl",
+        "pictureUrl": {
+          "name": "pictureUrl",
           "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "instagramUrl": {
-          "name": "instagramUrl",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "twitterUrl": {
-          "name": "twitterUrl",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "youtubeUrl": {
-          "name": "youtubeUrl",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "tiktokUrl": {
-          "name": "tiktokUrl",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ownedCommunities": {
-          "name": "ownedCommunities",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "profileScrapedAt": {
-          "name": "profileScrapedAt",
-          "type": "timestamp",
           "primaryKey": false,
           "notNull": false
         },
@@ -928,15 +911,15 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "leads_skoolUserId_unique": {
-          "name": "leads_skoolUserId_unique",
+        "leads_username_unique": {
+          "name": "leads_username_unique",
           "nullsNotDistinct": false,
-          "columns": ["skoolUserId"]
+          "columns": ["username"]
         },
-        "leads_skoolUsername_unique": {
-          "name": "leads_skoolUsername_unique",
+        "leads_skoolUrl_unique": {
+          "name": "leads_skoolUrl_unique",
           "nullsNotDistinct": false,
-          "columns": ["skoolUsername"]
+          "columns": ["skoolUrl"]
         }
       },
       "policies": {},

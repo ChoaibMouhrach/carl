@@ -12,7 +12,7 @@ export const AdminLeadsPage = () => {
       <AdminPageHeader>
         <AdminPageTitle>Leads</AdminPageTitle>
         <AdminPageDescription>
-          Community owners found on Skool.
+          Community owners found on Skool, and how to reach them.
         </AdminPageDescription>
       </AdminPageHeader>
       <Leads />

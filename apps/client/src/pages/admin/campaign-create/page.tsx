@@ -17,7 +17,7 @@ export const AdminCampaignCreatePage = () => {
       <AdminPageHeader>
         <AdminPageTitle>New campaign</AdminPageTitle>
         <AdminPageDescription>
-          Name the campaign and say what it is for.
+          Define a search and the minimum a community must meet.
         </AdminPageDescription>
       </AdminPageHeader>
       <CampaignCreate />

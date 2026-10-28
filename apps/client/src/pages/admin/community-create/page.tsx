@@ -17,7 +17,7 @@ export const AdminCommunityCreatePage = () => {
       <AdminPageHeader>
         <AdminPageTitle>New community</AdminPageTitle>
         <AdminPageDescription>
-          Community details and primary price.
+          Add a community and pick who owns it.
         </AdminPageDescription>
       </AdminPageHeader>
       <CommunityCreate />

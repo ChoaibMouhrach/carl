@@ -1,18 +1,29 @@
-export interface WebSearchInput {
-  query: string;
-  includeDomains?: string[];
-  excludeDomains?: string[];
-  maxResults?: number;
-}
-
 export interface WebSearchResult {
-  url: string;
   title: string;
+  url: string;
   content: string;
 }
 
-export abstract class BaseWebSearch {
-  public abstract readonly provider: string;
+export class WebSearchError extends Error {
+  public readonly retryable: boolean;
 
-  public abstract search(input: WebSearchInput): Promise<WebSearchResult[]>;
+  public constructor(input: {
+    message: string;
+    retryable: boolean;
+    cause?: unknown;
+  }) {
+    super(input.message, { cause: input.cause });
+    this.name = "WebSearchError";
+    this.retryable = input.retryable;
+  }
+}
+
+export abstract class BaseWebSearch {
+  /** Whether searches actually reach a provider */
+  public abstract readonly isAvailable: boolean;
+
+  public abstract search(input: {
+    query: string;
+    maxResults?: number;
+  }): Promise<WebSearchResult[]>;
 }

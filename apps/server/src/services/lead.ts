@@ -1,144 +1,133 @@
-import {
-  csvFilename,
-  EXPORT_FETCH_LIMIT,
-  toCsv,
-  withinExportLimit,
-} from "@server/lib/csv";
 import { BaseService } from "@server/lib/base-service";
 import { ConflictError, NotFoundError } from "@server/lib/errors";
-import type { LeadSortBy } from "@server/repositories/lead";
 import type { LeadInsert } from "@server/infrastructure/database/schemas";
 
-type LeadFields = Omit<LeadInsert, "leadId" | "createdAt" | "updatedAt">;
+interface ListLeadsInput {
+  page: number;
+  perPage: number;
+  search?: string;
+  hasEmail?: boolean;
+  campaignId?: number;
+  sort: "name" | "username" | "createdAt";
+  order: "asc" | "desc";
+}
+
+type CreateLeadInput = Omit<LeadInsert, "leadId" | "createdAt" | "updatedAt">;
 
 export class LeadService extends BaseService {
-  public async list(query: {
-    page?: number;
-    search?: string;
-    hasWebsite?: boolean;
-    sortBy?: LeadSortBy;
-    sortOrder?: "asc" | "desc";
-  }) {
-    const page = query.page || 1;
-
-    const { leads, lastPage } = await this.context.repositories.lead.list({
-      page,
-      search: query.search,
-      hasWebsite: query.hasWebsite,
-      sortBy: query.sortBy ?? "createdAt",
-      sortOrder: query.sortOrder ?? "desc",
+  public async list(input: ListLeadsInput) {
+    const { leads, total } = await this.context.repositories.lead.list({
+      search: input.search,
+      hasEmail: input.hasEmail,
+      campaignId: input.campaignId,
+      sort: input.sort,
+      order: input.order,
+      limit: input.perPage,
+      offset: (input.page - 1) * input.perPage,
     });
 
-    return { leads, meta: { page, lastPage } };
+    return {
+      leads,
+      meta: {
+        page: input.page,
+        perPage: input.perPage,
+        lastPage: Math.max(1, Math.ceil(total / input.perPage)),
+        total,
+      },
+    };
   }
 
-  public async exportCsv(query: {
-    search?: string;
-    hasWebsite?: boolean;
-    sortBy?: LeadSortBy;
-    sortOrder?: "asc" | "desc";
-  }) {
-    const { leads } = await this.context.repositories.lead.list({
-      page: 1,
-      limit: EXPORT_FETCH_LIMIT,
-      search: query.search,
-      hasWebsite: query.hasWebsite,
-      sortBy: query.sortBy ?? "createdAt",
-      sortOrder: query.sortOrder ?? "desc",
-    });
+  public async get(input: { leadId: number }) {
+    const lead =
+      await this.context.repositories.lead.findWithCommunitiesByLeadId(input);
 
-    const csv = toCsv(
-      [
-        { header: "Name", value: (lead) => lead.name },
-        { header: "Skool username", value: (lead) => lead.skoolUsername },
-        { header: "First name", value: (lead) => lead.firstName },
-        { header: "Last name", value: (lead) => lead.lastName },
-        { header: "Emails", value: (lead) => lead.emails },
-        { header: "Website", value: (lead) => lead.website },
-        { header: "LinkedIn", value: (lead) => lead.linkedinUrl },
-        { header: "Facebook", value: (lead) => lead.facebookUrl },
-        { header: "Instagram", value: (lead) => lead.instagramUrl },
-        { header: "Twitter", value: (lead) => lead.twitterUrl },
-        { header: "YouTube", value: (lead) => lead.youtubeUrl },
-        { header: "TikTok", value: (lead) => lead.tiktokUrl },
-        { header: "Location", value: (lead) => lead.location },
-        { header: "Bio", value: (lead) => lead.bio },
-        { header: "Followers", value: (lead) => lead.followerCount },
-        { header: "Communities", value: (lead) => lead.communityCount },
-        { header: "Added", value: (lead) => lead.createdAt },
-      ],
-      withinExportLimit(leads),
-    );
-
-    return { csv, filename: csvFilename("leads") };
-  }
-
-  public async show(input: { leadId: number }) {
-    const lead = await this.findOrFail(input.leadId);
-
-    const communities =
-      await this.context.repositories.community.findAllByLeadId({
-        leadId: input.leadId,
-      });
-
-    return { lead, communities };
-  }
-
-  public async create(input: LeadFields) {
-    const existing = await this.context.repositories.lead.findBySkoolUsername({
-      skoolUsername: input.skoolUsername,
-    });
-
-    if (existing) {
-      throw new ConflictError({
-        message: "A lead with this Skool username already exists.",
-      });
+    if (!lead) {
+      throw this.notFound();
     }
 
-    const lead = await this.context.repositories.lead.create(input);
-
-    await this.context.eventBus.publish("leads.changed");
-
     return lead;
+  }
+
+  public async create(input: CreateLeadInput) {
+    await this.assertUnique(input);
+
+    return await this.context.repositories.lead.create(input);
   }
 
   public async update(
-    input: { leadId: number },
-    fields: Partial<Omit<LeadFields, "skoolUsername">>,
+    where: { leadId: number },
+    input: Partial<CreateLeadInput>,
   ) {
-    await this.findOrFail(input.leadId);
-
-    await this.context.repositories.lead.update(
-      { leadId: input.leadId },
-      fields,
-    );
-    await this.context.eventBus.publish("leads.changed", "communities.changed");
-
-    return await this.findOrFail(input.leadId);
-  }
-
-  public async remove(input: { leadId: number }): Promise<void> {
-    await this.findOrFail(input.leadId);
-
-    await this.context.repositories.lead.removeByLeadId({
-      leadId: input.leadId,
-    });
-
-    // Deleting a lead removes its communities and its place in every campaign
-    await this.context.eventBus.publish(
-      "leads.changed",
-      "communities.changed",
-      "campaigns.changed",
-    );
-  }
-
-  private async findOrFail(leadId: number) {
-    const lead = await this.context.repositories.lead.findByLeadId({ leadId });
+    const lead = await this.context.repositories.lead.findByLeadId(where);
 
     if (!lead) {
-      throw new NotFoundError({ message: "Lead not found." });
+      throw this.notFound();
     }
 
-    return lead;
+    await this.assertUnique(input, where.leadId);
+    await this.context.repositories.lead.update(where, input);
+
+    const updated = await this.context.repositories.lead.findByLeadId(where);
+
+    return updated ?? lead;
+  }
+
+  public async removeMany(input: {
+    leadIds: number[];
+  }): Promise<{ deleted: number }> {
+    // One statement, so the whole batch goes or none of it does
+    const deleted = await this.context.repositories.lead.removeByLeadIds({
+      leadIds: [...new Set(input.leadIds)],
+    });
+
+    return { deleted };
+  }
+
+  public async remove(where: { leadId: number }): Promise<void> {
+    const lead = await this.context.repositories.lead.findByLeadId(where);
+
+    if (!lead) {
+      throw this.notFound();
+    }
+
+    await this.context.repositories.lead.removeByLeadId(where);
+  }
+
+  private async assertUnique(
+    input: { username?: string; skoolUrl?: string },
+    exceptLeadId?: number,
+  ) {
+    if (input.username !== undefined) {
+      const taken = await this.context.repositories.lead.findByUsername({
+        username: input.username,
+      });
+
+      if (taken && taken.leadId !== exceptLeadId) {
+        throw new ConflictError({
+          message: "A lead with that username already exists.",
+          code: "leadUsernameTaken",
+        });
+      }
+    }
+
+    if (input.skoolUrl !== undefined) {
+      const taken = await this.context.repositories.lead.findBySkoolUrl({
+        skoolUrl: input.skoolUrl,
+      });
+
+      if (taken && taken.leadId !== exceptLeadId) {
+        throw new ConflictError({
+          message: "A lead with that Skool URL already exists.",
+          code: "leadSkoolUrlTaken",
+        });
+      }
+    }
+  }
+
+  private notFound() {
+    return new NotFoundError({
+      message: "Lead not found.",
+      code: "leadNotFound",
+    });
   }
 }

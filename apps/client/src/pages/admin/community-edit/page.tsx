@@ -17,7 +17,7 @@ export const AdminCommunityEditPage = () => {
       <AdminPageHeader>
         <AdminPageTitle>Edit community</AdminPageTitle>
         <AdminPageDescription>
-          Community details and primary price.
+          Change the community's details, owner or price.
         </AdminPageDescription>
       </AdminPageHeader>
       <CommunityEdit />

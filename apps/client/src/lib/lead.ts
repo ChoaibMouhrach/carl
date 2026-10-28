@@ -1,8 +1,18 @@
-export const urlFieldLabels = {
+export const socialFields = [
+  "instagram",
+  "facebook",
+  "linkedin",
+  "website",
+] as const;
+
+export type SocialField = (typeof socialFields)[number];
+
+export const socialLabels: Record<SocialField, string> = {
+  instagram: "Instagram",
+  facebook: "Facebook",
+  linkedin: "LinkedIn",
   website: "Website",
-  linkedinUrl: "LinkedIn",
-  facebookUrl: "Facebook",
-  instagramUrl: "Instagram",
-  twitterUrl: "Twitter / X",
-  youtubeUrl: "YouTube",
-} as const;
+};
+
+export const skoolProfileUrl = (username: string) =>
+  `https://www.skool.com/@${username}`;

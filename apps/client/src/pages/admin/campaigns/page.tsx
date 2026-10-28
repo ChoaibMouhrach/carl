@@ -12,7 +12,8 @@ export const AdminCampaignsPage = () => {
       <AdminPageHeader>
         <AdminPageTitle>Campaigns</AdminPageTitle>
         <AdminPageDescription>
-          {"Run each campaign's leads through the pipeline."}
+          Each campaign is a Skool search with the minimum price and members a
+          community must meet.
         </AdminPageDescription>
       </AdminPageHeader>
       <Campaigns />

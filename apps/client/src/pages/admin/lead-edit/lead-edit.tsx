@@ -1,7 +1,7 @@
 import { api } from "@/api";
+import { Tip } from "@/components/tip";
 import { onError } from "@/lib/base-api";
 import { invalidateLeadData } from "@/lib/invalidate";
-import { toLeadUpdate } from "@/lib/lead-update";
 import { adminLeadEditRoute } from "@/routes/admin/lead-edit";
 import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
@@ -23,8 +23,7 @@ export const LeadEdit = () => {
   });
 
   const update = useMutation({
-    mutationFn: (values: LeadFormValues) =>
-      api.lead.update({ leadId }, toLeadUpdate(values)),
+    mutationFn: (values: LeadFormValues) => api.lead.update({ leadId }, values),
     onError,
     onSuccess: async () => {
       toast.success("Lead updated.");
@@ -44,7 +43,7 @@ export const LeadEdit = () => {
             </div>
           ))}
           <div className="flex gap-2">
-            <Skeleton className="h-9 w-20" />
+            <Skeleton className="h-9 w-24" />
             <Skeleton className="h-9 w-20" />
           </div>
         </CardContent>
@@ -59,15 +58,20 @@ export const LeadEdit = () => {
   return (
     <LeadForm
       cancelAction={
-        <Button
-          render={<Link params={{ leadId }} to="/admin/leads/$leadId" />}
-          variant="outline"
+        <Tip
+          label="Go back without saving"
+          render={
+            <Button
+              render={<Link params={{ leadId }} to="/admin/leads/$leadId" />}
+              variant="outline"
+            />
+          }
         >
           Cancel
-        </Button>
+        </Tip>
       }
       isPending={update.isPending}
-      lead={lead.data.lead}
+      lead={lead.data}
       onSubmit={(values) => update.mutateAsync(values)}
     />
   );

@@ -1,22 +1,54 @@
 import type { SendEmailProps } from "./base-mailer";
+import type { Community } from "./base-skool-scrapper";
 
 export type EmailSender = "auth";
 
 export type EmailJob = SendEmailProps<EmailSender>;
 
-export type ScrapeJob = { scrapeRunId: number };
+export type MaintenanceJob = { type: "check-queue-backlog" };
 
-export type FilterJob = { campaignId: number };
+/** Prices are whole dollars per month; yearly prices are divided by 12 */
+export interface ScrapeFilters {
+  minPrice?: number;
+  maxPrice?: number;
+  minMembers?: number;
+  maxMembers?: number;
+}
 
-export type EnrichJob = { campaignId: number };
+/** Set when a scrape job belongs to a campaign pipeline run */
+export interface ScrapeRun {
+  runId?: number;
+  campaignId?: number;
+}
 
-export type FindEmailJob = { campaignId: number; onlyRerun?: boolean };
+export type ScrapeJob =
+  | ({ type: "discover"; search: string } & ScrapeFilters & ScrapeRun)
+  | ({ type: "scrape-community"; communityURL: string } & ScrapeRun)
+  | ({
+      type: "scrape-lead";
+      leadURL: string;
+      community: Community;
+    } & ScrapeRun);
 
-export type MaintenanceJob =
-  | { type: "check-queue-backlog" }
-  | { type: "sweep-email-batches" };
+export type EnrichJob = { type: "enrich-lead"; runId: number; leadId: number };
 
-export type QueueConsumer<Input> = (input: Input) => Promise<void>;
+/** A job that retrying cannot fix; the queue fails it for good instead of retrying */
+export class NonRetryableJobError extends Error {
+  public constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "NonRetryableJobError";
+  }
+}
+
+export interface ConsumeMeta {
+  /** True when a failure now will not be retried */
+  isFinalAttempt: boolean;
+}
+
+export type QueueConsumer<Input> = (
+  input: Input,
+  meta: ConsumeMeta,
+) => Promise<void>;
 
 export interface AddJobOptions {
   idempotencyKey?: string;
@@ -90,9 +122,7 @@ export abstract class BaseQueueHub {
   public abstract email: BaseQueue<EmailJob>;
   public abstract maintenance: BaseQueue<MaintenanceJob>;
   public abstract scrape: BaseQueue<ScrapeJob>;
-  public abstract filter: BaseQueue<FilterJob>;
   public abstract enrich: BaseQueue<EnrichJob>;
-  public abstract findEmail: BaseQueue<FindEmailJob>;
 
   public abstract queues(): RegisteredQueue[];
 

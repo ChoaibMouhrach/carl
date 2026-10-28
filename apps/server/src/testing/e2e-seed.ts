@@ -1,48 +1,19 @@
-import { and, asc, desc, eq, like } from "drizzle-orm";
+import { and, desc, eq, like } from "drizzle-orm";
 import { hashPassword, makeSignature, signJWT } from "better-auth/crypto";
 import IORedis from "ioredis";
-import type { FilterQuestionInput } from "@repo/constants/filter";
 import { initDB, type DB } from "../infrastructure/database/client";
 import {
   accountTable,
-  campaignFilterQuestionsTable,
+  campaignCommunitiesTable,
   campaignLeadsTable,
   campaignsTable,
-  leadAssessmentsTable,
   communitiesTable,
   leadsTable,
-  oauthAccessTokenTable,
-  scrapeRunsTable,
+  pipelineRunsTable,
   sessionTable,
   userTable,
   verificationTable,
-  type Campaign,
-  type CampaignInsert,
-  type Community,
-  type Lead,
-  type LeadInsert,
-  type ScrapeRun,
 } from "../infrastructure/database/schemas";
-import {
-  clearLeadScript,
-  writeLeadScript,
-  type LeadScript,
-} from "../infrastructure/ai/script";
-import {
-  clearEmailFinderScript,
-  writeEmailFinderScript,
-  type EmailFinderScript,
-} from "../infrastructure/email-finder/script";
-import {
-  clearWebSearchScript,
-  writeWebSearchScript,
-  type WebSearchScript,
-} from "../infrastructure/search/script";
-import {
-  clearSkoolScript,
-  writeSkoolScript,
-  type SkoolScript,
-} from "../infrastructure/skool/scripted/script";
 
 const RESET_PASSWORD_PREFIX = "reset-password:";
 
@@ -368,274 +339,6 @@ export const getPasswordResetToken = async (
     return verification.identifier.slice(RESET_PASSWORD_PREFIX.length);
   });
 
-export type SeedLeadInput = Pick<LeadInsert, "skoolUsername" | "name"> &
-  Partial<Omit<LeadInsert, "leadId" | "createdAt" | "updatedAt">>;
-
-export const createLead = async (
-  config: SeedConfig,
-  input: SeedLeadInput,
-): Promise<Lead> =>
-  withDb(config, async (db) => {
-    const [lead] = await db.insert(leadsTable).values(input).returning();
-
-    if (!lead) throw new Error("lead was not created");
-
-    return lead;
-  });
-
-export interface SeedCommunityInput {
-  leadId: number;
-  skoolId: string;
-  name: string;
-  displayName: string;
-  memberCount: number;
-  /** Cents per month; leave out for a free community */
-  monthlyPrice?: number;
-}
-
-export const createCommunity = async (
-  config: SeedConfig,
-  input: SeedCommunityInput,
-): Promise<Community> =>
-  withDb(config, async (db) => {
-    const monthlyUsd =
-      input.monthlyPrice === undefined ? null : input.monthlyPrice / 100;
-
-    const [community] = await db
-      .insert(communitiesTable)
-      .values({
-        leadId: input.leadId,
-        skoolId: input.skoolId,
-        name: input.name,
-        displayName: input.displayName,
-        communityUrl: `https://www.skool.com/${input.name}`,
-        memberCount: input.memberCount,
-        pricingType: monthlyUsd === null ? "free" : "paid",
-        pricingInterval: monthlyUsd === null ? null : "month",
-        priceAmount: input.monthlyPrice ?? 0,
-        priceCurrency: monthlyUsd === null ? null : "USD",
-        prices:
-          monthlyUsd === null
-            ? [{ type: "free", interval: null, amount: 0, currency: null }]
-            : [
-                {
-                  type: "paid",
-                  interval: "month",
-                  amount: input.monthlyPrice ?? 0,
-                  currency: "USD",
-                },
-              ],
-        monthlyPriceUsd: monthlyUsd,
-        estMonthlyRevenue:
-          monthlyUsd === null ? null : monthlyUsd * input.memberCount,
-      })
-      .returning();
-
-    if (!community) throw new Error("community was not created");
-
-    return community;
-  });
-
-export type SeedCampaignInput = Pick<CampaignInsert, "name"> &
-  Partial<Omit<CampaignInsert, "campaignId" | "createdAt" | "updatedAt">>;
-
-export const createCampaign = async (
-  config: SeedConfig,
-  input: SeedCampaignInput,
-): Promise<Campaign> =>
-  withDb(config, async (db) => {
-    const [campaign] = await db
-      .insert(campaignsTable)
-      .values({
-        keywords: ["coaching"],
-        types: ["public"],
-        pricingModels: ["paid"],
-        ...input,
-      })
-      .returning();
-
-    if (!campaign) throw new Error("campaign was not created");
-
-    return campaign;
-  });
-
-export interface SeedCampaignLead {
-  leadId: number;
-  stage: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
-  status: "pending" | "running" | "done" | "failed";
-  keyword?: string;
-  failureReason?: string;
-}
-
-export const attachCampaignLeads = async (
-  config: SeedConfig,
-  input: { campaignId: number; leads: SeedCampaignLead[] },
-): Promise<void> =>
-  withDb(config, async (db) => {
-    await db.insert(campaignLeadsTable).values(
-      input.leads.map((lead) => ({
-        campaignId: input.campaignId,
-        leadId: lead.leadId,
-        stage: lead.stage,
-        status: lead.status,
-        keyword: lead.keyword ?? null,
-        failureReason: lead.failureReason ?? null,
-      })),
-    );
-  });
-
-export const createScrapeRun = async (
-  config: SeedConfig,
-  input: {
-    campaignId: number;
-    status: "queued" | "running" | "completed" | "failed";
-  },
-): Promise<ScrapeRun> =>
-  withDb(config, async (db) => {
-    const [run] = await db
-      .insert(scrapeRunsTable)
-      .values({ campaignId: input.campaignId, status: input.status })
-      .returning();
-
-    if (!run) throw new Error("scrape run was not created");
-
-    return run;
-  });
-
-export const findLeadByUsername = async (
-  config: SeedConfig,
-  skoolUsername: string,
-): Promise<Lead | null> =>
-  withDb(config, async (db) => {
-    const [lead] = await db
-      .select()
-      .from(leadsTable)
-      .where(eq(leadsTable.skoolUsername, skoolUsername))
-      .limit(1);
-
-    return lead ?? null;
-  });
-
-export const listLeadsByUsernamePrefix = async (
-  config: SeedConfig,
-  prefix: string,
-): Promise<Lead[]> =>
-  withDb(config, (db) =>
-    db
-      .select()
-      .from(leadsTable)
-      .where(like(leadsTable.skoolUsername, `${prefix}%`))
-      .orderBy(asc(leadsTable.leadId)),
-  );
-
-export const findCommunityBySkoolId = async (
-  config: SeedConfig,
-  skoolId: string,
-): Promise<Community | null> =>
-  withDb(config, async (db) => {
-    const [community] = await db
-      .select()
-      .from(communitiesTable)
-      .where(eq(communitiesTable.skoolId, skoolId))
-      .limit(1);
-
-    return community ?? null;
-  });
-
-export const listCommunitiesByLeadId = async (
-  config: SeedConfig,
-  leadId: number,
-): Promise<Community[]> =>
-  withDb(config, (db) =>
-    db
-      .select()
-      .from(communitiesTable)
-      .where(eq(communitiesTable.leadId, leadId))
-      .orderBy(asc(communitiesTable.communityId)),
-  );
-
-export const findCampaignByName = async (
-  config: SeedConfig,
-  name: string,
-): Promise<Campaign | null> =>
-  withDb(config, async (db) => {
-    const [campaign] = await db
-      .select()
-      .from(campaignsTable)
-      .where(eq(campaignsTable.name, name))
-      .limit(1);
-
-    return campaign ?? null;
-  });
-
-export interface CampaignLeadRow {
-  skoolUsername: string;
-  leadId: number;
-  stage: number;
-  status: string;
-  failureReason: string | null;
-  keyword: string | null;
-}
-
-export const listCampaignLeads = async (
-  config: SeedConfig,
-  campaignId: number,
-): Promise<CampaignLeadRow[]> =>
-  withDb(config, (db) =>
-    db
-      .select({
-        skoolUsername: leadsTable.skoolUsername,
-        leadId: leadsTable.leadId,
-        stage: campaignLeadsTable.stage,
-        status: campaignLeadsTable.status,
-        failureReason: campaignLeadsTable.failureReason,
-        keyword: campaignLeadsTable.keyword,
-      })
-      .from(campaignLeadsTable)
-      .innerJoin(leadsTable, eq(leadsTable.leadId, campaignLeadsTable.leadId))
-      .where(eq(campaignLeadsTable.campaignId, campaignId))
-      .orderBy(asc(leadsTable.skoolUsername)),
-  );
-
-export const listScrapeRuns = async (
-  config: SeedConfig,
-  campaignId: number,
-): Promise<ScrapeRun[]> =>
-  withDb(config, (db) =>
-    db
-      .select()
-      .from(scrapeRunsTable)
-      .where(eq(scrapeRunsTable.campaignId, campaignId))
-      .orderBy(desc(scrapeRunsTable.scrapeRunId)),
-  );
-
-export const listOAuthTokens = async (config: SeedConfig, email: string) =>
-  withDb(config, async (db) => {
-    const userId = await requireUserId(db, email);
-
-    return await db
-      .select({
-        clientId: oauthAccessTokenTable.clientId,
-        userId: oauthAccessTokenTable.userId,
-        accessToken: oauthAccessTokenTable.accessToken,
-      })
-      .from(oauthAccessTokenTable)
-      .where(eq(oauthAccessTokenTable.userId, userId));
-  });
-
-export const expireOAuthTokens = async (
-  config: SeedConfig,
-  email: string,
-): Promise<void> =>
-  withDb(config, async (db) => {
-    const userId = await requireUserId(db, email);
-
-    await db
-      .update(oauthAccessTokenTable)
-      .set({ accessTokenExpiresAt: new Date(Date.now() - 1_000) })
-      .where(eq(oauthAccessTokenTable.userId, userId));
-  });
-
 export const banUser = async (
   config: SeedConfig,
   email: string,
@@ -669,154 +372,336 @@ export const ageSessions = async (
       .where(eq(sessionTable.userId, userId));
   });
 
-export { sampleFilterQuestions } from "./filter-questions";
+export interface SeedLeadInput {
+  name: string;
+  username: string;
+  email?: string | null;
+  bio?: string | null;
+  pictureUrl?: string | null;
+  website?: string | null;
+  linkedin?: string | null;
+  enrichedAt?: Date | null;
+}
 
-export const saveFilterQuestions = async (
+export const createLead = async (config: SeedConfig, input: SeedLeadInput) =>
+  withDb(config, async (db) => {
+    const [lead] = await db
+      .insert(leadsTable)
+      .values({
+        name: input.name,
+        username: input.username,
+        skoolUrl: `https://www.skool.com/@${input.username}`,
+        email: input.email ?? null,
+        bio: input.bio ?? null,
+        pictureUrl: input.pictureUrl ?? null,
+        website: input.website ?? null,
+        linkedin: input.linkedin ?? null,
+        enrichedAt: input.enrichedAt ?? null,
+      })
+      .returning();
+
+    if (!lead) {
+      throw new Error(`could not create lead ${input.username}`);
+    }
+
+    return lead;
+  });
+
+export interface SeedCommunityInput {
+  leadId: number;
+  name: string;
+  slug: string;
+  members?: number | null;
+  mrr?: number | null;
+  email?: string | null;
+  priceCents?: number | null;
+}
+
+export const createCommunity = async (
   config: SeedConfig,
-  input: { campaignId: number; questions: FilterQuestionInput[] },
+  input: SeedCommunityInput,
 ) =>
   withDb(config, async (db) => {
-    await db.insert(campaignFilterQuestionsTable).values(
-      input.questions.map((question, position) => ({
+    const paid = input.priceCents !== undefined && input.priceCents !== null;
+
+    const [community] = await db
+      .insert(communitiesTable)
+      .values({
+        leadId: input.leadId,
+        name: input.name,
+        skoolUrl: `https://www.skool.com/${input.slug}`,
+        members: input.members ?? null,
+        mrr: input.mrr ?? null,
+        email: input.email ?? null,
+        isFree: !paid,
+        priceCents: paid ? input.priceCents : null,
+        priceCurrency: paid ? "usd" : null,
+        priceInterval: paid ? "month" : null,
+      })
+      .returning();
+
+    if (!community) {
+      throw new Error(`could not create community ${input.slug}`);
+    }
+
+    return community;
+  });
+
+/** Many leads at once, named `<prefix> 01`, `<prefix> 02`, ... with usernames `<prefix>-01`, ... */
+export const createLeads = async (
+  config: SeedConfig,
+  input: { prefix: string; count: number },
+) =>
+  withDb(config, async (db) =>
+    db
+      .insert(leadsTable)
+      .values(
+        Array.from({ length: input.count }, (_, index) => {
+          const number = String(index + 1).padStart(2, "0");
+
+          return {
+            name: `${input.prefix} ${number}`,
+            username: `${input.prefix}-${number}`,
+            skoolUrl: `https://www.skool.com/@${input.prefix}-${number}`,
+          };
+        }),
+      )
+      .returning(),
+  );
+
+export const findLeadByUsername = async (
+  config: SeedConfig,
+  username: string,
+) =>
+  withDb(config, async (db) => {
+    const [lead] = await db
+      .select()
+      .from(leadsTable)
+      .where(eq(leadsTable.username, username))
+      .limit(1);
+
+    return lead ?? null;
+  });
+
+export const findCommunityBySlug = async (config: SeedConfig, slug: string) =>
+  withDb(config, async (db) => {
+    const [community] = await db
+      .select()
+      .from(communitiesTable)
+      .where(eq(communitiesTable.skoolUrl, `https://www.skool.com/${slug}`))
+      .limit(1);
+
+    return community ?? null;
+  });
+
+export const countLeadsWithPrefix = async (
+  config: SeedConfig,
+  prefix: string,
+): Promise<number> =>
+  withDb(config, async (db) => {
+    const leads = await db
+      .select({ leadId: leadsTable.leadId })
+      .from(leadsTable)
+      .where(like(leadsTable.username, `${prefix}%`));
+
+    return leads.length;
+  });
+
+export const countCommunitiesWithPrefix = async (
+  config: SeedConfig,
+  prefix: string,
+): Promise<number> =>
+  withDb(config, async (db) => {
+    const communities = await db
+      .select({ communityId: communitiesTable.communityId })
+      .from(communitiesTable)
+      .where(
+        like(communitiesTable.skoolUrl, `https://www.skool.com/${prefix}%`),
+      );
+
+    return communities.length;
+  });
+
+export interface SeedCampaignInput {
+  name: string;
+  keyword: string;
+  description?: string | null;
+  minPriceCents?: number | null;
+  minMembers?: number | null;
+}
+
+export const createCampaign = async (
+  config: SeedConfig,
+  input: SeedCampaignInput,
+) =>
+  withDb(config, async (db) => {
+    const [campaign] = await db
+      .insert(campaignsTable)
+      .values({
+        name: input.name,
+        keyword: input.keyword,
+        description: input.description ?? null,
+        minPriceCents: input.minPriceCents ?? null,
+        minMembers: input.minMembers ?? null,
+      })
+      .returning();
+
+    if (!campaign) {
+      throw new Error(`could not create campaign ${input.name}`);
+    }
+
+    return campaign;
+  });
+
+export const findCampaignByName = async (config: SeedConfig, name: string) =>
+  withDb(config, async (db) => {
+    const [campaign] = await db
+      .select()
+      .from(campaignsTable)
+      .where(eq(campaignsTable.name, name))
+      .limit(1);
+
+    return campaign ?? null;
+  });
+
+export const countCampaignsContaining = async (
+  config: SeedConfig,
+  fragment: string,
+): Promise<number> =>
+  withDb(config, async (db) => {
+    const campaigns = await db
+      .select({ campaignId: campaignsTable.campaignId })
+      .from(campaignsTable)
+      .where(like(campaignsTable.name, `%${fragment}%`));
+
+    return campaigns.length;
+  });
+
+export const deleteCampaignsContaining = async (
+  config: SeedConfig,
+  fragment: string,
+): Promise<void> =>
+  withDb(config, async (db) => {
+    await db
+      .delete(campaignsTable)
+      .where(like(campaignsTable.name, `%${fragment}%`));
+  });
+
+export const addLeadsToCampaign = async (
+  config: SeedConfig,
+  input: { campaignId: number; leadIds: number[] },
+): Promise<void> =>
+  withDb(config, async (db) => {
+    await db.insert(campaignLeadsTable).values(
+      input.leadIds.map((leadId) => ({
         campaignId: input.campaignId,
-        position,
-        ...question,
+        leadId,
       })),
     );
   });
 
-export const listFilterQuestions = async (
+export const addCommunitiesToCampaign = async (
+  config: SeedConfig,
+  input: { campaignId: number; communityIds: number[] },
+): Promise<void> =>
+  withDb(config, async (db) => {
+    await db.insert(campaignCommunitiesTable).values(
+      input.communityIds.map((communityId) => ({
+        campaignId: input.campaignId,
+        communityId,
+      })),
+    );
+  });
+
+export const listCampaignLeadIds = async (
+  config: SeedConfig,
+  campaignId: number,
+): Promise<number[]> =>
+  withDb(config, async (db) => {
+    const rows = await db
+      .select({ leadId: campaignLeadsTable.leadId })
+      .from(campaignLeadsTable)
+      .where(eq(campaignLeadsTable.campaignId, campaignId));
+
+    return rows.map((row) => row.leadId).sort((a, b) => a - b);
+  });
+
+export const listCampaignCommunityIds = async (
+  config: SeedConfig,
+  campaignId: number,
+): Promise<number[]> =>
+  withDb(config, async (db) => {
+    const rows = await db
+      .select({ communityId: campaignCommunitiesTable.communityId })
+      .from(campaignCommunitiesTable)
+      .where(eq(campaignCommunitiesTable.campaignId, campaignId));
+
+    return rows.map((row) => row.communityId).sort((a, b) => a - b);
+  });
+
+export interface SeedPipelineRunInput {
+  campaignId: number;
+  step: "scrape" | "enrich";
+  status?: "running" | "done" | "failed";
+  total?: number;
+  processed?: number;
+  failed?: number;
+  error?: string | null;
+}
+
+export const createPipelineRun = async (
+  config: SeedConfig,
+  input: SeedPipelineRunInput,
+) =>
+  withDb(config, async (db) => {
+    const [run] = await db
+      .insert(pipelineRunsTable)
+      .values({
+        campaignId: input.campaignId,
+        step: input.step,
+        status: input.status,
+        total: input.total,
+        processed: input.processed,
+        failed: input.failed,
+        error: input.error ?? null,
+      })
+      .returning();
+
+    if (!run) {
+      throw new Error(`could not create ${input.step} run`);
+    }
+
+    return run;
+  });
+
+export const updatePipelineRun = async (
+  config: SeedConfig,
+  input: {
+    runId: number;
+    status: "running" | "done" | "failed";
+    processed: number;
+    failed?: number;
+  },
+): Promise<void> =>
+  withDb(config, async (db) => {
+    await db
+      .update(pipelineRunsTable)
+      .set({
+        status: input.status,
+        processed: input.processed,
+        failed: input.failed ?? 0,
+      })
+      .where(eq(pipelineRunsTable.runId, input.runId));
+  });
+
+export const listPipelineRuns = async (
   config: SeedConfig,
   campaignId: number,
 ) =>
   withDb(config, async (db) =>
     db
       .select()
-      .from(campaignFilterQuestionsTable)
-      .where(eq(campaignFilterQuestionsTable.campaignId, campaignId))
-      .orderBy(asc(campaignFilterQuestionsTable.position)),
+      .from(pipelineRunsTable)
+      .where(eq(pipelineRunsTable.campaignId, campaignId))
+      .orderBy(pipelineRunsTable.runId),
   );
-
-export const listLeadAssessments = async (
-  config: SeedConfig,
-  campaignId: number,
-) =>
-  withDb(config, async (db) =>
-    db
-      .select()
-      .from(leadAssessmentsTable)
-      .where(eq(leadAssessmentsTable.campaignId, campaignId))
-      .orderBy(asc(leadAssessmentsTable.leadId)),
-  );
-
-export const scriptLeadAssessment = async (
-  config: SeedConfig,
-  input: { username: string; script: LeadScript },
-): Promise<void> => {
-  const redis = new IORedis(config.redisUrl);
-
-  try {
-    await writeLeadScript(redis, input.username, input.script);
-  } finally {
-    await redis.quit();
-  }
-};
-
-export const unscriptLeadAssessment = async (
-  config: SeedConfig,
-  username: string,
-): Promise<void> => {
-  const redis = new IORedis(config.redisUrl);
-
-  try {
-    await clearLeadScript(redis, username);
-  } finally {
-    await redis.quit();
-  }
-};
-
-export type { LeadScript } from "../infrastructure/ai/script";
-
-export const scriptWebSearch = async (
-  config: SeedConfig,
-  input: { query: string; script: WebSearchScript },
-): Promise<void> => {
-  const redis = new IORedis(config.redisUrl);
-
-  try {
-    await writeWebSearchScript(redis, input.query, input.script);
-  } finally {
-    await redis.quit();
-  }
-};
-
-export const unscriptWebSearch = async (
-  config: SeedConfig,
-  query: string,
-): Promise<void> => {
-  const redis = new IORedis(config.redisUrl);
-
-  try {
-    await clearWebSearchScript(redis, query);
-  } finally {
-    await redis.quit();
-  }
-};
-
-export type { WebSearchScript } from "../infrastructure/search/script";
-
-export const scriptSkool = async (
-  config: SeedConfig,
-  script: SkoolScript,
-): Promise<void> => {
-  const redis = new IORedis(config.redisUrl);
-
-  try {
-    await writeSkoolScript(redis, script);
-  } finally {
-    await redis.quit();
-  }
-};
-
-export const unscriptSkool = async (
-  config: SeedConfig,
-  script: SkoolScript,
-): Promise<void> => {
-  const redis = new IORedis(config.redisUrl);
-
-  try {
-    await clearSkoolScript(redis, script);
-  } finally {
-    await redis.quit();
-  }
-};
-
-export type { SkoolScript } from "../infrastructure/skool/scripted/script";
-
-export const scriptEmailFinder = async (
-  config: SeedConfig,
-  input: { identity: string; script: EmailFinderScript },
-): Promise<void> => {
-  const redis = new IORedis(config.redisUrl);
-
-  try {
-    await writeEmailFinderScript(redis, input.identity, input.script);
-  } finally {
-    await redis.quit();
-  }
-};
-
-export const unscriptEmailFinder = async (
-  config: SeedConfig,
-  identity: string,
-): Promise<void> => {
-  const redis = new IORedis(config.redisUrl);
-
-  try {
-    await clearEmailFinderScript(redis, identity);
-  } finally {
-    await redis.quit();
-  }
-};
-
-export type { EmailFinderScript } from "../infrastructure/email-finder/script";

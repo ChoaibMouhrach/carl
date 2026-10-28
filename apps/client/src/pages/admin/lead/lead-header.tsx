@@ -1,6 +1,7 @@
 import { api } from "@/api";
 import { AdminPageDescription, AdminPageTitle } from "@/components/admin-page";
-import { formatDate } from "@/lib/format";
+import { PictureAvatar } from "@/components/picture-avatar";
+import { Tip } from "@/components/tip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,9 +16,9 @@ import {
 import { Button } from "@repo/ui/components/ui/button";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { Link } from "@tanstack/react-router";
-import { PencilIcon, Trash2Icon } from "lucide-react";
+import { ExternalLinkIcon, PencilIcon, Trash2Icon } from "lucide-react";
 
-type Lead = Awaited<ReturnType<typeof api.lead.show>>["lead"];
+type Lead = Awaited<ReturnType<typeof api.lead.show>>;
 
 interface LeadHeaderProps {
   isRemovePending: boolean;
@@ -30,39 +31,74 @@ export const LeadHeader = ({
   lead,
   onRemove,
 }: LeadHeaderProps) => {
+  const communityCount = lead.communities.length;
+
   return (
     <header className="flex flex-wrap items-start justify-between gap-4">
-      <div className="flex min-w-0 flex-col gap-2">
-        <AdminPageTitle>{lead.name}</AdminPageTitle>
-        <AdminPageDescription>
-          @{lead.skoolUsername} · {formatDate(lead.createdAt)}
-        </AdminPageDescription>
+      <div className="flex min-w-0 items-center gap-4">
+        <PictureAvatar
+          className="size-14"
+          name={lead.name}
+          src={lead.pictureUrl}
+        />
+        <div className="flex min-w-0 flex-col gap-1">
+          <AdminPageTitle>{lead.name}</AdminPageTitle>
+          <AdminPageDescription>@{lead.username}</AdminPageDescription>
+        </div>
       </div>
-      <div className="flex gap-2">
-        <Button
+      <div className="flex flex-wrap gap-2">
+        <Tip
+          label="Open their Skool profile in a new tab"
           render={
-            <Link
-              params={{ leadId: lead.leadId }}
-              to="/admin/leads/$leadId/edit"
+            <Button
+              render={
+                <a href={lead.skoolUrl} rel="noreferrer" target="_blank" />
+              }
+              variant="outline"
             />
           }
-          variant="outline"
+        >
+          <ExternalLinkIcon />
+          View on Skool
+        </Tip>
+        <Tip
+          label="Change this lead's details"
+          render={
+            <Button
+              render={
+                <Link
+                  params={{ leadId: lead.leadId }}
+                  to="/admin/leads/$leadId/edit"
+                />
+              }
+              variant="outline"
+            />
+          }
         >
           <PencilIcon />
           Edit
-        </Button>
+        </Tip>
         <AlertDialog>
-          <AlertDialogTrigger
-            render={<Button disabled={isRemovePending} variant="outline" />}
+          <Tip
+            label="Delete this lead and their communities"
+            render={
+              <AlertDialogTrigger
+                render={
+                  <Button disabled={isRemovePending} variant="destructive" />
+                }
+              />
+            }
           >
             {isRemovePending ? <Spinner /> : <Trash2Icon />}
             Delete
-          </AlertDialogTrigger>
+          </Tip>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete this lead?</AlertDialogTitle>
               <AlertDialogDescription>
-                This permanently deletes the lead and all of their communities.
+                {communityCount === 0
+                  ? `This permanently deletes ${lead.name}.`
+                  : `This permanently deletes ${lead.name} and ${communityCount === 1 ? "their community" : `their ${communityCount} communities`}.`}{" "}
                 This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>

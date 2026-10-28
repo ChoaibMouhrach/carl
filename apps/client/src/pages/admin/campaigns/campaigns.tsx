@@ -1,50 +1,69 @@
 import { api } from "@/api";
-import { DataPagination } from "@/components/data-pagination";
-import { CardGridSkeleton } from "@/components/card-grid";
+import { FilterChips, type FilterChip } from "@/components/filter-chips";
+import { ListPagination } from "@/components/list-pagination";
 import { TableSkeleton } from "@/components/table-skeleton";
-import { SelectionBar } from "@/components/selection-bar";
-import { ExportButton } from "@/components/export-button";
-import { ViewSwitch } from "@/components/view-switch";
+import { Tip } from "@/components/tip";
 import { onError } from "@/lib/base-api";
-import { invalidateCampaignData } from "@/lib/invalidate";
-import { useSelection } from "@/lib/use-selection";
-import { useView } from "@/lib/view";
+import { perPageForUrl, resolvePageSize } from "@/lib/page-size";
+import { campaignSortOptions, sortValue } from "@/lib/sort-options";
 import { adminCampaignsRoute } from "@/routes/admin/campaigns";
 import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@repo/ui/components/ui/empty";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { PlusIcon } from "lucide-react";
+import { MegaphoneIcon, PlusIcon, SearchXIcon } from "lucide-react";
 import { toast } from "sonner";
-import { CampaignCards } from "./campaign-cards";
 import { CampaignFilters } from "./campaign-filters";
 import { CampaignTable } from "./campaign-table";
 
 export const Campaigns = () => {
   const searchParams = adminCampaignsRoute.useSearch();
-  const { view, setView } = useView();
   const navigate = adminCampaignsRoute.useNavigate();
   const queryClient = useQueryClient();
 
   const campaigns = useQuery({
-    queryKey: ["admin", "campaigns", searchParams],
+    queryKey: ["admin", "campaigns", "list", searchParams],
     queryFn: () => api.campaign.list(searchParams),
     placeholderData: (previousData) => previousData,
   });
-
-  const selection = useSelection(
-    campaigns.data?.campaigns.map((campaign) => campaign.campaignId) ?? [],
-  );
 
   const remove = useMutation({
     mutationFn: (campaignId: number) => api.campaign.remove({ campaignId }),
     onError,
     onSuccess: async () => {
       toast.success("Campaign deleted.");
-      await invalidateCampaignData(queryClient);
+      await queryClient.invalidateQueries({ queryKey: ["admin", "campaigns"] });
     },
   });
+
+  const toggleActive = useMutation({
+    mutationFn: (input: { campaignId: number; isActive: boolean }) =>
+      api.campaign.update(
+        { campaignId: input.campaignId },
+        { isActive: input.isActive },
+      ),
+    onError,
+    onSuccess: async (campaign) => {
+      toast.success(
+        campaign.isActive ? "Campaign activated." : "Campaign deactivated.",
+      );
+      await queryClient.invalidateQueries({ queryKey: ["admin", "campaigns"] });
+    },
+  });
+
+  const clearFilters = () =>
+    navigate({
+      search: (current) => ({ ...current, page: 1, search: undefined }),
+    });
 
   if (campaigns.isPending) {
     return (
@@ -52,15 +71,12 @@ export const Campaigns = () => {
         <CardContent>
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
-              <Skeleton className="h-9 w-64" />
-              <Skeleton className="h-9 w-40" />
+              <Skeleton className="h-9 w-72" />
+              <Skeleton className="h-9 w-36" />
               <Skeleton className="ml-auto h-9 w-36" />
             </div>
-            {view === "cards" ? (
-              <CardGridSkeleton />
-            ) : (
-              <TableSkeleton columns={6} />
-            )}
+            <Skeleton className="h-5 w-24" />
+            <TableSkeleton columns={8} />
           </div>
         </CardContent>
       </Card>
@@ -71,64 +87,121 @@ export const Campaigns = () => {
     throw campaigns.error;
   }
 
+  const { meta } = campaigns.data;
+
+  const chips: FilterChip[] = searchParams.search
+    ? [
+        {
+          key: "search",
+          label: `Search: ${searchParams.search}`,
+          onRemove: clearFilters,
+        },
+      ]
+    : [];
+
+  const newCampaign = (
+    <Tip
+      label="Define a new campaign"
+      render={<Button render={<Link to="/admin/campaigns/new" />} />}
+    >
+      <PlusIcon />
+      New campaign
+    </Tip>
+  );
+
   return (
     <Card>
       <CardContent>
         <div className="space-y-4">
           <CampaignFilters
-            createAction={
-              <Button render={<Link to="/admin/campaigns/new" />}>
-                <PlusIcon />
-                New campaign
-              </Button>
-            }
-            exportAction={
-              <ExportButton
-                filename="campaigns"
-                onExport={() => api.campaign.export(searchParams)}
-              />
-            }
-            viewSwitch={<ViewSwitch onChange={setView} view={view} />}
+            createAction={newCampaign}
             onSearch={(search) =>
               navigate({
                 search: (current) => ({ ...current, page: 1, search }),
               })
             }
-            onStatusChange={(status) =>
-              navigate({
-                search: (current) => ({ ...current, page: 1, status }),
-              })
-            }
+            onSortChange={(value) => {
+              const option = campaignSortOptions.find(
+                (item) => item.value === value,
+              );
+              if (option) {
+                navigate({
+                  search: (current) => ({
+                    ...current,
+                    page: 1,
+                    sort: option.sort,
+                    order: option.order,
+                  }),
+                });
+              }
+            }}
             search={searchParams.search}
-            status={searchParams.status}
+            sort={sortValue(
+              searchParams.sort ?? "createdAt",
+              searchParams.order ?? "desc",
+            )}
           />
-          <SelectionBar
-            selection={selection}
-            showSelectAll={view === "cards"}
-          />
-          {view === "cards" ? (
-            <CampaignCards
-              campaigns={campaigns.data.campaigns}
-              isMutating={remove.isPending}
-              onRemove={(campaignId) => remove.mutate(campaignId)}
-              removingCampaignId={remove.variables}
-              selection={selection}
-            />
+          <FilterChips chips={chips} onClearAll={clearFilters} />
+          <p className="text-sm text-muted-foreground">
+            {meta.total === 1 ? "1 campaign" : `${meta.total} campaigns`}
+          </p>
+          {campaigns.data.campaigns.length === 0 ? (
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  {chips.length > 0 ? <SearchXIcon /> : <MegaphoneIcon />}
+                </EmptyMedia>
+                <EmptyTitle>
+                  {chips.length > 0 ? "No campaigns match" : "No campaigns yet"}
+                </EmptyTitle>
+                <EmptyDescription>
+                  {chips.length > 0
+                    ? "Try a different search."
+                    : "Create a campaign to group the leads and communities you want to reach."}
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                {chips.length > 0 ? (
+                  <Tip
+                    label="Remove the search"
+                    render={<Button onClick={clearFilters} variant="outline" />}
+                  >
+                    Clear filters
+                  </Tip>
+                ) : (
+                  newCampaign
+                )}
+              </EmptyContent>
+            </Empty>
           ) : (
             <CampaignTable
               campaigns={campaigns.data.campaigns}
-              isMutating={remove.isPending}
+              isMutating={remove.isPending || toggleActive.isPending}
               onRemove={(campaignId) => remove.mutate(campaignId)}
-              removingCampaignId={remove.variables}
-              selection={selection}
+              onToggleActive={(campaignId, isActive) =>
+                toggleActive.mutate({ campaignId, isActive })
+              }
+              removingCampaignId={
+                remove.isPending ? remove.variables : undefined
+              }
             />
           )}
-          <DataPagination
-            currentPage={campaigns.data.meta.page}
-            lastPage={campaigns.data.meta.lastPage}
+          <ListPagination
+            currentPage={meta.page}
+            lastPage={meta.lastPage}
             onPageChange={(page) =>
               navigate({ search: (current) => ({ ...current, page }) })
             }
+            onPerPageChange={(perPage) =>
+              navigate({
+                search: (current) => ({
+                  ...current,
+                  page: 1,
+                  perPage: perPageForUrl(perPage),
+                }),
+              })
+            }
+            perPage={resolvePageSize(searchParams.perPage)}
           />
         </div>
       </CardContent>

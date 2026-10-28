@@ -1,0 +1,1 @@
+ALTER TABLE "campaigns" ADD COLUMN "isActive" boolean DEFAULT true NOT NULL;

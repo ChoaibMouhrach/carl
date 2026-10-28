@@ -1,16 +1,13 @@
-import { SelectField } from "@/components/select-field";
-import { TagsField } from "@/components/tags-field";
 import { TextField } from "@/components/text-field";
-import {
-  maxKeywords,
-  skoolPriceFilters,
-  skoolVisibilities,
-  type SkoolPriceFilter,
-  type SkoolVisibility,
-} from "@/lib/campaign";
+import { Tip } from "@/components/tip";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
+import {
+  FieldDescription,
+  FieldLegend,
+  FieldSet,
+} from "@repo/ui/components/ui/field";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { useForm } from "react-hook-form";
 import z from "zod";
@@ -18,94 +15,58 @@ import z from "zod";
 export interface CampaignFormValues {
   name: string;
   description: string | null;
-  keywords: string[];
-  types: SkoolVisibility[];
-  pricingModels: SkoolPriceFilter[];
-  minMonthlyPriceUsd: number | null;
-  maxMonthlyPriceUsd: number | null;
+  keyword: string;
+  minPriceCents: number | null;
   minMembers: number | null;
-  maxMembers: number | null;
 }
 
 interface CampaignFormProps {
-  campaign?: CampaignFormValues;
   cancelAction: React.ReactNode;
+  /** Present when editing: it fills the form and switches it to edit mode */
+  campaign?: CampaignFormValues;
   isPending: boolean;
   onSubmit: (values: CampaignFormValues) => Promise<unknown>;
 }
 
-const optionalNumber = (integer: boolean) =>
-  z
+const schema = z.object({
+  name: z.string().trim().min(1, "This field is required").max(255),
+  description: z.string().trim().max(500, "Keep it under 500 characters"),
+  keyword: z.string().trim().min(1, "This field is required").max(255),
+  minPrice: z
     .string()
     .trim()
-    .refine(
-      (value) =>
-        value === "" ||
-        (Number.isFinite(Number(value)) &&
-          Number(value) >= 0 &&
-          (!integer || Number.isInteger(Number(value)))),
-    );
-
-const schema = z.object({
-  name: z.string().trim().min(1).max(255),
-  description: z.string().trim().max(2000),
-  keywords: z.array(z.string().trim().min(1).max(255)).min(1).max(maxKeywords),
-  type: z.enum(skoolVisibilities),
-  pricingModel: z.enum(skoolPriceFilters),
-  minMonthlyPriceUsd: optionalNumber(false),
-  maxMonthlyPriceUsd: optionalNumber(false),
-  minMembers: optionalNumber(true),
-  maxMembers: optionalNumber(true),
+    .regex(
+      /^(\d+(\.\d{1,2})?)?$/,
+      "Enter the price in dollars, e.g. 49 or 49.99, or leave empty",
+    ),
+  minMembers: z
+    .string()
+    .trim()
+    .regex(/^\d*$/, "Enter a whole number, e.g. 100, or leave empty"),
 });
 
 type FormInput = z.input<typeof schema>;
 
-const toNumber = (value: string) => (value === "" ? null : Number(value));
-const fromNumber = (value: number | null | undefined) =>
-  value == null ? "" : String(value);
-
 export const CampaignForm = ({
-  campaign,
   cancelAction,
+  campaign,
   isPending,
   onSubmit,
 }: CampaignFormProps) => {
+  const isEditing = campaign !== undefined;
+
   const form = useForm<FormInput>({
     defaultValues: {
       name: campaign?.name ?? "",
       description: campaign?.description ?? "",
-      keywords: campaign?.keywords ?? [],
-      type: campaign?.types[0],
-      pricingModel: campaign?.pricingModels[0],
-      minMonthlyPriceUsd: fromNumber(campaign?.minMonthlyPriceUsd),
-      maxMonthlyPriceUsd: fromNumber(campaign?.maxMonthlyPriceUsd),
-      minMembers: fromNumber(campaign?.minMembers),
-      maxMembers: fromNumber(campaign?.maxMembers),
+      keyword: campaign?.keyword ?? "",
+      minPrice:
+        campaign?.minPriceCents == null
+          ? ""
+          : String(campaign.minPriceCents / 100),
+      minMembers: campaign?.minMembers?.toString() ?? "",
     },
-    resolver: zodResolver(
-      schema
-        .refine(
-          (input) =>
-            input.minMonthlyPriceUsd === "" ||
-            input.maxMonthlyPriceUsd === "" ||
-            Number(input.minMonthlyPriceUsd) <=
-              Number(input.maxMonthlyPriceUsd),
-          {
-            message: "Minimum cannot be greater than maximum.",
-            path: ["maxMonthlyPriceUsd"],
-          },
-        )
-        .refine(
-          (input) =>
-            input.minMembers === "" ||
-            input.maxMembers === "" ||
-            Number(input.minMembers) <= Number(input.maxMembers),
-          {
-            message: "Minimum cannot be greater than maximum.",
-            path: ["maxMembers"],
-          },
-        ),
-    ),
+    resolver: zodResolver(schema),
   });
 
   const submit = form.handleSubmit(async (input) => {
@@ -113,110 +74,100 @@ export const CampaignForm = ({
       await onSubmit({
         name: input.name,
         description: input.description || null,
-        keywords: input.keywords,
-        types: [input.type],
-        pricingModels: [input.pricingModel],
-        minMonthlyPriceUsd: toNumber(input.minMonthlyPriceUsd),
-        maxMonthlyPriceUsd: toNumber(input.maxMonthlyPriceUsd),
-        minMembers: toNumber(input.minMembers),
-        maxMembers: toNumber(input.maxMembers),
+        keyword: input.keyword,
+        minPriceCents:
+          input.minPrice === ""
+            ? null
+            : Math.round(Number(input.minPrice) * 100),
+        minMembers: input.minMembers === "" ? null : Number(input.minMembers),
       });
     } catch {
       return;
     }
   });
 
+  const isSaveDisabled = isPending || (isEditing && !form.formState.isDirty);
+
+  const saveLabel = isEditing ? "Save changes" : "Create campaign";
+
+  const saveTip = isPending
+    ? "Saving…"
+    : isSaveDisabled
+      ? "Change something to save"
+      : isEditing
+        ? "Save your changes to this campaign"
+        : "Create this campaign";
+
   return (
     <form onSubmit={submit}>
       <Card>
         <CardContent>
-          <div className="grid gap-4">
-            <TextField
-              control={form.control}
-              label="Name"
-              name="name"
-              placeholder="Fitness coaches, Q4"
-              required
-            />
-            <TextField
-              control={form.control}
-              label="Description"
-              multiline
-              name="description"
-              placeholder="Who this campaign targets and why."
-            />
-            <TagsField
-              control={form.control}
-              label="Search keywords"
-              max={maxKeywords}
-              name="keywords"
-              placeholder="Type a keyword and press Enter"
-              required
-            />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <SelectField
-                control={form.control}
-                label="Type"
-                name="type"
-                options={skoolVisibilities.map((value) => ({
-                  value,
-                  label: { public: "Public", private: "Private" }[value],
-                }))}
-                placeholder="Select a type"
-                required
-              />
-              <SelectField
-                control={form.control}
-                label="Pricing model"
-                name="pricingModel"
-                options={skoolPriceFilters.map((value) => ({
-                  value,
-                  label: {
-                    free: "Free",
-                    paid: "Paid",
-                    "free-trial": "Free trial",
-                  }[value],
-                }))}
-                placeholder="Select a pricing model"
-                required
-              />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <TextField
-                control={form.control}
-                inputMode="decimal"
-                label="Min price per month ($)"
-                name="minMonthlyPriceUsd"
-                placeholder="No minimum"
-              />
-              <TextField
-                control={form.control}
-                inputMode="decimal"
-                label="Max price per month ($)"
-                name="maxMonthlyPriceUsd"
-                placeholder="No maximum"
-              />
-              <TextField
-                control={form.control}
-                inputMode="numeric"
-                label="Min members"
-                name="minMembers"
-                placeholder="No minimum"
-              />
-              <TextField
-                control={form.control}
-                inputMode="numeric"
-                label="Max members"
-                name="maxMembers"
-                placeholder="No maximum"
-              />
-            </div>
+          <div className="space-y-8">
+            <FieldSet>
+              <FieldLegend>About</FieldLegend>
+              <FieldDescription>
+                What this campaign is called and who it is for.
+              </FieldDescription>
+              <div className="grid gap-4">
+                <TextField
+                  control={form.control}
+                  label="Name"
+                  name="name"
+                  placeholder="Fitness coaches"
+                  required
+                />
+                <TextField
+                  control={form.control}
+                  description="Optional. A sentence or two, up to 500 characters."
+                  label="Description"
+                  multiline
+                  name="description"
+                  placeholder="Paid fitness communities with an active audience"
+                />
+              </div>
+            </FieldSet>
+            <FieldSet>
+              <FieldLegend>Targeting</FieldLegend>
+              <FieldDescription>
+                The search and the floor a community must clear to be a fit.
+              </FieldDescription>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <TextField
+                  control={form.control}
+                  description="What Skool is searched for."
+                  label="Search keyword"
+                  name="keyword"
+                  placeholder="fitness coaching"
+                  required
+                  wrapperClassName="sm:col-span-2"
+                />
+                <TextField
+                  control={form.control}
+                  description="Optional. USD per month. Leave empty for no minimum."
+                  inputMode="decimal"
+                  label="Minimum price"
+                  name="minPrice"
+                  placeholder="49"
+                />
+                <TextField
+                  control={form.control}
+                  description="Optional. Leave empty for no minimum."
+                  inputMode="numeric"
+                  label="Minimum members"
+                  name="minMembers"
+                  placeholder="100"
+                />
+              </div>
+            </FieldSet>
           </div>
-          <div className="mt-6 flex gap-2">
-            <Button disabled={isPending} type="submit">
+          <div className="mt-8 flex gap-2">
+            <Tip
+              label={saveTip}
+              render={<Button disabled={isSaveDisabled} type="submit" />}
+            >
               {isPending && <Spinner />}
-              Save
-            </Button>
+              {saveLabel}
+            </Tip>
             {cancelAction}
           </div>
         </CardContent>

@@ -13,4 +13,17 @@ export const serverErrorMessages: Record<ServerErrorCode, string> = {
   sessionExpired: "Your session has expired. Please sign in again.",
   emailAlreadyTaken: "That email address is already taken.",
   invalidPassword: "Incorrect password.",
+  leadNotFound: "That lead doesn't exist.",
+  leadUsernameTaken: "A lead with that username already exists.",
+  leadSkoolUrlTaken: "A lead with that Skool URL already exists.",
+  communityNotFound: "That community doesn't exist.",
+  communitySkoolUrlTaken: "A community with that Skool URL already exists.",
+  invalidCommunityPricing:
+    "A free community has no price, and a paid one needs an amount, currency and interval.",
+  campaignNotFound: "That campaign doesn't exist.",
+  campaignInactive: "Activate this campaign before running its pipeline.",
+  pipelineRunInProgress: "That step is already running for this campaign.",
+  scrapeRequired: "Finish a scrape before running this step.",
+  enrichmentUnavailable:
+    "Lead enrichment isn't configured. Set TAVILY_API_KEY on the server.",
 };

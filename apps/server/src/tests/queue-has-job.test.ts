@@ -17,7 +17,7 @@ afterEach(async () => {
 
 const createQueue = () => {
   const name = `test-has-job-${randomUUID()}`;
-  const queue = new BullQueue<{ campaignId: number }>({
+  const queue = new BullQueue<{ itemId: number }>({
     concurrency: 1,
     errorMonitor: new DisabledErrorMonitor(),
     jobName: "test",
@@ -38,13 +38,13 @@ const createQueue = () => {
   return queue;
 };
 
-test("a job waiting in the queue is found only by the campaign it is for", async () => {
+test("a job waiting in the queue is found only by the item it is for", async () => {
   const queue = createQueue();
 
-  await queue.add({ campaignId: 1 });
+  await queue.add({ itemId: 1 });
 
-  expect(await queue.hasJob((job) => job.campaignId === 1)).toBe(true);
-  expect(await queue.hasJob((job) => job.campaignId === 2)).toBe(false);
+  expect(await queue.hasJob((job) => job.itemId === 1)).toBe(true);
+  expect(await queue.hasJob((job) => job.itemId === 2)).toBe(false);
   expect((await queue.getCounts()).waiting).toBe(1);
 });
 
@@ -60,14 +60,14 @@ test("a job that is running is found, and one that has finished is not", async (
     await gate;
   });
 
-  await queue.add({ campaignId: 7 });
+  await queue.add({ itemId: 7 });
   for (let attempt = 0; attempt < 200 && !started; attempt += 1) {
     await sleep(25);
   }
 
   expect(started).toBe(true);
   expect((await queue.getCounts()).active).toBe(1);
-  expect(await queue.hasJob((job) => job.campaignId === 7)).toBe(true);
+  expect(await queue.hasJob((job) => job.itemId === 7)).toBe(true);
 
   release();
   for (
@@ -79,7 +79,7 @@ test("a job that is running is found, and one that has finished is not", async (
   }
 
   expect((await queue.getCounts()).completed).toBe(1);
-  expect(await queue.hasJob((job) => job.campaignId === 7)).toBe(false);
+  expect(await queue.hasJob((job) => job.itemId === 7)).toBe(false);
 });
 
 test("a queue with no jobs finds nothing", async () => {
