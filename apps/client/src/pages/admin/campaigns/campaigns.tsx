@@ -45,6 +45,21 @@ export const Campaigns = () => {
     },
   });
 
+  const toggleActive = useMutation({
+    mutationFn: (input: { campaignId: number; isActive: boolean }) =>
+      api.campaign.update(
+        { campaignId: input.campaignId },
+        { isActive: input.isActive },
+      ),
+    onError,
+    onSuccess: async (campaign) => {
+      toast.success(
+        campaign.isActive ? "Campaign activated." : "Campaign deactivated.",
+      );
+      await queryClient.invalidateQueries({ queryKey: ["admin", "campaigns"] });
+    },
+  });
+
   const clearFilters = () =>
     navigate({
       search: (current) => ({ ...current, page: 1, search: undefined }),
@@ -61,7 +76,7 @@ export const Campaigns = () => {
               <Skeleton className="ml-auto h-9 w-36" />
             </div>
             <Skeleton className="h-5 w-24" />
-            <TableSkeleton columns={7} />
+            <TableSkeleton columns={8} />
           </div>
         </CardContent>
       </Card>
@@ -161,8 +176,11 @@ export const Campaigns = () => {
           ) : (
             <CampaignTable
               campaigns={campaigns.data.campaigns}
-              isMutating={remove.isPending}
+              isMutating={remove.isPending || toggleActive.isPending}
               onRemove={(campaignId) => remove.mutate(campaignId)}
+              onToggleActive={(campaignId, isActive) =>
+                toggleActive.mutate({ campaignId, isActive })
+              }
               removingCampaignId={
                 remove.isPending ? remove.variables : undefined
               }

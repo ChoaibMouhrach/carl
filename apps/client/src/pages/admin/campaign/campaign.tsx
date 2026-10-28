@@ -1,10 +1,6 @@
 import { api } from "@/api";
-import { ListPagination } from "@/components/list-pagination";
-import { TableSkeleton } from "@/components/table-skeleton";
 import { onError } from "@/lib/base-api";
 import { invalidateCampaignData } from "@/lib/invalidate";
-import { perPageForUrl, resolvePageSize } from "@/lib/page-size";
-import { useSelection } from "@/lib/use-selection";
 import { adminCampaignRoute } from "@/routes/admin/campaign";
 import {
   Breadcrumb,
@@ -14,25 +10,15 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@repo/ui/components/ui/breadcrumb";
-import { Card, CardContent } from "@repo/ui/components/ui/card";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@repo/ui/components/ui/tabs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { CampaignCommunities } from "./campaign-communities";
 import { CampaignHeader } from "./campaign-header";
-import { CampaignLeads } from "./campaign-leads";
+import { Pipeline } from "./pipeline/pipeline";
 
 export const Campaign = () => {
   const { campaignId } = adminCampaignRoute.useParams();
-  const searchParams = adminCampaignRoute.useSearch();
-  const routeNavigate = adminCampaignRoute.useNavigate();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -41,38 +27,6 @@ export const Campaign = () => {
     queryFn: () => api.campaign.show({ campaignId }),
     placeholderData: (previousData) => previousData,
   });
-
-  const leads = useQuery({
-    queryKey: ["admin", "leads", "campaign", campaignId, searchParams],
-    queryFn: () =>
-      api.lead.list({
-        campaignId,
-        page: searchParams.page,
-        perPage: searchParams.perPage,
-      }),
-    enabled: searchParams.tab === "leads",
-    placeholderData: (previousData) => previousData,
-  });
-
-  const communities = useQuery({
-    queryKey: ["admin", "communities", "campaign", campaignId, searchParams],
-    queryFn: () =>
-      api.community.list({
-        campaignId,
-        page: searchParams.page,
-        perPage: searchParams.perPage,
-      }),
-    enabled: searchParams.tab === "communities",
-    placeholderData: (previousData) => previousData,
-  });
-
-  const leadSelection = useSelection(
-    leads.data?.leads.map((lead) => lead.leadId) ?? [],
-  );
-  const communitySelection = useSelection(
-    communities.data?.communities.map((community) => community.communityId) ??
-      [],
-  );
 
   const removeCampaign = useMutation({
     mutationFn: () => api.campaign.remove({ campaignId }),
@@ -84,33 +38,15 @@ export const Campaign = () => {
     },
   });
 
-  const removeLeads = useMutation({
-    mutationFn: (leadIds: number[]) =>
-      api.campaign.removeLeads({ campaignId }, { leadIds }),
+  const toggleActive = useMutation({
+    mutationFn: (isActive: boolean) =>
+      api.campaign.update({ campaignId }, { isActive }),
     onError,
-    onSuccess: async (result) => {
+    onSuccess: async (updated) => {
       toast.success(
-        result.removed === 1
-          ? "1 lead removed from the campaign."
-          : `${result.removed} leads removed from the campaign.`,
+        updated.isActive ? "Campaign activated." : "Campaign deactivated.",
       );
-      leadSelection.clear();
-      await invalidateCampaignData(queryClient);
-    },
-  });
-
-  const removeCommunities = useMutation({
-    mutationFn: (communityIds: number[]) =>
-      api.campaign.removeCommunities({ campaignId }, { communityIds }),
-    onError,
-    onSuccess: async (result) => {
-      toast.success(
-        result.removed === 1
-          ? "1 community removed from the campaign."
-          : `${result.removed} communities removed from the campaign.`,
-      );
-      communitySelection.clear();
-      await invalidateCampaignData(queryClient);
+      await queryClient.invalidateQueries({ queryKey: ["admin", "campaigns"] });
     },
   });
 
@@ -123,14 +59,12 @@ export const Campaign = () => {
           <Skeleton className="h-5 w-96 max-w-full" />
           <Skeleton className="h-6 w-72" />
         </div>
-        <Card>
-          <CardContent>
-            <div className="space-y-4">
-              <Skeleton className="h-9 w-64" />
-              <TableSkeleton columns={4} />
-            </div>
-          </CardContent>
-        </Card>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => (
+            <Skeleton className="h-16" key={index} />
+          ))}
+        </div>
+        <Skeleton className="h-48" />
       </div>
     );
   }
@@ -138,14 +72,6 @@ export const Campaign = () => {
   if (campaign.isError) {
     throw campaign.error;
   }
-
-  const active = searchParams.tab === "leads" ? leads : communities;
-
-  if (active.isError) {
-    throw active.error;
-  }
-
-  const meta = active.data?.meta;
 
   return (
     <div className="space-y-6">
@@ -167,82 +93,11 @@ export const Campaign = () => {
       <CampaignHeader
         campaign={campaign.data}
         isRemovePending={removeCampaign.isPending}
+        isTogglePending={toggleActive.isPending}
         onRemove={() => removeCampaign.mutate()}
+        onToggleActive={() => toggleActive.mutate(!campaign.data.isActive)}
       />
-      <Card>
-        <CardContent>
-          <Tabs
-            onValueChange={(tab) =>
-              routeNavigate({
-                search: (current) => ({
-                  ...current,
-                  tab: tab === "communities" ? "communities" : "leads",
-                  page: 1,
-                }),
-              })
-            }
-            value={searchParams.tab}
-          >
-            <TabsList>
-              <TabsTrigger value="leads">
-                {`Leads (${campaign.data.leadsCount})`}
-              </TabsTrigger>
-              <TabsTrigger value="communities">
-                {`Communities (${campaign.data.communitiesCount})`}
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="leads">
-              {!leads.data ? (
-                <TableSkeleton columns={4} />
-              ) : (
-                <CampaignLeads
-                  isRemoving={removeLeads.isPending}
-                  leads={leads.data.leads}
-                  onRemove={(leadIds) => removeLeads.mutate(leadIds)}
-                  selection={leadSelection}
-                />
-              )}
-            </TabsContent>
-            <TabsContent value="communities">
-              {!communities.data ? (
-                <TableSkeleton columns={5} />
-              ) : (
-                <CampaignCommunities
-                  communities={communities.data.communities}
-                  isRemoving={removeCommunities.isPending}
-                  onRemove={(communityIds) =>
-                    removeCommunities.mutate(communityIds)
-                  }
-                  selection={communitySelection}
-                />
-              )}
-            </TabsContent>
-          </Tabs>
-          {meta && (
-            <div className="mt-4">
-              <ListPagination
-                currentPage={meta.page}
-                lastPage={meta.lastPage}
-                onPageChange={(page) =>
-                  routeNavigate({
-                    search: (current) => ({ ...current, page }),
-                  })
-                }
-                onPerPageChange={(perPage) =>
-                  routeNavigate({
-                    search: (current) => ({
-                      ...current,
-                      page: 1,
-                      perPage: perPageForUrl(perPage),
-                    }),
-                  })
-                }
-                perPage={resolvePageSize(searchParams.perPage)}
-              />
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <Pipeline campaign={campaign.data} />
     </div>
   );
 };

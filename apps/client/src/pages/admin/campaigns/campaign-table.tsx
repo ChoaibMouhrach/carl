@@ -2,6 +2,7 @@ import { api } from "@/api";
 import { RowActions } from "@/components/row-actions";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
 import { Badge } from "@repo/ui/components/ui/badge";
+import { DropdownMenuItem } from "@repo/ui/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -11,6 +12,7 @@ import {
   TableRow,
 } from "@repo/ui/components/ui/table";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { PauseIcon, PlayIcon } from "lucide-react";
 
 type Campaign = Awaited<
   ReturnType<typeof api.campaign.list>
@@ -20,6 +22,7 @@ interface CampaignTableProps {
   campaigns: Campaign[];
   isMutating: boolean;
   onRemove: (campaignId: number) => void;
+  onToggleActive: (campaignId: number, isActive: boolean) => void;
   removingCampaignId?: number;
 }
 
@@ -27,6 +30,7 @@ export const CampaignTable = ({
   campaigns,
   isMutating,
   onRemove,
+  onToggleActive,
   removingCampaignId,
 }: CampaignTableProps) => {
   const navigate = useNavigate();
@@ -36,6 +40,7 @@ export const CampaignTable = ({
       <TableHeader>
         <TableRow>
           <TableHead>Campaign</TableHead>
+          <TableHead>Status</TableHead>
           <TableHead>Keyword</TableHead>
           <TableHead>Min price</TableHead>
           <TableHead>Min members</TableHead>
@@ -56,7 +61,7 @@ export const CampaignTable = ({
               navigate({
                 to: "/admin/campaigns/$campaignId",
                 params: { campaignId: campaign.campaignId },
-                search: { tab: "leads", page: 1 },
+                search: { step: "scrape", page: 1 },
               })
             }
           >
@@ -66,7 +71,7 @@ export const CampaignTable = ({
                   className="block truncate font-medium hover:underline"
                   onClick={(event) => event.stopPropagation()}
                   params={{ campaignId: campaign.campaignId }}
-                  search={{ tab: "leads", page: 1 }}
+                  search={{ step: "scrape", page: 1 }}
                   to="/admin/campaigns/$campaignId"
                 >
                   {campaign.name}
@@ -75,6 +80,11 @@ export const CampaignTable = ({
                   {campaign.description ?? "No description"}
                 </div>
               </div>
+            </TableCell>
+            <TableCell>
+              <Badge variant={campaign.isActive ? "default" : "outline"}>
+                {campaign.isActive ? "Active" : "Inactive"}
+              </Badge>
             </TableCell>
             <TableCell>
               <Badge variant="outline">{campaign.keyword}</Badge>
@@ -117,6 +127,16 @@ export const CampaignTable = ({
                   />
                 }
                 editLabel="Edit"
+                extraActions={
+                  <DropdownMenuItem
+                    onClick={() =>
+                      onToggleActive(campaign.campaignId, !campaign.isActive)
+                    }
+                  >
+                    {campaign.isActive ? <PauseIcon /> : <PlayIcon />}
+                    {campaign.isActive ? "Deactivate" : "Activate"}
+                  </DropdownMenuItem>
+                }
                 isDeleting={
                   removingCampaignId === campaign.campaignId && isMutating
                 }

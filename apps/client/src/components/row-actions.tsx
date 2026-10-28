@@ -26,6 +26,7 @@ interface RowActionsProps {
   deleteLabel: string;
   deleteTitle: string;
   edit?: React.ReactElement;
+  extraActions?: React.ReactNode;
   editLabel?: string;
   isDeleting: boolean;
   isDisabled: boolean;
@@ -39,6 +40,7 @@ export const RowActions = ({
   deleteLabel,
   deleteTitle,
   edit,
+  extraActions,
   editLabel,
   isDeleting,
   isDisabled,
@@ -77,6 +79,7 @@ export const RowActions = ({
               {editLabel}
             </DropdownMenuItem>
           )}
+          {extraActions}
           <DropdownMenuItem
             onClick={() => setIsDeleteOpen(true)}
             variant="destructive"

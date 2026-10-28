@@ -17,20 +17,24 @@ import { Badge } from "@repo/ui/components/ui/badge";
 import { Button } from "@repo/ui/components/ui/button";
 import { Spinner } from "@repo/ui/components/ui/spinner";
 import { Link } from "@tanstack/react-router";
-import { PencilIcon, Trash2Icon } from "lucide-react";
+import { PauseIcon, PencilIcon, PlayIcon, Trash2Icon } from "lucide-react";
 
 type CampaignDetails = Awaited<ReturnType<typeof api.campaign.show>>;
 
 interface CampaignHeaderProps {
   campaign: CampaignDetails;
   isRemovePending: boolean;
+  isTogglePending: boolean;
   onRemove: () => void;
+  onToggleActive: () => void;
 }
 
 export const CampaignHeader = ({
   campaign,
   isRemovePending,
+  isTogglePending,
   onRemove,
+  onToggleActive,
 }: CampaignHeaderProps) => (
   <header className="flex flex-wrap items-start justify-between gap-4">
     <div className="flex min-w-0 flex-col gap-2">
@@ -39,6 +43,9 @@ export const CampaignHeader = ({
         <AdminPageDescription>{campaign.description}</AdminPageDescription>
       )}
       <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={campaign.isActive ? "default" : "outline"}>
+          {campaign.isActive ? "Active" : "Inactive"}
+        </Badge>
         <Badge variant="outline">{`Searches “${campaign.keyword}”`}</Badge>
         <Badge variant="secondary">
           {!campaign.minPriceCents
@@ -53,6 +60,27 @@ export const CampaignHeader = ({
       </div>
     </div>
     <div className="flex flex-wrap gap-2">
+      <Tip
+        label={
+          campaign.isActive ? "Pause this campaign" : "Resume this campaign"
+        }
+        render={
+          <Button
+            disabled={isTogglePending}
+            onClick={onToggleActive}
+            variant="outline"
+          />
+        }
+      >
+        {isTogglePending ? (
+          <Spinner />
+        ) : campaign.isActive ? (
+          <PauseIcon />
+        ) : (
+          <PlayIcon />
+        )}
+        {campaign.isActive ? "Deactivate" : "Activate"}
+      </Tip>
       <Tip
         label="Change this campaign's search and minimums"
         render={

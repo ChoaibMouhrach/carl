@@ -2,6 +2,7 @@ import { AdminCampaignPage } from "@/pages/admin/campaign/page";
 import { createRoute } from "@tanstack/react-router";
 import { perPageSearchSchema } from "@/lib/page-size";
 import z from "zod";
+import { pipelineStepSchema } from "@/pages/admin/campaign/pipeline/pipeline-step";
 import { adminLayoutRoute } from "./layout";
 
 const paramsSchema = z.object({
@@ -17,7 +18,7 @@ export const adminCampaignRoute = createRoute({
     stringify: ({ campaignId }) => ({ campaignId: String(campaignId) }),
   },
   validateSearch: z.object({
-    tab: z.enum(["leads", "communities"]).catch("leads"),
+    step: pipelineStepSchema.catch("scrape"),
     page: z.coerce.number().int().min(1).catch(1),
     perPage: perPageSearchSchema,
   }),
