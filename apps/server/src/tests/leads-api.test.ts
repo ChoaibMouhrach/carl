@@ -124,6 +124,7 @@ test("creating a lead stores every field", async () => {
     expect(rows[0]).toEqual({
       ...body,
       leadId: created.leadId,
+      enrichedAt: null,
       createdAt: expect.any(Date),
       updatedAt: expect.any(Date),
     });

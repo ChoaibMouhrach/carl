@@ -138,6 +138,7 @@ test("creating, editing and deleting a campaign is stored in the database", asyn
       {
         ...body,
         campaignId: created.campaignId,
+        isActive: true,
         createdAt: expect.any(Date),
         updatedAt: expect.any(Date),
       },
@@ -177,6 +178,7 @@ test("only the name and keyword are required, the rest is stored as empty", asyn
         description: null,
         minPriceCents: null,
         minMembers: null,
+        isActive: true,
         createdAt: expect.any(Date),
         updatedAt: expect.any(Date),
       },

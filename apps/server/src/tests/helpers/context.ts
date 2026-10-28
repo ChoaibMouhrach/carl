@@ -8,6 +8,7 @@ import {
   BaseQueueHub,
   type AddJobOptions,
   type EmailJob,
+  type EnrichJob,
   type FailedJob,
   type ListFailedInput,
   type ListFailedResult,
@@ -26,6 +27,7 @@ import type { AppContext, AuthAppContext } from "@server/app";
 import type { MiddlewareHandler } from "hono";
 import type { Pool } from "pg";
 import { createAuth } from "@server/infrastructure/auth";
+import { DisabledWebSearch } from "@server/infrastructure/web-search/disabled";
 
 export interface LogRecord {
   level: "debug" | "info" | "warn" | "error";
@@ -209,7 +211,7 @@ export class TestQueue<Input> extends BaseQueue<Input> {
     job.attemptsMade += 1;
 
     try {
-      await handler(job.data);
+      await handler(job.data, { isFinalAttempt: false });
       job.status = "completed";
       job.failedReason = null;
     } catch (error) {
@@ -249,6 +251,7 @@ export class TestQueueHub extends BaseQueueHub {
   public email: TestQueue<EmailJob>;
   public maintenance: TestQueue<MaintenanceJob>;
   public scrape: TestQueue<ScrapeJob>;
+  public enrich: TestQueue<EnrichJob>;
 
   public constructor(init: { mailer: BaseMailer }) {
     super();
@@ -263,6 +266,9 @@ export class TestQueueHub extends BaseQueueHub {
     this.scrape = new TestQueue<ScrapeJob>({
       process: async () => {},
     });
+    this.enrich = new TestQueue<EnrichJob>({
+      process: async () => {},
+    });
   }
 
   public override queues(): RegisteredQueue[] {
@@ -270,6 +276,7 @@ export class TestQueueHub extends BaseQueueHub {
       { name: "email", queue: this.email },
       { name: "maintenance", queue: this.maintenance },
       { name: "scrape", queue: this.scrape },
+      { name: "enrich", queue: this.enrich },
     ];
   }
 
@@ -323,5 +330,6 @@ export const createContext = (
     rateLimiter,
     repositories: new Repositories({ dbConnection: { db, pool } }),
     skoolScrapper: new UnconfiguredSkoolScrapper(),
+    webSearch: new DisabledWebSearch(),
   };
 };
