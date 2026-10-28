@@ -414,80 +414,44 @@ test("filters leads and communities by campaign and the chip clears it", async (
   ).toBeVisible();
 });
 
-test("the campaign page lists its members and removes them without deleting them", async ({
+test("the campaign page walks through the pipeline steps and remembers the one you were on", async ({
   page,
   seed,
   id,
 }) => {
   const admin = await seed.createVerifiedAdmin();
   await seed.authenticate(page.context(), admin.email);
-  const keep = await seed.createLead({
-    name: `Keep ${id}`,
-    username: `keep-${id}`,
-  });
-  const drop = await seed.createLead({
-    name: `Drop ${id}`,
-    username: `drop-${id}`,
-  });
-  const community = await seed.createCommunity({
-    leadId: keep.leadId,
-    name: `Detail community ${id}`,
-    slug: `detail-community-${id}`,
-  });
   const campaign = await seed.createCampaign({
     name: campaignName(id),
-    keyword: "detail",
-  });
-  await seed.addLeadsToCampaign({
-    campaignId: campaign.campaignId,
-    leadIds: [keep.leadId, drop.leadId],
-  });
-  await seed.addCommunitiesToCampaign({
-    campaignId: campaign.campaignId,
-    communityIds: [community.communityId],
+    keyword: "pipeline",
   });
 
-  await page.goto(`/admin/campaigns?search=${id}`);
-  await page.getByRole("link", { name: campaignName(id) }).click();
-  await expect(page).toHaveURL(
-    new RegExp(`/admin/campaigns/${campaign.campaignId}`),
-  );
-  await expect(page.getByRole("tab", { name: "Leads (2)" })).toBeVisible();
+  await page.goto(`/admin/campaigns/${campaign.campaignId}`);
   await expect(
-    page.getByRole("tab", { name: "Communities (1)" }),
+    page.getByRole("heading", { name: campaignName(id) }),
   ).toBeVisible();
+  await expect(page.getByRole("tab")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Run scrape" })).toBeVisible();
 
-  await page.getByRole("checkbox", { name: `Select Drop ${id}` }).check();
-  await page.getByRole("button", { name: "Remove 1 lead" }).click();
+  await page.getByRole("button", { name: /Tavily/ }).click();
+  await expect(page.getByText("Waiting for the scrape")).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByText("Waiting for the scrape")).toBeVisible();
+
   await page
-    .getByRole("alertdialog")
-    .getByRole("button", { name: "Remove" })
+    .getByRole("button", { name: /Scrape/ })
+    .first()
     .click();
+  await expect(page.getByRole("button", { name: "Run scrape" })).toBeVisible();
 
-  await expect(page.getByRole("tab", { name: "Leads (1)" })).toBeVisible();
-  expect(await seed.listCampaignLeadIds(campaign.campaignId)).toEqual([
-    keep.leadId,
-  ]);
-  expect(await seed.findLeadByUsername(`drop-${id}`)).not.toBeNull();
-
-  await page.getByRole("tab", { name: /^Communities/ }).click();
-  await expect(page).toHaveURL(/tab=communities/);
+  await page.getByRole("button", { name: /AI filter/ }).click();
+  await expect(page.getByText("AI filter is coming soon")).toBeVisible();
   await page
-    .getByRole("checkbox", { name: `Select Detail community ${id}` })
-    .check();
-  await page.getByRole("button", { name: "Remove 1 community" }).click();
-  await page
-    .getByRole("alertdialog")
-    .getByRole("button", { name: "Remove" })
+    .getByRole("button", { name: /Scrape/ })
+    .first()
     .click();
-
-  await expect(
-    page.getByRole("tab", { name: "Communities (0)" }),
-  ).toBeVisible();
-  expect(await seed.listCampaignCommunityIds(campaign.campaignId)).toEqual([]);
-  expect(
-    await seed.findCommunityBySlug(`detail-community-${id}`),
-  ).not.toBeNull();
+  await expect(page.getByRole("button", { name: "Run scrape" })).toBeVisible();
 });
 
 test("a non-admin cannot create a campaign or change its members", async ({

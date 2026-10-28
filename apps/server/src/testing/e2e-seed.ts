@@ -9,6 +9,7 @@ import {
   campaignsTable,
   communitiesTable,
   leadsTable,
+  pipelineRunsTable,
   sessionTable,
   userTable,
   verificationTable,
@@ -377,6 +378,9 @@ export interface SeedLeadInput {
   email?: string | null;
   bio?: string | null;
   pictureUrl?: string | null;
+  website?: string | null;
+  linkedin?: string | null;
+  enrichedAt?: Date | null;
 }
 
 export const createLead = async (config: SeedConfig, input: SeedLeadInput) =>
@@ -390,6 +394,9 @@ export const createLead = async (config: SeedConfig, input: SeedLeadInput) =>
         email: input.email ?? null,
         bio: input.bio ?? null,
         pictureUrl: input.pictureUrl ?? null,
+        website: input.website ?? null,
+        linkedin: input.linkedin ?? null,
+        enrichedAt: input.enrichedAt ?? null,
       })
       .returning();
 
@@ -631,3 +638,70 @@ export const listCampaignCommunityIds = async (
 
     return rows.map((row) => row.communityId).sort((a, b) => a - b);
   });
+
+export interface SeedPipelineRunInput {
+  campaignId: number;
+  step: "scrape" | "enrich";
+  status?: "running" | "done" | "failed";
+  total?: number;
+  processed?: number;
+  failed?: number;
+  error?: string | null;
+}
+
+export const createPipelineRun = async (
+  config: SeedConfig,
+  input: SeedPipelineRunInput,
+) =>
+  withDb(config, async (db) => {
+    const [run] = await db
+      .insert(pipelineRunsTable)
+      .values({
+        campaignId: input.campaignId,
+        step: input.step,
+        status: input.status,
+        total: input.total,
+        processed: input.processed,
+        failed: input.failed,
+        error: input.error ?? null,
+      })
+      .returning();
+
+    if (!run) {
+      throw new Error(`could not create ${input.step} run`);
+    }
+
+    return run;
+  });
+
+export const updatePipelineRun = async (
+  config: SeedConfig,
+  input: {
+    runId: number;
+    status: "running" | "done" | "failed";
+    processed: number;
+    failed?: number;
+  },
+): Promise<void> =>
+  withDb(config, async (db) => {
+    await db
+      .update(pipelineRunsTable)
+      .set({
+        status: input.status,
+        processed: input.processed,
+        failed: input.failed ?? 0,
+      })
+      .where(eq(pipelineRunsTable.runId, input.runId));
+  });
+
+export const listPipelineRuns = async (
+  config: SeedConfig,
+  campaignId: number,
+) =>
+  withDb(config, async (db) =>
+    db
+      .select()
+      .from(pipelineRunsTable)
+      .where(eq(pipelineRunsTable.campaignId, campaignId))
+      .orderBy(pipelineRunsTable.runId),
+  );

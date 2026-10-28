@@ -11,7 +11,10 @@ import {
   createEmailChangeUrl,
   createLead,
   createLeads,
+  createPipelineRun,
   deleteCampaignsContaining,
+  listPipelineRuns,
+  updatePipelineRun,
   findCampaignByName,
   findCommunityBySlug,
   findLeadByUsername,
@@ -33,6 +36,7 @@ import {
   type CreateVerifiedUserInput,
   type SeedCampaignInput,
   type SeedCommunityInput,
+  type SeedPipelineRunInput,
   type SeedLeadInput,
   type SeededUser,
 } from "@repo/server/testing/e2e-seed";
@@ -52,6 +56,16 @@ interface Seed {
     input: SeedCampaignInput,
   ) => ReturnType<typeof createCampaign>;
   deleteCampaignsContaining: (fragment: string) => Promise<void>;
+  createPipelineRun: (
+    input: SeedPipelineRunInput,
+  ) => ReturnType<typeof createPipelineRun>;
+  updatePipelineRun: (input: {
+    runId: number;
+    status: "running" | "done" | "failed";
+    processed: number;
+    failed?: number;
+  }) => Promise<void>;
+  listPipelineRuns: (campaignId: number) => ReturnType<typeof listPipelineRuns>;
   findCampaignByName: (name: string) => ReturnType<typeof findCampaignByName>;
   listCampaignCommunityIds: (campaignId: number) => Promise<number[]>;
   listCampaignLeadIds: (campaignId: number) => Promise<number[]>;
@@ -126,6 +140,9 @@ export const test = base.extend<{ seed: Seed; resetRateLimits: void }>({
       createCampaign: (input) => createCampaign(config, input),
       deleteCampaignsContaining: (fragment) =>
         deleteCampaignsContaining(config, fragment),
+      createPipelineRun: (input) => createPipelineRun(config, input),
+      updatePipelineRun: (input) => updatePipelineRun(config, input),
+      listPipelineRuns: (campaignId) => listPipelineRuns(config, campaignId),
       findCampaignByName: (name) => findCampaignByName(config, name),
       listCampaignCommunityIds: (campaignId) =>
         listCampaignCommunityIds(config, campaignId),
