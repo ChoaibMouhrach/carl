@@ -145,6 +145,40 @@ export class LeadRepository extends BaseRepository {
     };
   }
 
+  public async findLeadIdsByCampaignId(where: {
+    campaignId: number;
+  }): Promise<number[]> {
+    const rows = await this.db
+      .select({ leadId: campaignLeadsTable.leadId })
+      .from(campaignLeadsTable)
+      .where(eq(campaignLeadsTable.campaignId, where.campaignId));
+
+    return rows.map((row) => row.leadId);
+  }
+
+  /** A lead can be reached when a website or a LinkedIn profile is known */
+  public async countContactableByCampaignId(where: {
+    campaignId: number;
+  }): Promise<number> {
+    const table = LeadRepository.table;
+
+    const rows = await this.db
+      .select({ total: count() })
+      .from(table)
+      .innerJoin(
+        campaignLeadsTable,
+        eq(campaignLeadsTable.leadId, table.leadId),
+      )
+      .where(
+        and(
+          eq(campaignLeadsTable.campaignId, where.campaignId),
+          or(isNotNull(table.website), isNotNull(table.linkedin)),
+        ),
+      );
+
+    return rows.at(0)?.total ?? 0;
+  }
+
   public async create(input: LeadInsert): Promise<Lead> {
     const leads = await this.db
       .insert(LeadRepository.table)

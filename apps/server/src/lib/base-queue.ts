@@ -15,10 +15,22 @@ export interface ScrapeFilters {
   maxMembers?: number;
 }
 
+/** Set when a scrape job belongs to a campaign pipeline run */
+export interface ScrapeRun {
+  runId?: number;
+  campaignId?: number;
+}
+
 export type ScrapeJob =
-  | ({ type: "discover"; search: string } & ScrapeFilters)
-  | { type: "scrape-community"; communityURL: string }
-  | { type: "scrape-lead"; leadURL: string; community: Community };
+  | ({ type: "discover"; search: string } & ScrapeFilters & ScrapeRun)
+  | ({ type: "scrape-community"; communityURL: string } & ScrapeRun)
+  | ({
+      type: "scrape-lead";
+      leadURL: string;
+      community: Community;
+    } & ScrapeRun);
+
+export type EnrichJob = { type: "enrich-lead"; runId: number; leadId: number };
 
 /** A job that retrying cannot fix; the queue fails it for good instead of retrying */
 export class NonRetryableJobError extends Error {
@@ -28,7 +40,15 @@ export class NonRetryableJobError extends Error {
   }
 }
 
-export type QueueConsumer<Input> = (input: Input) => Promise<void>;
+export interface ConsumeMeta {
+  /** True when a failure now will not be retried */
+  isFinalAttempt: boolean;
+}
+
+export type QueueConsumer<Input> = (
+  input: Input,
+  meta: ConsumeMeta,
+) => Promise<void>;
 
 export interface AddJobOptions {
   idempotencyKey?: string;
@@ -102,6 +122,7 @@ export abstract class BaseQueueHub {
   public abstract email: BaseQueue<EmailJob>;
   public abstract maintenance: BaseQueue<MaintenanceJob>;
   public abstract scrape: BaseQueue<ScrapeJob>;
+  public abstract enrich: BaseQueue<EnrichJob>;
 
   public abstract queues(): RegisteredQueue[];
 

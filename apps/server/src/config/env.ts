@@ -46,6 +46,10 @@ const baseSchema = z.object({
   QUEUE_CONCURRENCY: z.coerce.number().int().positive().default(5),
   QUEUE_BACKLOG_THRESHOLD: z.coerce.number().int().positive().default(100),
   SCRAPE_CONCURRENCY: z.coerce.number().int().positive().default(2),
+  ENRICH_CONCURRENCY: z.coerce.number().int().positive().default(2),
+
+  // Web search (Tavily) — optional, enrichment is unavailable without it
+  TAVILY_API_KEY: optional(z.string().nonempty()),
 
   // Mail
   RESEND_API_KEY: z.string().nonempty(),

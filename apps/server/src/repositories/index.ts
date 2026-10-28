@@ -5,6 +5,7 @@ import { HealthRepository } from "./health";
 import { LeadRepository } from "./lead";
 import { CommunityRepository } from "./community";
 import { CampaignRepository } from "./campaign";
+import { PipelineRunRepository } from "./pipeline-run";
 
 interface RepositoriesConstructorProps {
   dbConnection: DBConnection;
@@ -20,6 +21,7 @@ export class Repositories {
   public lead;
   public community;
   public campaign;
+  public pipelineRun;
 
   public constructor({ dbConnection }: RepositoriesConstructorProps) {
     this.pool = dbConnection.pool;
@@ -46,6 +48,10 @@ export class Repositories {
     });
 
     this.campaign = new CampaignRepository({
+      db: dbConnection.db,
+    });
+
+    this.pipelineRun = new PipelineRunRepository({
       db: dbConnection.db,
     });
   }

@@ -10,11 +10,17 @@ export class ScrapeWorker extends BaseWorker {
 
     const scrape = new ScrapeService({ context: this.context });
 
-    await this.context.queueHub.scrape.consume(async (job) => {
+    await this.context.queueHub.scrape.consume(async (job, meta) => {
       try {
         await this.handle(scrape, job);
       } catch (error) {
-        throw this.classify(error);
+        const classified = this.classify(error);
+
+        if (meta.isFinalAttempt || classified instanceof NonRetryableJobError) {
+          await scrape.recordFailure(job, classified);
+        }
+
+        throw classified;
       }
     });
   }

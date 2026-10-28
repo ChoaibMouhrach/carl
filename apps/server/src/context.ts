@@ -18,6 +18,9 @@ import { DisabledErrorMonitor } from "./infrastructure/error-monitor/disabled";
 import { SentryErrorMonitor } from "./infrastructure/error-monitor/sentry";
 import type { BaseSkoolScrapper } from "./lib/base-skool-scrapper";
 import { CustomSkoolScrapper } from "./infrastructure/skool-scrapper/custom";
+import type { BaseWebSearch } from "./lib/base-web-search";
+import { TavilyWebSearch } from "./infrastructure/web-search/tavily";
+import { DisabledWebSearch } from "./infrastructure/web-search/disabled";
 
 export const initContext = async () => {
   const env = initENV();
@@ -67,6 +70,7 @@ export const initContext = async () => {
   const queueHub: BaseQueueHub = new QueueHub({
     concurrency: env.QUEUE_CONCURRENCY,
     scrapeConcurrency: env.SCRAPE_CONCURRENCY,
+    enrichConcurrency: env.ENRICH_CONCURRENCY,
     errorMonitor,
     logger,
     redisUrl: env.REDIS_CONNECTION_STRING,
@@ -81,6 +85,10 @@ export const initContext = async () => {
 
   const skoolScrapper: BaseSkoolScrapper = new CustomSkoolScrapper({ logger });
 
+  const webSearch: BaseWebSearch = env.TAVILY_API_KEY
+    ? new TavilyWebSearch({ apiKey: env.TAVILY_API_KEY })
+    : new DisabledWebSearch();
+
   const auth = createAuth({ db: dbConnection.db, env, queueHub });
 
   return {
@@ -93,6 +101,7 @@ export const initContext = async () => {
     auth,
     errorMonitor,
     skoolScrapper,
+    webSearch,
   };
 };
 

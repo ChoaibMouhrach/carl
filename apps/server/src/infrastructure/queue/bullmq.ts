@@ -7,6 +7,7 @@ import {
   BaseQueueHub,
   type AddJobOptions,
   type EmailJob,
+  type EnrichJob,
   type ListFailedInput,
   type ListFailedResult,
   type MaintenanceJob,
@@ -27,6 +28,9 @@ const maintenanceConcurrency = 1;
 
 const scrapeQueueName = "scrape";
 const scrapeJobName = "run";
+
+const enrichQueueName = "enrich";
+const enrichJobName = "run";
 
 const FAILED_JOB_RETENTION_SECONDS = 60 * 60 * 24 * 7;
 const FAILED_JOB_RETENTION_COUNT = 5_000;
@@ -118,7 +122,9 @@ export class BullQueue<Input> extends BaseQueue<Input> {
       this.name,
       async (job) => {
         try {
-          await consumer(job.data);
+          await consumer(job.data, {
+            isFinalAttempt: job.attemptsMade + 1 >= (job.opts.attempts ?? 1),
+          });
         } catch (error) {
           if (error instanceof NonRetryableJobError) {
             throw new UnrecoverableError(error.message);
@@ -313,20 +319,41 @@ export class ScrapeQueue extends BullQueue<ScrapeJob> {
   }
 }
 
+interface EnrichQueueInit {
+  concurrency: number;
+  errorMonitor: BaseErrorMonitor;
+  logger: BaseLogger;
+  redisUrl: string;
+}
+
+export class EnrichQueue extends BullQueue<EnrichJob> {
+  public constructor(init: EnrichQueueInit) {
+    super({ ...init, jobName: enrichJobName, name: enrichQueueName });
+  }
+}
+
 interface QueueHubInit extends EmailQueueInit {
   scrapeConcurrency: number;
+  enrichConcurrency: number;
 }
 
 export class QueueHub extends BaseQueueHub {
   public email: EmailQueue;
   public maintenance: MaintenanceQueue;
   public scrape: ScrapeQueue;
+  public enrich: EnrichQueue;
 
   public constructor(init: QueueHubInit) {
     super();
     this.email = new EmailQueue(init);
     this.scrape = new ScrapeQueue({
       concurrency: init.scrapeConcurrency,
+      errorMonitor: init.errorMonitor,
+      logger: init.logger,
+      redisUrl: init.redisUrl,
+    });
+    this.enrich = new EnrichQueue({
+      concurrency: init.enrichConcurrency,
       errorMonitor: init.errorMonitor,
       logger: init.logger,
       redisUrl: init.redisUrl,
@@ -343,6 +370,7 @@ export class QueueHub extends BaseQueueHub {
       { name: emailQueueName, queue: this.email },
       { name: maintenanceQueueName, queue: this.maintenance },
       { name: scrapeQueueName, queue: this.scrape },
+      { name: enrichQueueName, queue: this.enrich },
     ];
   }
 
@@ -350,5 +378,6 @@ export class QueueHub extends BaseQueueHub {
     await this.email.close();
     await this.maintenance.close();
     await this.scrape.close();
+    await this.enrich.close();
   }
 }

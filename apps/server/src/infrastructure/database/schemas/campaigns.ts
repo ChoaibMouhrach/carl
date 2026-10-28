@@ -1,4 +1,11 @@
-import { index, integer, pgTable, primaryKey, text } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  integer,
+  pgTable,
+  primaryKey,
+  text,
+} from "drizzle-orm/pg-core";
 import { id, timestamps } from "../utils";
 import { communitiesTable } from "./communities";
 import { leadsTable } from "./leads";
@@ -12,6 +19,7 @@ export const campaignsTable = pgTable("campaigns", {
   keyword: text().notNull(),
   minPriceCents: integer(),
   minMembers: integer(),
+  isActive: boolean().notNull().default(true),
 
   // -- timestamps
   ...timestamps(),

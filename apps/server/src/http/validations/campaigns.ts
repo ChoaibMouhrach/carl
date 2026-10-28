@@ -30,7 +30,9 @@ export const campaignBulkDeleteSchema = z.object({
 
 export const campaignCreateSchema = z.object(campaignFields);
 
-export const campaignUpdateSchema = z.object(campaignFields).partial();
+export const campaignUpdateSchema = z
+  .object({ ...campaignFields, isActive: z.boolean() })
+  .partial();
 
 export const campaignLeadsSchema = z.object({ leadIds: idList });
 

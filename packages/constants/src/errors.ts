@@ -16,6 +16,10 @@ export const serverErrorCodes = [
   "communitySkoolUrlTaken",
   "invalidCommunityPricing",
   "campaignNotFound",
+  "campaignInactive",
+  "pipelineRunInProgress",
+  "scrapeRequired",
+  "enrichmentUnavailable",
 ] as const;
 
 export type ServerErrorCode = (typeof serverErrorCodes)[number];

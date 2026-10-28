@@ -1,18 +1,25 @@
 import { BaseService } from "@server/lib/base-service";
 import type { Community as ScrapedCommunity } from "@server/lib/base-skool-scrapper";
 import type { CommunityInsert } from "@server/infrastructure/database/schemas";
-import type { ScrapeFilters } from "@server/lib/base-queue";
+import type {
+  ScrapeFilters,
+  ScrapeJob,
+  ScrapeRun,
+} from "@server/lib/base-queue";
+import { describeError } from "@server/lib/utils";
 
 interface StartScrapeInput extends ScrapeFilters {
   search: string;
 }
+
+type DiscoverInput = StartScrapeInput & ScrapeRun;
 
 export class ScrapeService extends BaseService {
   public async start(input: StartScrapeInput): Promise<void> {
     await this.context.queueHub.scrape.add({ type: "discover", ...input });
   }
 
-  public async discover(input: StartScrapeInput): Promise<void> {
+  public async discover(input: DiscoverInput): Promise<void> {
     const communities = await this.context.skoolScrapper.discover({
       search: input.search,
     });
@@ -25,28 +32,70 @@ export class ScrapeService extends BaseService {
       { skoolUrls: matching.map((community) => community.communityURL) },
     );
     const storedUrls = new Set(stored.map((community) => community.skoolUrl));
+    const fresh = matching.filter(
+      (community) => !storedUrls.has(community.communityURL),
+    );
+
+    if (input.campaignId !== undefined) {
+      await this.linkToCampaign({
+        campaignId: input.campaignId,
+        leadIds: stored.map((community) => community.leadId),
+        communityIds: stored.map((community) => community.communityId),
+      });
+    }
+
+    // The total is set before any item job exists, so a finished item can never see an unset total
+    if (input.runId !== undefined) {
+      await this.context.repositories.pipelineRun.setTotal({
+        runId: input.runId,
+        total: fresh.length,
+      });
+    }
 
     await Promise.all(
-      matching
-        .filter((community) => !storedUrls.has(community.communityURL))
-        .map(
-          async (community) =>
-            await this.context.queueHub.scrape.add({
-              type: "scrape-community",
-              communityURL: community.communityURL,
-            }),
-        ),
+      fresh.map(
+        async (community) =>
+          await this.context.queueHub.scrape.add({
+            type: "scrape-community",
+            communityURL: community.communityURL,
+            runId: input.runId,
+            campaignId: input.campaignId,
+          }),
+      ),
     );
   }
 
-  public async scrapeCommunity(input: { communityURL: string }): Promise<void> {
-    const about = await this.context.skoolScrapper.about(input);
+  public async recordFailure(job: ScrapeJob, error: unknown): Promise<void> {
+    if (job.runId === undefined) {
+      return;
+    }
+
+    const { pipelineRun } = this.context.repositories;
+
+    if (job.type === "discover") {
+      await pipelineRun.markFailed({
+        runId: job.runId,
+        error: describeError(error),
+      });
+      return;
+    }
+
+    await pipelineRun.incrementProgress({ runId: job.runId, field: "failed" });
+  }
+
+  public async scrapeCommunity(
+    input: { communityURL: string } & ScrapeRun,
+  ): Promise<void> {
+    const about = await this.context.skoolScrapper.about({
+      communityURL: input.communityURL,
+    });
 
     if (!about) {
       void this.context.logger.warn({
         message: "Skool community not found, skipped.",
         communityURL: input.communityURL,
       });
+      await this.finishItem(input);
       return;
     }
 
@@ -56,13 +105,17 @@ export class ScrapeService extends BaseService {
       type: "scrape-lead",
       leadURL,
       community,
+      runId: input.runId,
+      campaignId: input.campaignId,
     });
   }
 
-  public async scrapeLead(input: {
-    leadURL: string;
-    community: ScrapedCommunity;
-  }): Promise<void> {
+  public async scrapeLead(
+    input: {
+      leadURL: string;
+      community: ScrapedCommunity;
+    } & ScrapeRun,
+  ): Promise<void> {
     const lead = await this.context.skoolScrapper.lead({
       leadURL: input.leadURL,
     });
@@ -73,6 +126,7 @@ export class ScrapeService extends BaseService {
         leadURL: input.leadURL,
         communityURL: input.community.communityURL,
       });
+      await this.finishItem(input);
       return;
     }
 
@@ -90,9 +144,59 @@ export class ScrapeService extends BaseService {
         pictureUrl: lead.pictureUrl,
       });
 
-      await tx.community.upsertBySkoolUrl(
+      const community = await tx.community.upsertBySkoolUrl(
         this.toCommunityInsert(input.community, saved.leadId),
       );
+
+      if (input.campaignId !== undefined) {
+        await tx.campaign.addLeads({
+          campaignId: input.campaignId,
+          leadIds: [saved.leadId],
+        });
+        await tx.campaign.addCommunities({
+          campaignId: input.campaignId,
+          communityIds: [community.communityId],
+        });
+      }
+
+      if (input.runId !== undefined) {
+        await tx.pipelineRun.incrementProgress({
+          runId: input.runId,
+          field: "processed",
+        });
+      }
+    });
+  }
+
+  private async finishItem(input: ScrapeRun): Promise<void> {
+    if (input.runId === undefined) {
+      return;
+    }
+
+    await this.context.repositories.pipelineRun.incrementProgress({
+      runId: input.runId,
+      field: "processed",
+    });
+  }
+
+  private async linkToCampaign(input: {
+    campaignId: number;
+    leadIds: number[];
+    communityIds: number[];
+  }): Promise<void> {
+    if (input.communityIds.length === 0) {
+      return;
+    }
+
+    const { campaign } = this.context.repositories;
+
+    await campaign.addLeads({
+      campaignId: input.campaignId,
+      leadIds: [...new Set(input.leadIds)],
+    });
+    await campaign.addCommunities({
+      campaignId: input.campaignId,
+      communityIds: input.communityIds,
     });
   }
 

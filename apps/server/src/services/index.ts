@@ -6,6 +6,7 @@ import { ScrapeService } from "./scrape";
 import { LeadService } from "./lead";
 import { CommunityService } from "./community";
 import { CampaignService } from "./campaign";
+import { PipelineService } from "./pipeline";
 
 interface ServicesConstructorParams {
   context: Context;
@@ -19,6 +20,7 @@ export class Services {
   public lead;
   public community;
   public campaign;
+  public pipeline;
 
   public constructor({ context }: ServicesConstructorParams) {
     this.platformSetup = new PlatformSetupService({
@@ -36,5 +38,7 @@ export class Services {
     this.community = new CommunityService({ context });
 
     this.campaign = new CampaignService({ context });
+
+    this.pipeline = new PipelineService({ context });
   }
 }

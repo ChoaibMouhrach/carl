@@ -84,3 +84,11 @@ export const containsPattern = (text: string) =>
 /** Escapes `%`, `_` and `\` so user input matches literally inside a LIKE pattern */
 export const escapeLike = (value: string) =>
   value.replace(/[\\%_]/g, (character) => `\\${character}`);
+
+const MAX_ERROR_LENGTH = 500;
+
+export const describeError = (error: unknown): string => {
+  const message = error instanceof Error ? error.message : "Unknown error";
+
+  return message.slice(0, MAX_ERROR_LENGTH);
+};

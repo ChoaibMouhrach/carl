@@ -165,4 +165,49 @@ export const campaignController = new Hono<AppContext>()
 
       return context.json(result);
     },
+  )
+
+  .get(
+    "/:campaignId/pipeline",
+    describeRoute({ tags: ["campaigns"] }),
+    validator("param", campaignParamSchema),
+    async (context) => {
+      const { campaignId } = context.req.valid("param");
+
+      const pipeline = await context
+        .get("services")
+        .pipeline.get({ campaignId });
+
+      return context.json(pipeline);
+    },
+  )
+
+  .post(
+    "/:campaignId/pipeline/scrape",
+    describeRoute({ tags: ["campaigns"] }),
+    validator("param", campaignParamSchema),
+    async (context) => {
+      const { campaignId } = context.req.valid("param");
+
+      const run = await context
+        .get("services")
+        .pipeline.startScrape({ campaignId });
+
+      return context.json(run, 202);
+    },
+  )
+
+  .post(
+    "/:campaignId/pipeline/enrich",
+    describeRoute({ tags: ["campaigns"] }),
+    validator("param", campaignParamSchema),
+    async (context) => {
+      const { campaignId } = context.req.valid("param");
+
+      const run = await context
+        .get("services")
+        .pipeline.startEnrich({ campaignId });
+
+      return context.json(run, 202);
+    },
   );
