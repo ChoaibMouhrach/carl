@@ -447,8 +447,9 @@ test("the campaign page walks through the pipeline steps and remembers the one y
     .click();
   await expect(page.getByRole("button", { name: "Run scrape" })).toBeVisible();
 
-  await page.getByRole("button", { name: /AI filter/ }).click();
-  await expect(page.getByText("AI filter is coming soon")).toBeVisible();
+  await page.getByRole("button", { name: /FullEnrich/ }).click();
+  await expect(page).toHaveURL(/step=fullenrich/);
+  await expect(page.getByText("Waiting for Tavily")).toBeVisible();
   await page
     .getByRole("button", { name: /Scrape/ })
     .first()

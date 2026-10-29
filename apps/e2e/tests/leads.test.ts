@@ -1,4 +1,5 @@
 import { test, expect } from "../fixtures";
+import { faker } from "@faker-js/faker";
 import { API_URL } from "../config";
 import { expectRequired, field, rowActions, token } from "./support";
 
@@ -445,3 +446,79 @@ test("deleting a lead from its sheet removes the lead and its communities", asyn
     await seed.findCommunityBySlug(`sheet-doomed-community-${id}`),
   ).toBeNull();
 });
+
+for (const view of ["table", "cards"]) {
+  test(`shows distinct work, personal and found emails and searches enriched addresses in ${view} view`, async ({
+    page,
+    seed,
+  }) => {
+    const admin = await seed.createVerifiedAdmin();
+    await seed.authenticate(page.context(), admin.email);
+    const id = faker.string.uuid();
+    const workEmail = `work-${id}@example.com`;
+    const personalEmail = `personal-${id}@example.com`;
+    const foundEmail = `found-${id}@example.com`;
+    const lead = await seed.createLead({
+      name: `Emails ${id}`,
+      username: `emails-${id}`,
+      email: foundEmail,
+      workEmail,
+      personalEmail,
+    });
+    await seed.createLead({
+      name: `Duplicate ${id}`,
+      username: `duplicate-${id}`,
+      email: workEmail,
+      workEmail,
+      personalEmail: workEmail,
+    });
+    await page.goto(`/admin/leads?search=${id}`);
+    await page
+      .getByRole("button", {
+        name: view === "table" ? "Table view" : "Card view",
+        exact: true,
+      })
+      .click();
+
+    await expect(
+      page.getByRole("link", { name: workEmail, exact: true }),
+    ).toHaveCount(2);
+    await expect(
+      page.getByRole("link", { name: personalEmail, exact: true }),
+    ).toHaveAttribute("href", `mailto:${personalEmail}`);
+    await expect(
+      page.getByRole("link", { name: foundEmail, exact: true }),
+    ).toHaveAttribute("href", `mailto:${foundEmail}`);
+    await expect(page.getByText("Work", { exact: true })).toHaveCount(2);
+    await expect(page.getByText("Personal", { exact: true })).toHaveCount(1);
+    await expect(page.getByText("Found", { exact: true })).toHaveCount(1);
+
+    await page.locator("#lead-search").fill(personalEmail);
+    await expect(
+      page.getByRole("checkbox", { name: `Select ${lead.name}`, exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("checkbox", {
+        name: `Select Duplicate ${id}`,
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    await page.reload();
+    await expect(page.locator("#lead-search")).toHaveValue(personalEmail);
+    await expect(
+      page.getByRole("checkbox", { name: `Select ${lead.name}`, exact: true }),
+    ).toBeVisible();
+    await page.locator("#lead-search").fill(workEmail);
+    await expect(
+      page.getByRole("checkbox", {
+        name: `Select Duplicate ${id}`,
+        exact: true,
+      }),
+    ).toBeVisible();
+    expect(await seed.findLeadByUsername(lead.username)).toMatchObject({
+      email: foundEmail,
+      workEmail,
+      personalEmail,
+    });
+  });
+}
