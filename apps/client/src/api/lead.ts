@@ -1,3 +1,4 @@
+import type { CampaignPipelineStep } from "@repo/constants/pipeline";
 import type { InferRequestType } from "hono/client";
 import { BaseApi } from "@/lib/base-api";
 import { http } from "@/lib/http";
@@ -19,6 +20,7 @@ export class LeadApi extends BaseApi {
     search?: string;
     hasEmail?: boolean;
     campaignId?: number;
+    pipelineStep?: CampaignPipelineStep;
     sort?: LeadSort;
     order?: "asc" | "desc";
   }) {
@@ -30,6 +32,7 @@ export class LeadApi extends BaseApi {
           search: query?.search,
           hasEmail: query?.hasEmail?.toString(),
           campaignId: query?.campaignId?.toString(),
+          pipelineStep: query?.pipelineStep,
           sort: query?.sort,
           order: query?.order,
         },

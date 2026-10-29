@@ -1,3 +1,4 @@
+import type { CampaignPipelineStep } from "@repo/constants/pipeline";
 import { BaseService } from "@server/lib/base-service";
 import { ConflictError, NotFoundError } from "@server/lib/errors";
 import type { LeadInsert } from "@server/infrastructure/database/schemas";
@@ -8,6 +9,7 @@ interface ListLeadsInput {
   search?: string;
   hasEmail?: boolean;
   campaignId?: number;
+  pipelineStep?: CampaignPipelineStep;
   sort: "name" | "username" | "createdAt";
   order: "asc" | "desc";
 }
@@ -16,16 +18,22 @@ type CreateLeadInput = Omit<LeadInsert, "leadId" | "createdAt" | "updatedAt">;
 
 export class LeadService extends BaseService {
   public async list(input: ListLeadsInput) {
-    const { leads, total } = await this.context.repositories.lead.list({
-      search: input.search,
-      hasEmail: input.hasEmail,
-      campaignId: input.campaignId,
-      sort: input.sort,
-      order: input.order,
-      limit: input.perPage,
-      offset: (input.page - 1) * input.perPage,
-    });
+    const { pipelineStep } = input;
+    const result =
+      pipelineStep === "ai-filter" || pipelineStep === "accepted"
+        ? { leads: [], total: 0 }
+        : await this.context.repositories.lead.list({
+            search: input.search,
+            hasEmail: input.hasEmail,
+            campaignId: input.campaignId,
+            pipelineStep,
+            sort: input.sort,
+            order: input.order,
+            limit: input.perPage,
+            offset: (input.page - 1) * input.perPage,
+          });
 
+    const { leads, total } = result;
     return {
       leads,
       meta: {

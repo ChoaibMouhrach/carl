@@ -1,0 +1,63 @@
+import { adminCampaignRoute } from "@/routes/admin/campaign";
+import { LeadList } from "../leads/leads";
+
+interface CampaignLeadsProps {
+  refetchInterval: number | false;
+}
+
+export const CampaignLeads = ({ refetchInterval }: CampaignLeadsProps) => {
+  const { campaignId } = adminCampaignRoute.useParams();
+  const searchParams = adminCampaignRoute.useSearch();
+  const navigate = adminCampaignRoute.useNavigate();
+  const emptyDescriptions = {
+    scrape: "Run the scrape to collect leads for this campaign.",
+    tavily: "Run enrichment to find leads with a website or LinkedIn profile.",
+    "ai-filter": "No leads have been classified. AI filtering is coming soon.",
+    accepted: "No leads have been accepted. AI filtering is coming soon.",
+  };
+
+  return (
+    <section className="space-y-4">
+      <h2 className="text-lg font-semibold">Leads</h2>
+      <LeadList
+        campaignId={campaignId}
+        pipelineStep={searchParams.step}
+        emptyDescription={emptyDescriptions[searchParams.step]}
+        refetchInterval={refetchInterval}
+        searchParams={{
+          page: searchParams.page,
+          perPage: searchParams.perPage,
+          search: searchParams.search,
+          hasEmail: searchParams.hasEmail,
+          sort: searchParams.sort,
+          order: searchParams.order,
+          campaignId: undefined,
+        }}
+        navigate={({ search }) =>
+          navigate({
+            search: (current) => {
+              const next = search({
+                page: current.page,
+                perPage: current.perPage,
+                search: current.search,
+                hasEmail: current.hasEmail,
+                sort: current.sort,
+                order: current.order,
+                campaignId: undefined,
+              });
+              return {
+                ...current,
+                page: next.page,
+                perPage: next.perPage,
+                search: next.search,
+                hasEmail: next.hasEmail,
+                sort: next.sort,
+                order: next.order,
+              };
+            },
+          })
+        }
+      />
+    </section>
+  );
+};

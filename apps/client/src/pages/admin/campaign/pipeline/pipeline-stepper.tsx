@@ -54,9 +54,7 @@ export const PipelineStepper = ({
       id: "scrape",
       title: "Scrape",
       description:
-        scrapeCount === null
-          ? "Find communities on Skool"
-          : `${scrapeCount} communities`,
+        scrapeCount === null ? "Find leads on Skool" : `${scrapeCount} leads`,
       badge: statusBadge[scrapeStatus],
     },
     {
@@ -73,7 +71,7 @@ export const PipelineStepper = ({
     {
       id: "ai-filter",
       title: "AI filter",
-      description: "Classify each community",
+      description: "Classify each lead",
       badge: soonBadge,
     },
     {

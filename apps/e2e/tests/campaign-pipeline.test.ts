@@ -62,7 +62,7 @@ const seedCommunities = async (
   return { leadIds, communityIds };
 };
 
-test("a campaign that never ran offers a scrape and lists no communities", async ({
+test("a campaign that never ran offers a scrape and lists no leads", async ({
   page,
   seed,
   id,
@@ -73,32 +73,33 @@ test("a campaign that never ran offers a scrape and lists no communities", async
 
   await expect(page.getByRole("button", { name: "Run scrape" })).toBeEnabled();
   await expect(stepper(page, "Scrape")).toContainText("Ready");
-  await expect(page.getByText("No communities yet")).toBeVisible();
+  await expect(page.getByText("No leads yet", { exact: true })).toBeVisible();
   expect(await seed.listPipelineRuns(campaign.campaignId)).toHaveLength(0);
 });
 
-test("a finished scrape shows its communities, the count on the stepper and offers a rerun", async ({
+test("a finished scrape shows its leads, the count on the stepper and offers a rerun", async ({
   page,
   seed,
   id,
 }) => {
   const { campaign, open } = await openCampaign(page, seed, id);
-  await seedCommunities(seed, campaign.campaignId, id, 3);
+  const { leadIds } = await seedCommunities(seed, campaign.campaignId, id, 3);
   await seed.createPipelineRun({
     campaignId: campaign.campaignId,
     step: "scrape",
     status: "done",
     total: 3,
     processed: 3,
+    results: leadIds.map((leadId) => ({ leadId })),
   });
 
   await open();
 
-  await expect(stepper(page, "Scrape")).toContainText("3 communities");
+  await expect(stepper(page, "Scrape")).toContainText("3 leads");
   await expect(stepper(page, "Scrape")).toContainText("Done");
   for (const index of [1, 2, 3]) {
     await expect(
-      page.getByRole("link", { name: `Community ${id} ${index}` }),
+      page.getByRole("link", { name: `Owner ${id} ${index}`, exact: true }),
     ).toBeVisible();
   }
   await expect(page.getByRole("button", { name: "Run again" })).toBeEnabled();
@@ -136,13 +137,14 @@ test("a run that finishes while the page is open updates the progress, the stepp
   id,
 }) => {
   const { campaign, open } = await openCampaign(page, seed, id);
-  await seedCommunities(seed, campaign.campaignId, id, 4);
+  const { leadIds } = await seedCommunities(seed, campaign.campaignId, id, 4);
   const run = await seed.createPipelineRun({
     campaignId: campaign.campaignId,
     step: "scrape",
     status: "running",
     total: 4,
     processed: 1,
+    results: leadIds.map((leadId) => ({ leadId })),
   });
   await open();
   await expect(page.getByText("1 of 4 communities")).toBeVisible();
@@ -157,7 +159,7 @@ test("a run that finishes while the page is open updates the progress, the stepp
     timeout: 10_000,
   });
   await expect(stepper(page, "Scrape")).toContainText("Done");
-  await expect(stepper(page, "Scrape")).toContainText("4 communities");
+  await expect(stepper(page, "Scrape")).toContainText("4 leads");
   await expect(page.getByRole("button", { name: "Run again" })).toBeEnabled();
   const [stored] = await seed.listPipelineRuns(campaign.campaignId);
   expect(stored).toMatchObject({ status: "done", processed: 4 });
@@ -294,12 +296,12 @@ test("an inactive campaign cannot run its pipeline, and activating it again can"
     .toBe(true);
 });
 
-test("the tavily step lists every lead with its research status and counts the contactable ones", async ({
+test("pipeline steps fetch their own leads through the same searchable card", async ({
   page,
   seed,
   id,
 }) => {
-  const { campaign, open } = await openCampaign(page, seed, id, "?step=tavily");
+  const { campaign, open } = await openCampaign(page, seed, id);
   const enrichedAt = new Date();
   const leads = [
     { name: `Site ${id}`, website: "https://site.example.com", enrichedAt },
@@ -309,9 +311,11 @@ test("the tavily step lists every lead with its research status and counts the c
   ];
   const created = [];
   for (const [index, lead] of leads.entries()) {
-    created.push(
-      await seed.createLead({ ...lead, username: `lead-${id}-${index}` }),
-    );
+    const stored = await seed.createLead({
+      ...lead,
+      username: `lead-${id}-${index}`,
+    });
+    created.push(stored);
   }
   await seed.addLeadsToCampaign({
     campaignId: campaign.campaignId,
@@ -321,6 +325,7 @@ test("the tavily step lists every lead with its research status and counts the c
     campaignId: campaign.campaignId,
     step: "scrape",
     status: "done",
+    results: created.map((lead) => ({ leadId: lead.leadId })),
   });
   await seed.createPipelineRun({
     campaignId: campaign.campaignId,
@@ -328,19 +333,68 @@ test("the tavily step lists every lead with its research status and counts the c
     status: "done",
     total: 4,
     processed: 4,
+    results: created
+      .filter((lead) => lead.enrichedAt !== null)
+      .map((lead) => ({
+        leadId: lead.leadId,
+        website: lead.website,
+        linkedin: lead.linkedin,
+        email: lead.email,
+      })),
   });
-
   await open();
+  const leadLink = (name: string) =>
+    page.getByRole("link", { name: `${name} ${id}`, exact: true });
+  await expect(leadLink("Waiting")).toBeVisible();
+  await expect(leadLink("Mail")).toBeVisible();
 
-  await expect(page.getByText("4 leads, 2 contactable")).toBeVisible();
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(
+    (url) =>
+      url.pathname === "/api/leads" &&
+      url.searchParams.get("pipelineStep") === "tavily",
+    async (route) => {
+      await gate;
+      await route.continue();
+    },
+  );
+  await stepper(page, "Tavily").click();
+  await expect(page).toHaveURL(/step=tavily/);
+  await expect(page.locator('[data-slot="skeleton"]').first()).toBeVisible();
+  await expect(leadLink("Waiting")).toHaveCount(0);
+  release();
+  await expect(leadLink("Site")).toBeVisible();
+  await expect(leadLink("Linked")).toBeVisible();
+  await expect(leadLink("Mail")).toHaveCount(0);
+  await expect(leadLink("Waiting")).toHaveCount(0);
   await expect(stepper(page, "Tavily")).toContainText("2 contactable");
-  const row = (name: string) =>
-    page.getByRole("row").filter({ hasText: `${name} ${id}` });
-  await expect(row("Site")).toContainText("Contactable");
-  await expect(row("Linked")).toContainText("Contactable");
-  await expect(row("Mail")).toContainText("No contact");
-  await expect(row("Waiting")).toContainText("Pending");
-  await expect(page.getByRole("button", { name: "Run again" })).toBeVisible();
+
+  await page.locator("#lead-search").fill(`Site ${id}`);
+  await expect(page).toHaveURL(/search=Site/);
+  await expect(leadLink("Site")).toBeVisible();
+  await expect(leadLink("Linked")).toHaveCount(0);
+  await page.reload();
+  await expect(leadLink("Site")).toBeVisible();
+  await expect(leadLink("Linked")).toHaveCount(0);
+  await page.locator("#lead-search").fill("");
+  await expect(leadLink("Linked")).toBeVisible();
+
+  await stepper(page, "AI filter").click();
+  await expect(page).toHaveURL(/step=ai-filter/);
+  await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
+  await expect(leadLink("Site")).toHaveCount(0);
+  await expect(page.locator("#lead-search")).toBeVisible();
+  await stepper(page, "Accepted").click();
+  await expect(page).toHaveURL(/step=accepted/);
+  await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
+  await expect(leadLink("Site")).toHaveCount(0);
+  await expect(page.locator("#lead-search")).toBeVisible();
+  await stepper(page, "Scrape").click();
+  await expect(leadLink("Waiting")).toBeVisible();
+  await expect(leadLink("Mail")).toBeVisible();
 });
 
 test("a running enrichment shows the leads done so far and cannot be started again", async ({
@@ -391,16 +445,21 @@ test("shows a skeleton while the pipeline loads", async ({
 }) => {
   const { campaign, open } = await openCampaign(page, seed, id);
 
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   await page.route(
     (url) => url.pathname === `/api/campaigns/${campaign.campaignId}/pipeline`,
     async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 600));
+      await gate;
       await route.continue();
     },
   );
   await open();
 
   await expect(page.locator('[data-slot="skeleton"]').first()).toBeVisible();
+  release();
   await expect(page.getByRole("button", { name: "Run scrape" })).toBeVisible();
   await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
 });
@@ -438,4 +497,50 @@ test("deleting a campaign from its page removes its pipeline runs and keeps its 
   expect(await seed.listPipelineRuns(campaign.campaignId)).toEqual([]);
   expect(await seed.countLeadsWithPrefix(`owner-${id}`)).toBe(leadIds.length);
   expect(await seed.countCommunitiesWithPrefix(`community-${id}`)).toBe(2);
+});
+
+test("an idle campaign page discovers a run started elsewhere and refreshes its leads", async ({
+  page,
+  seed,
+  id,
+}) => {
+  const { campaign, open } = await openCampaign(page, seed, id);
+  await open();
+  await expect(page.getByRole("button", { name: "Run scrape" })).toBeEnabled();
+  await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
+  const lead = await seed.createLead({
+    name: `External ${id}`,
+    username: `external-${id}`,
+  });
+  await seed.addLeadsToCampaign({
+    campaignId: campaign.campaignId,
+    leadIds: [lead.leadId],
+  });
+  const run = await seed.createPipelineRun({
+    campaignId: campaign.campaignId,
+    step: "scrape",
+    status: "running",
+    total: 2,
+    processed: 1,
+    results: [{ leadId: lead.leadId }],
+  });
+  await expect(stepper(page, "Scrape")).toContainText("Running", {
+    timeout: 15_000,
+  });
+  await expect(
+    page.getByRole("link", { name: lead.name, exact: true }),
+  ).toBeVisible();
+  await seed.updatePipelineRun({
+    runId: run.runId,
+    status: "done",
+    processed: 1,
+    failed: 1,
+  });
+  await expect(stepper(page, "Scrape")).toContainText("Done", {
+    timeout: 10_000,
+  });
+  const stored = await seed.listPipelineRuns(campaign.campaignId);
+  expect(stored).toMatchObject([
+    { runId: run.runId, status: "done", processed: 1, failed: 1 },
+  ]);
 });

@@ -2,6 +2,9 @@ import type { DB } from "@server/infrastructure/database/client";
 import {
   campaignsTable,
   pipelineRunsTable,
+  pipelineItemsTable,
+  type PipelineItemInsert,
+  type Lead,
   type CampaignInsert,
   type PipelineRunInsert,
 } from "@server/infrastructure/database/schemas";
@@ -88,7 +91,10 @@ export const insertCampaign = async (
 };
 
 export const insertRun = async (db: DB, values: PipelineRunInsert) => {
-  const [run] = await db.insert(pipelineRunsTable).values(values).returning();
+  const [run] = await db
+    .insert(pipelineRunsTable)
+    .values({ itemsReady: values.status === "done", ...values })
+    .returning();
 
   if (!run) {
     throw new Error("The pipeline run was not inserted.");
@@ -99,3 +105,24 @@ export const insertRun = async (db: DB, values: PipelineRunInsert) => {
 
 export const runRows = async (db: DB) =>
   await db.select().from(pipelineRunsTable);
+
+export const insertRunResults = async (
+  db: DB,
+  runId: number,
+  leads: Pick<Lead, "leadId" | "website" | "linkedin" | "email">[],
+) => {
+  if (leads.length === 0) return;
+  await db.insert(pipelineItemsTable).values(
+    leads.map(
+      (lead): PipelineItemInsert => ({
+        runId,
+        itemKey: `lead:${lead.leadId}`,
+        leadId: lead.leadId,
+        status: "processed",
+        website: lead.website,
+        linkedin: lead.linkedin,
+        email: lead.email,
+      }),
+    ),
+  );
+};

@@ -14,16 +14,16 @@ const emailOptions: { value: EmailFilter; label: string }[] = [
 
 interface LeadFiltersProps {
   campaignId?: number;
-  campaigns: CampaignOption[];
-  onCampaignChange: (campaignId: number | undefined) => void;
-  createAction: React.ReactNode;
+  campaigns?: CampaignOption[];
+  onCampaignChange?: (campaignId: number | undefined) => void;
+  createAction?: React.ReactNode;
   hasEmail?: boolean;
   onHasEmailChange: (hasEmail: boolean | undefined) => void;
   onSearch: (search: string | undefined) => void;
   onSortChange: (value: string) => void;
   search?: string;
   sort: string;
-  viewSwitch: React.ReactNode;
+  viewSwitch?: React.ReactNode;
 }
 
 export const LeadFilters = ({
@@ -58,11 +58,13 @@ export const LeadFilters = ({
         options={emailOptions}
         value={emailValue}
       />
-      <CampaignFilter
-        campaignId={campaignId}
-        campaigns={campaigns}
-        onChange={onCampaignChange}
-      />
+      {campaigns && onCampaignChange && (
+        <CampaignFilter
+          campaignId={campaignId}
+          campaigns={campaigns}
+          onChange={onCampaignChange}
+        />
+      )}
       <FilterSelect
         label="Sort by"
         onChange={onSortChange}

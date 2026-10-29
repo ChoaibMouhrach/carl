@@ -17,7 +17,11 @@ export class EnrichWorker extends BaseWorker {
         const classified = this.classify(error);
 
         if (meta.isFinalAttempt || classified instanceof NonRetryableJobError) {
-          await enrich.recordFailure({ runId: job.runId, error: classified });
+          await enrich.recordFailure({
+            runId: job.runId,
+            leadId: job.leadId,
+            error: classified,
+          });
         }
 
         throw classified;

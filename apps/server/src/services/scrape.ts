@@ -1,3 +1,4 @@
+import { PipelineProgressService } from "./pipeline-progress";
 import { BaseService } from "@server/lib/base-service";
 import type { Community as ScrapedCommunity } from "@server/lib/base-skool-scrapper";
 import type { CommunityInsert } from "@server/infrastructure/database/schemas";
@@ -20,13 +21,46 @@ export class ScrapeService extends BaseService {
   }
 
   public async discover(input: DiscoverInput): Promise<void> {
+    if (input.runId !== undefined) {
+      const run = await this.context.repositories.pipelineRun.findByRunId({
+        runId: input.runId,
+      });
+      if (!run) return;
+      if (run.itemsReady) {
+        const items = await this.context.repositories.pipelineRun.findItems({
+          runId: input.runId,
+        });
+        if (
+          run.status === "done" &&
+          items.every((item) => item.status === "processed")
+        )
+          return;
+        const runId = input.runId;
+        await this.context.repositories.transaction(async ({ tx }) => {
+          await tx.pipelineRun.lockByRunId({ runId });
+          await tx.pipelineRun.initializeItems({ runId, total: items.length });
+          await tx.pipelineRun.refreshProgress({ runId });
+        });
+        await this.queueCommunities(
+          input,
+          items
+            .filter((item) => item.status !== "processed")
+            .map((item) => item.itemKey),
+        );
+        return;
+      }
+    }
     const communities = await this.context.skoolScrapper.discover({
       search: input.search,
     });
 
-    const matching = communities.filter((community) =>
-      this.matchesFilters(community, input),
-    );
+    const matching = [
+      ...new Map(
+        communities
+          .filter((community) => this.matchesFilters(community, input))
+          .map((community) => [community.communityURL, community]),
+      ).values(),
+    ];
 
     const stored = await this.context.repositories.community.findAllBySkoolUrls(
       { skoolUrls: matching.map((community) => community.communityURL) },
@@ -44,23 +78,61 @@ export class ScrapeService extends BaseService {
       });
     }
 
-    // The total is set before any item job exists, so a finished item can never see an unset total
-    if (input.runId !== undefined) {
-      await this.context.repositories.pipelineRun.setTotal({
-        runId: input.runId,
-        total: fresh.length,
+    const runId = input.runId;
+    if (runId !== undefined) {
+      await this.context.repositories.transaction(async ({ tx }) => {
+        const run = await tx.pipelineRun.lockByRunId({ runId });
+        if (!run || run.itemsReady) return;
+        await tx.pipelineRun.createItems({
+          runId,
+          itemKeys: matching.map((community) => community.communityURL),
+        });
+        await tx.pipelineRun.initializeItems({
+          runId,
+          total: matching.length,
+        });
       });
+      for (const community of stored) {
+        await new PipelineProgressService({ context: this.context }).complete(
+          {
+            runId: input.runId,
+            itemKey: community.skoolUrl,
+            status: "processed",
+          },
+          async () => ({ leadId: community.leadId }),
+        );
+      }
     }
+    const pendingItems =
+      runId === undefined
+        ? null
+        : await this.context.repositories.pipelineRun.findItems({ runId });
+    await this.queueCommunities(
+      input,
+      pendingItems === null
+        ? fresh.map((community) => community.communityURL)
+        : pendingItems
+            .filter((item) => item.status !== "processed")
+            .map((item) => item.itemKey),
+    );
+  }
 
+  private async queueCommunities(input: ScrapeRun, urls: string[]) {
     await Promise.all(
-      fresh.map(
-        async (community) =>
-          await this.context.queueHub.scrape.add({
+      urls.map((communityURL) =>
+        this.context.queueHub.scrape.add(
+          {
             type: "scrape-community",
-            communityURL: community.communityURL,
+            communityURL,
             runId: input.runId,
             campaignId: input.campaignId,
-          }),
+          },
+          input.runId === undefined
+            ? undefined
+            : {
+                idempotencyKey: `scrape-${input.runId}-${encodeURIComponent(communityURL)}`,
+              },
+        ),
       ),
     );
   }
@@ -80,7 +152,15 @@ export class ScrapeService extends BaseService {
       return;
     }
 
-    await pipelineRun.incrementProgress({ runId: job.runId, field: "failed" });
+    await new PipelineProgressService({ context: this.context }).complete({
+      runId: job.runId,
+      itemKey:
+        job.type === "scrape-community"
+          ? job.communityURL
+          : job.community.communityURL,
+      status: "failed",
+      error: describeError(error),
+    });
   }
 
   public async scrapeCommunity(
@@ -95,7 +175,7 @@ export class ScrapeService extends BaseService {
         message: "Skool community not found, skipped.",
         communityURL: input.communityURL,
       });
-      await this.finishItem(input);
+      await this.finishItem(input, input.communityURL);
       return;
     }
 
@@ -126,56 +206,56 @@ export class ScrapeService extends BaseService {
         leadURL: input.leadURL,
         communityURL: input.community.communityURL,
       });
-      await this.finishItem(input);
+      await this.finishItem(input, input.community.communityURL);
       return;
     }
 
-    await this.context.repositories.transaction(async ({ tx }) => {
-      const saved = await tx.lead.upsertBySkoolUrl({
-        name: lead.name,
-        username: lead.username,
-        skoolUrl: lead.leadURL,
-        bio: lead.bio,
-        instagram: lead.instagram,
-        facebook: lead.facebook,
-        linkedin: lead.linkedin,
-        website: lead.website,
-        email: lead.email,
-        pictureUrl: lead.pictureUrl,
-      });
-
-      const community = await tx.community.upsertBySkoolUrl(
-        this.toCommunityInsert(input.community, saved.leadId),
-      );
-
-      if (input.campaignId !== undefined) {
-        await tx.campaign.addLeads({
-          campaignId: input.campaignId,
-          leadIds: [saved.leadId],
+    await new PipelineProgressService({ context: this.context }).complete(
+      {
+        runId: input.runId,
+        itemKey: input.community.communityURL,
+        status: "processed",
+      },
+      async (tx) => {
+        const saved = await tx.lead.upsertBySkoolUrl({
+          name: lead.name,
+          username: lead.username,
+          skoolUrl: lead.leadURL,
+          bio: lead.bio,
+          instagram: lead.instagram,
+          facebook: lead.facebook,
+          linkedin: lead.linkedin,
+          website: lead.website,
+          email: lead.email,
+          pictureUrl: lead.pictureUrl,
         });
-        await tx.campaign.addCommunities({
-          campaignId: input.campaignId,
-          communityIds: [community.communityId],
-        });
-      }
 
-      if (input.runId !== undefined) {
-        await tx.pipelineRun.incrementProgress({
-          runId: input.runId,
-          field: "processed",
-        });
-      }
-    });
+        const community = await tx.community.upsertBySkoolUrl(
+          this.toCommunityInsert(input.community, saved.leadId),
+        );
+
+        if (input.campaignId !== undefined) {
+          await tx.campaign.addLeads({
+            campaignId: input.campaignId,
+            leadIds: [saved.leadId],
+          });
+          await tx.campaign.addCommunities({
+            campaignId: input.campaignId,
+            communityIds: [community.communityId],
+          });
+        }
+
+        return { leadId: saved.leadId };
+      },
+    );
   }
 
-  private async finishItem(input: ScrapeRun): Promise<void> {
-    if (input.runId === undefined) {
-      return;
-    }
-
-    await this.context.repositories.pipelineRun.incrementProgress({
+  private async finishItem(input: ScrapeRun, itemKey: string): Promise<void> {
+    if (input.runId === undefined) return;
+    await new PipelineProgressService({ context: this.context }).complete({
       runId: input.runId,
-      field: "processed",
+      itemKey,
+      status: "processed",
     });
   }
 

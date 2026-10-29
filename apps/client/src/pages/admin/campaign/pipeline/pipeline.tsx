@@ -1,7 +1,12 @@
 import { api } from "@/api";
 import { onError } from "@/lib/base-api";
-import { perPageForUrl, resolvePageSize } from "@/lib/page-size";
 import { adminCampaignRoute } from "@/routes/admin/campaign";
+import {
+  Alert,
+  AlertTitle,
+  AlertDescription,
+} from "@repo/ui/components/ui/alert";
+import { Card, CardContent } from "@repo/ui/components/ui/card";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleCheckIcon, ScanSearchIcon, SparklesIcon } from "lucide-react";
@@ -9,15 +14,15 @@ import { useEffect, useRef } from "react";
 import { TableSkeleton } from "@/components/table-skeleton";
 import { runStatus } from "./pipeline-step";
 import { PipelineStepper } from "./pipeline-stepper";
-import { ScrapeResults } from "./scrape-results";
+import { CampaignLeads } from "../campaign-leads";
 import { ScrapeStep } from "./scrape-step";
 import { StepPlaceholder } from "./step-placeholder";
-import { TavilyResults } from "./tavily-results";
 import { TavilyStep } from "./tavily-step";
 
 type CampaignDetails = Awaited<ReturnType<typeof api.campaign.show>>;
 
 const POLL_MS = 2_000;
+const IDLE_POLL_MS = 10_000;
 
 interface PipelineProps {
   campaign: CampaignDetails;
@@ -28,57 +33,48 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
   const searchParams = adminCampaignRoute.useSearch();
   const routeNavigate = adminCampaignRoute.useNavigate();
   const queryClient = useQueryClient();
-  const { step, page } = searchParams;
-  const perPage = resolvePageSize(searchParams.perPage);
+  const { step } = searchParams;
 
   const pipeline = useQuery({
     queryKey: ["admin", "campaigns", campaignId, "pipeline"],
     queryFn: () => api.campaign.pipeline({ campaignId }),
-    placeholderData: (previousData) => previousData,
+    placeholderData: (previousData, previousQuery) =>
+      previousQuery?.queryKey[2] === campaignId ? previousData : undefined,
     refetchInterval: (query) =>
       query.state.data?.scrape?.status === "running" ||
       query.state.data?.enrich?.status === "running"
         ? POLL_MS
-        : false,
+        : IDLE_POLL_MS,
   });
 
   const scrapeStatus = runStatus(pipeline.data?.scrape ?? null);
   const enrichStatus = runStatus(pipeline.data?.enrich ?? null);
   const isRunning = scrapeStatus === "running" || enrichStatus === "running";
 
-  const communities = useQuery({
-    queryKey: ["admin", "communities", "campaign", campaignId, page, perPage],
-    queryFn: () => api.community.list({ campaignId, page, perPage }),
-    enabled: step === "scrape",
-    placeholderData: (previousData) => previousData,
-    refetchInterval: isRunning ? POLL_MS : false,
-  });
-
-  const leads = useQuery({
-    queryKey: ["admin", "leads", "campaign", campaignId, page, perPage],
-    queryFn: () => api.lead.list({ campaignId, page, perPage }),
-    enabled: step === "tavily",
-    placeholderData: (previousData) => previousData,
-    refetchInterval: isRunning ? POLL_MS : false,
-  });
-
-  const wasRunning = useRef(false);
+  const revision = JSON.stringify([
+    campaignId,
+    pipeline.data?.scrape,
+    pipeline.data?.enrich,
+  ]);
+  const previousRevision = useRef(revision);
 
   useEffect(() => {
-    if (wasRunning.current && !isRunning) {
+    if (previousRevision.current !== revision) {
       void queryClient.invalidateQueries({
         queryKey: ["admin", "campaigns", campaignId],
         exact: true,
       });
+      void queryClient.invalidateQueries({ queryKey: ["admin", "leads"] });
     }
+    previousRevision.current = revision;
+  }, [revision, campaignId, queryClient]);
 
-    wasRunning.current = isRunning;
-  }, [isRunning, campaignId, queryClient]);
-
-  const refreshPipeline = () =>
-    queryClient.invalidateQueries({
-      queryKey: ["admin", "campaigns", campaignId, "pipeline"],
+  const refreshPipeline = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: ["admin", "campaigns", campaignId],
     });
+    await queryClient.invalidateQueries({ queryKey: ["admin", "leads"] });
+  };
 
   const startScrape = useMutation({
     mutationFn: () => api.campaign.startScrape({ campaignId }),
@@ -106,7 +102,20 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
           ))}
         </div>
         <Skeleton className="h-9 w-full" />
-        <TableSkeleton columns={4} />
+        <Card>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                <Skeleton className="h-9 w-72" />
+                <Skeleton className="h-9 w-32" />
+                <Skeleton className="h-9 w-36" />
+                <Skeleton className="ml-auto h-9 w-28" />
+              </div>
+              <Skeleton className="h-5 w-24" />
+              <TableSkeleton columns={6} />
+            </div>
+          </CardContent>
+        </Card>
       </section>
     );
   }
@@ -115,37 +124,18 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
     throw pipeline.error;
   }
 
-  if (step === "scrape" && communities.isError) {
-    throw communities.error;
-  }
-
-  if (step === "tavily" && leads.isError) {
-    throw leads.error;
-  }
-
   const state = pipeline.data;
-  const isScrapeDone = state.scrape?.status === "done";
-
-  const paging = {
-    perPage,
-    onPageChange: (next: number) =>
-      routeNavigate({ search: (current) => ({ ...current, page: next }) }),
-    onPerPageChange: (size: Parameters<typeof perPageForUrl>[0]) =>
-      routeNavigate({
-        search: (current) => ({
-          ...current,
-          page: 1,
-          perPage: perPageForUrl(size),
-        }),
-      }),
-  };
+  const isScrapeDone =
+    state.scrape?.status === "done" && state.scrape.itemsReady;
+  const selectedRun =
+    step === "scrape" ? state.scrape : step === "tavily" ? state.enrich : null;
 
   return (
     <section className="space-y-6">
       <PipelineStepper
         isScrapeDone={isScrapeDone}
         onSelect={selectStep}
-        scrapeCount={isScrapeDone ? campaign.communitiesCount : null}
+        scrapeCount={isScrapeDone ? state.scrapedCount : null}
         scrapeStatus={scrapeStatus}
         selected={step}
         tavilyCount={
@@ -154,45 +144,22 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
         tavilyStatus={enrichStatus}
       />
       {step === "scrape" && (
-        <>
-          <ScrapeStep
-            campaign={campaign}
-            isStarting={startScrape.isPending}
-            onRun={() => startScrape.mutate()}
-            run={state.scrape}
-          />
-          {communities.data ? (
-            <ScrapeResults
-              communities={communities.data.communities}
-              meta={communities.data.meta}
-              {...paging}
-            />
-          ) : (
-            <TableSkeleton columns={4} />
-          )}
-        </>
+        <ScrapeStep
+          campaign={campaign}
+          isStarting={startScrape.isPending}
+          onRun={() => startScrape.mutate()}
+          run={state.scrape}
+        />
       )}
       {step === "tavily" &&
         (isScrapeDone ? (
-          <>
-            <TavilyStep
-              isAvailable={state.enrichmentAvailable}
-              isStarting={startEnrich.isPending}
-              leadsCount={campaign.leadsCount}
-              onRun={() => startEnrich.mutate()}
-              run={state.enrich}
-            />
-            {leads.data ? (
-              <TavilyResults
-                contactableCount={state.contactableCount}
-                leads={leads.data.leads}
-                meta={leads.data.meta}
-                {...paging}
-              />
-            ) : (
-              <TableSkeleton columns={5} />
-            )}
-          </>
+          <TavilyStep
+            isAvailable={state.enrichmentAvailable}
+            isStarting={startEnrich.isPending}
+            leadsCount={campaign.leadsCount}
+            onRun={() => startEnrich.mutate()}
+            run={state.enrich}
+          />
         ) : (
           <StepPlaceholder
             action={{
@@ -207,18 +174,30 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
         ))}
       {step === "ai-filter" && (
         <StepPlaceholder
-          description="Each community will be classified here once this step is built."
+          description="Leads will be classified here once this step is built."
           icon={<SparklesIcon />}
           title="AI filter is coming soon"
         />
       )}
       {step === "accepted" && (
         <StepPlaceholder
-          description="The communities that pass the AI filter will be listed here."
+          description="Leads that pass the AI filter will be listed here."
           icon={<CircleCheckIcon />}
           title="Accepted is coming soon"
         />
       )}
+      {selectedRun &&
+        !selectedRun.itemsReady &&
+        selectedRun.status !== "running" && (
+          <Alert>
+            <AlertTitle>Run this step again</AlertTitle>
+            <AlertDescription>
+              This run predates saved pipeline results. Run it again to populate
+              this list.
+            </AlertDescription>
+          </Alert>
+        )}
+      <CampaignLeads refetchInterval={isRunning ? POLL_MS : false} />
     </section>
   );
 };

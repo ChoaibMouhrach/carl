@@ -43,6 +43,13 @@
       "when": 1793182045455,
       "tag": "0005_normal_nighthawk",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793188985696,
+      "tag": "0006_heavy_lilandra",
+      "breakpoints": true
     }
   ]
 }

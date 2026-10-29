@@ -1,3 +1,4 @@
+import { insertRun, insertRunResults } from "./helpers/pipeline";
 import { expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import z from "zod";
@@ -636,5 +637,240 @@ test("bulk deleting the largest allowed batch removes all of it and only it", as
     expect(
       (await db.select().from(communitiesTable)).map((row) => row.name),
     ).toEqual(["stays"]);
+  });
+});
+
+test("pipeline steps filter campaign leads before search, sorting, pagination and totals", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const { context, admin } = await boot(db, pool);
+    const campaign = await context.repositories.campaign.create({
+      name: "Pipeline",
+      keyword: "pipeline",
+    });
+    const other = await context.repositories.campaign.create({
+      name: "Other",
+      keyword: "other",
+    });
+    const contactableIds: number[] = [];
+    for (let index = 0; index < 13; index += 1) {
+      const lead = await context.repositories.lead.create(
+        newLead(`contact-${String(index).padStart(2, "0")}`, {
+          name: `Result ${String(index).padStart(2, "0")}`,
+          enrichedAt: new Date(),
+          website: index % 2 === 0 ? "https://contact.example.com" : null,
+          linkedin: index % 2 === 1 ? "https://linkedin.com/in/contact" : null,
+          email: index === 0 ? null : `contact-${index}@example.com`,
+        }),
+      );
+      contactableIds.push(lead.leadId);
+    }
+    const pending = await context.repositories.lead.create(
+      newLead("pending-contact", {
+        name: "A pending contact",
+        website: "https://pending.example.com",
+      }),
+    );
+    const noContact = await context.repositories.lead.create(
+      newLead("mail-only", {
+        name: "A mail only",
+        enrichedAt: new Date(),
+      }),
+    );
+    const outsider = await context.repositories.lead.create(
+      newLead("outsider", {
+        name: "Result outsider",
+        enrichedAt: new Date(),
+        website: "https://outside.example.com",
+      }),
+    );
+    await context.repositories.campaign.addLeads({
+      campaignId: campaign.campaignId,
+      leadIds: [...contactableIds, pending.leadId, noContact.leadId],
+    });
+    await context.repositories.campaign.addLeads({
+      campaignId: other.campaignId,
+      leadIds: [outsider.leadId],
+    });
+    const scrapeRun = await insertRun(db, {
+      campaignId: campaign.campaignId,
+      step: "scrape",
+      status: "done",
+    });
+    const enrichmentRun = await insertRun(db, {
+      campaignId: campaign.campaignId,
+      step: "enrich",
+      status: "done",
+    });
+    const contacts = await context.repositories.lead.findAllByLeadIds({
+      leadIds: contactableIds,
+    });
+    await insertRunResults(db, scrapeRun.runId, [
+      ...contacts,
+      pending,
+      noContact,
+    ]);
+    await insertRunResults(db, enrichmentRun.runId, [...contacts, noContact]);
+    const list = async (query: string) => {
+      const response = await admin.get(
+        `/api/leads?campaignId=${campaign.campaignId}&${query}`,
+      );
+      expect(response.status).toBe(200);
+      const body: unknown = await response.json();
+      return listSchema.parse(body);
+    };
+
+    const scrape = await list("pipelineStep=scrape&perPage=100");
+    expect(scrape.meta.total).toBe(15);
+    expect(scrape.leads.map((lead) => lead.leadId).toSorted()).toEqual(
+      [...contactableIds, pending.leadId, noContact.leadId].toSorted(),
+    );
+    const first = await list(
+      "pipelineStep=tavily&sort=name&order=asc&perPage=10",
+    );
+    const second = await list(
+      "pipelineStep=tavily&sort=name&order=asc&perPage=10&page=2",
+    );
+    expect(first.meta).toEqual({
+      page: 1,
+      perPage: 10,
+      lastPage: 2,
+      total: 13,
+    });
+    expect(second.meta).toEqual({
+      page: 2,
+      perPage: 10,
+      lastPage: 2,
+      total: 13,
+    });
+    expect(
+      [...first.leads, ...second.leads].map((lead) => lead.leadId),
+    ).toEqual(contactableIds);
+    const filtered = await list(
+      "pipelineStep=tavily&search=Result%200&hasEmail=false",
+    );
+    expect(filtered.leads.map((lead) => lead.leadId)).toEqual(
+      contactableIds.slice(0, 1),
+    );
+    expect(filtered.meta.total).toBe(1);
+    const reversed = await list(
+      "pipelineStep=tavily&sort=name&order=desc&perPage=100",
+    );
+    expect(reversed.leads.map((lead) => lead.leadId)).toEqual(
+      contactableIds.toReversed(),
+    );
+    const ai = await list("pipelineStep=ai-filter");
+    const accepted = await list("pipelineStep=accepted");
+    expect(ai.leads).toEqual([]);
+    expect(ai.meta.total).toBe(0);
+    expect(accepted.leads).toEqual([]);
+    expect(accepted.meta.total).toBe(0);
+    const all = await list("perPage=100");
+    expect(all.meta.total).toBe(15);
+  });
+});
+
+test("pipeline filtering requires a campaign and a recognized step", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const { admin } = await boot(db, pool);
+    const missingCampaign = await admin.get("/api/leads?pipelineStep=tavily");
+    const unknownStep = await admin.get(
+      "/api/leads?campaignId=1&pipelineStep=bogus",
+    );
+    expect(missingCampaign.status).toBe(400);
+    expect(unknownStep.status).toBe(400);
+  });
+});
+
+test("pipeline lists use the latest run's own contacts and never borrow another campaign's research", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const { context, admin } = await boot(db, pool);
+    const first = await context.repositories.campaign.create({
+      name: "First",
+      keyword: "first",
+    });
+    const second = await context.repositories.campaign.create({
+      name: "Second",
+      keyword: "second",
+    });
+    const shared = await context.repositories.lead.create(
+      newLead("shared", {
+        enrichedAt: new Date(),
+        website: "https://global.example.com",
+      }),
+    );
+    const manual = await context.repositories.lead.create(newLead("manual"));
+    await context.repositories.campaign.addLeads({
+      campaignId: first.campaignId,
+      leadIds: [shared.leadId, manual.leadId],
+    });
+    await context.repositories.campaign.addLeads({
+      campaignId: second.campaignId,
+      leadIds: [shared.leadId],
+    });
+    const scrape = await insertRun(db, {
+      campaignId: first.campaignId,
+      step: "scrape",
+      status: "done",
+    });
+    await insertRunResults(db, scrape.runId, [shared]);
+    const enrich = await insertRun(db, {
+      campaignId: first.campaignId,
+      step: "enrich",
+      status: "done",
+    });
+    await insertRunResults(db, enrich.runId, [
+      {
+        ...shared,
+        website: "https://first.example.com",
+        email: "first@example.com",
+      },
+    ]);
+    const list = async (campaignId: number, step: string, extra = "") => {
+      const response = await admin.get(
+        `/api/leads?campaignId=${campaignId}&pipelineStep=${step}${extra}`,
+      );
+      expect(response.status).toBe(200);
+      const json: unknown = await response.json();
+      return listSchema.parse(json);
+    };
+    const firstResult = await list(
+      first.campaignId,
+      "tavily",
+      "&search=first@example.com",
+    );
+    expect(firstResult.meta.total).toBe(1);
+    expect(firstResult.leads[0]).toMatchObject({
+      leadId: shared.leadId,
+      website: "https://first.example.com",
+      email: "first@example.com",
+    });
+    expect((await list(second.campaignId, "tavily")).leads).toEqual([]);
+    expect(
+      (await list(first.campaignId, "scrape")).leads.map((lead) => lead.leadId),
+    ).toEqual([shared.leadId]);
+    const newer = await insertRun(db, {
+      campaignId: first.campaignId,
+      step: "enrich",
+      status: "running",
+      total: 1,
+    });
+    expect((await list(first.campaignId, "tavily")).leads).toEqual([]);
+    await insertRunResults(db, newer.runId, [
+      {
+        ...shared,
+        website: "https://new.example.com",
+        email: "new@example.com",
+      },
+    ]);
+    const latest = await list(first.campaignId, "tavily");
+    expect(latest.meta.total).toBe(1);
+    expect(latest.leads[0]).toMatchObject({
+      website: "https://new.example.com",
+      email: "new@example.com",
+    });
+    const stored = await context.repositories.lead.findByLeadId({
+      leadId: shared.leadId,
+    });
+    expect(stored?.website).toBe("https://global.example.com");
   });
 });

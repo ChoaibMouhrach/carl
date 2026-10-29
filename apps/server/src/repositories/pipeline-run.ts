@@ -1,6 +1,8 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import {
   pipelineRunsTable,
+  pipelineItemsTable,
+  type PipelineItemInsert,
   type PipelineRun,
   type PipelineStep,
 } from "@server/infrastructure/database/schemas";
@@ -87,42 +89,80 @@ export class PipelineRunRepository extends BaseRepository {
     return runs.at(0) || null;
   }
 
-  /** Sets the expected item count and finishes the run at once when there is nothing to do */
-  public async setTotal(where: { runId: number; total: number }) {
-    const table = PipelineRunRepository.table;
-
-    await this.db
-      .update(table)
-      .set({
-        total: where.total,
-        status: where.total === 0 ? "done" : "running",
-      })
-      .where(and(eq(table.runId, where.runId), eq(table.status, "running")));
+  public async lockByRunId(where: { runId: number }) {
+    const rows = await this.db
+      .select()
+      .from(pipelineRunsTable)
+      .where(eq(pipelineRunsTable.runId, where.runId))
+      .for("update");
+    return rows.at(0) ?? null;
   }
 
-  /** One atomic statement so concurrent workers never lose a count or finish the run twice */
-  public async incrementProgress(where: {
-    runId: number;
-    field: "processed" | "failed";
-  }): Promise<void> {
-    const table = PipelineRunRepository.table;
-    const processed =
-      where.field === "processed"
-        ? sql`${table.processed} + 1`
-        : sql`${table.processed}`;
-    const failed =
-      where.field === "failed"
-        ? sql`${table.failed} + 1`
-        : sql`${table.failed}`;
+  public async findItems(where: { runId: number }) {
+    return await this.db
+      .select()
+      .from(pipelineItemsTable)
+      .where(eq(pipelineItemsTable.runId, where.runId));
+  }
 
+  public async findItem(where: { runId: number; itemKey: string }) {
+    const rows = await this.db
+      .select()
+      .from(pipelineItemsTable)
+      .where(
+        and(
+          eq(pipelineItemsTable.runId, where.runId),
+          eq(pipelineItemsTable.itemKey, where.itemKey),
+        ),
+      )
+      .limit(1);
+    return rows.at(0) ?? null;
+  }
+
+  public async createItems(input: { runId: number; itemKeys: string[] }) {
+    if (input.itemKeys.length === 0) return;
+    await this.db
+      .insert(pipelineItemsTable)
+      .values(
+        input.itemKeys.map((itemKey) => ({ runId: input.runId, itemKey })),
+      )
+      .onConflictDoNothing();
+  }
+
+  public async saveItem(input: PipelineItemInsert) {
+    await this.db
+      .insert(pipelineItemsTable)
+      .values(input)
+      .onConflictDoUpdate({
+        target: [pipelineItemsTable.runId, pipelineItemsTable.itemKey],
+        set: input,
+      });
+  }
+
+  public async initializeItems(where: { runId: number; total: number }) {
+    await this.db
+      .update(pipelineRunsTable)
+      .set({
+        itemsReady: true,
+        total: where.total,
+        error: null,
+        status: where.total === 0 ? "done" : "running",
+      })
+      .where(eq(pipelineRunsTable.runId, where.runId));
+  }
+
+  public async refreshProgress(where: { runId: number }) {
+    const table = pipelineRunsTable;
+    const processed = sql<number>`(select count(*)::int from ${pipelineItemsTable} where ${pipelineItemsTable.runId} = ${where.runId} and ${pipelineItemsTable.status} = 'processed')`;
+    const failed = sql<number>`(select count(*)::int from ${pipelineItemsTable} where ${pipelineItemsTable.runId} = ${where.runId} and ${pipelineItemsTable.status} = 'failed')`;
     await this.db
       .update(table)
       .set({
         processed,
         failed,
-        status: sql`case when ${table.total} > 0 and ${processed} + ${failed} >= ${table.total} then 'done' else ${table.status} end`,
+        status: sql`case when ${table.status} = 'failed' and ${table.error} is not null then 'failed' when (${table.itemsReady} or ${table.total} > 0) and ${processed} + ${failed} >= ${table.total} then 'done' else 'running' end`,
       })
-      .where(and(eq(table.runId, where.runId), eq(table.status, "running")));
+      .where(eq(table.runId, where.runId));
   }
 
   public async markFailed(where: { runId: number; error: string }) {

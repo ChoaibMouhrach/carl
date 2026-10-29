@@ -1,3 +1,4 @@
+import { PipelineProgressService } from "@server/services/pipeline-progress";
 import { expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import z from "zod";
@@ -6,6 +7,7 @@ import type { DB } from "@server/infrastructure/database/client";
 import {
   leadsTable,
   pipelineRunsTable,
+  pipelineItemsTable,
   type LeadInsert,
 } from "@server/infrastructure/database/schemas";
 import { NonRetryableJobError, type EnrichJob } from "@server/lib/base-queue";
@@ -451,125 +453,156 @@ test("a run with processed and failed leads ends done, not failed, once every le
   });
 });
 
-test("progress counted after a run is done or failed changes nothing", async () => {
+test("duplicate completions and late failures do not change a successful item", async () => {
   await withTestDatabase(async ({ db, pool }) => {
-    const { context } = await boot(db, pool);
-    const { pipelineRun } = context.repositories;
-    const campaign = await insertCampaign(db);
-    const done = await insertRun(db, {
-      campaignId: campaign.campaignId,
-      step: "scrape",
-      total: 1,
+    const { context, queue, webSearch } = await boot(db, pool);
+    const { run, lead, job } = await seedLead(context, db);
+    await queue.deliver(job);
+    await queue.deliver(job);
+    await new PipelineProgressService({ context }).complete({
+      runId: run.runId,
+      itemKey: `lead:${lead.leadId}`,
+      status: "failed",
+      error: "late failure",
     });
-    const failed = await insertRun(db, {
-      campaignId: campaign.campaignId,
-      step: "enrich",
-      total: 5,
-    });
-
-    await pipelineRun.incrementProgress({
-      runId: done.runId,
-      field: "processed",
-    });
-    await pipelineRun.incrementProgress({
-      runId: done.runId,
-      field: "processed",
-    });
-    await pipelineRun.incrementProgress({ runId: done.runId, field: "failed" });
-    await pipelineRun.markFailed({ runId: done.runId, error: "late" });
-    await pipelineRun.markFailed({ runId: failed.runId, error: "first" });
-    await pipelineRun.markFailed({ runId: failed.runId, error: "second" });
-    await pipelineRun.incrementProgress({
-      runId: failed.runId,
-      field: "processed",
-    });
-    await pipelineRun.setTotal({ runId: failed.runId, total: 0 });
-
-    expect(await runRow(db, done.runId)).toMatchObject({
+    expect(await runRow(db, run.runId)).toMatchObject({
       status: "done",
       processed: 1,
       failed: 0,
+    });
+    const items = await db
+      .select()
+      .from(pipelineItemsTable)
+      .where(eq(pipelineItemsTable.runId, run.runId));
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      status: "processed",
+      leadId: lead.leadId,
       error: null,
     });
-    expect(await runRow(db, failed.runId)).toMatchObject({
-      status: "failed",
-      total: 5,
-      processed: 0,
-      error: "first",
-    });
+    expect(webSearch.queries).toHaveLength(1);
   });
 });
 
-test("leads finishing at the same time never lose a count or finish the run early", async () => {
+test("retrying a failed item after the run finishes corrects its stored outcome and counters", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    let failing = true;
+    const { context, queue } = await boot(db, pool, () => {
+      if (failing)
+        throw new WebSearchError({ message: "temporary", retryable: true });
+      return [result("https://anncoach.com", "Ann Coach helps people train.")];
+    });
+    const { run, lead, job } = await seedLead(context, db);
+    await expect(queue.deliver(job, { isFinalAttempt: true })).rejects.toThrow(
+      "temporary",
+    );
+    expect(await runRow(db, run.runId)).toMatchObject({
+      status: "done",
+      processed: 0,
+      failed: 1,
+    });
+    failing = false;
+    await queue.deliver(job);
+    await queue.deliver(job);
+    expect(await runRow(db, run.runId)).toMatchObject({
+      status: "done",
+      processed: 1,
+      failed: 0,
+    });
+    const items = await db
+      .select()
+      .from(pipelineItemsTable)
+      .where(eq(pipelineItemsTable.runId, run.runId));
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      status: "processed",
+      leadId: lead.leadId,
+      website: "https://anncoach.com",
+      error: null,
+    });
+    expect((await leadRow(db, lead.leadId)).website).toBe(
+      "https://anncoach.com",
+    );
+  });
+});
+
+test("concurrent and repeated item completions never lose counts or finish a run early", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { context } = await boot(db, pool);
-    const { pipelineRun } = context.repositories;
     const campaign = await insertCampaign(db);
     const run = await insertRun(db, {
       campaignId: campaign.campaignId,
       step: "enrich",
       total: 20,
     });
-
+    const progress = new PipelineProgressService({ context });
     await Promise.all(
       Array.from({ length: 19 }, (_, index) =>
-        pipelineRun.incrementProgress({
+        progress.complete({
           runId: run.runId,
-          field: index % 4 === 0 ? "failed" : "processed",
+          itemKey: `lead:${index}`,
+          status: index % 4 === 0 ? "failed" : "processed",
         }),
       ),
     );
-
     expect(await runRow(db, run.runId)).toMatchObject({
       status: "running",
       processed: 14,
       failed: 5,
     });
-
-    await pipelineRun.incrementProgress({
-      runId: run.runId,
-      field: "processed",
-    });
-
+    await Promise.all(
+      Array.from({ length: 10 }, () =>
+        progress.complete({
+          runId: run.runId,
+          itemKey: "lead:last",
+          status: "processed",
+        }),
+      ),
+    );
     expect(await runRow(db, run.runId)).toMatchObject({
       status: "done",
       processed: 15,
       failed: 5,
     });
+    const items = await db
+      .select()
+      .from(pipelineItemsTable)
+      .where(eq(pipelineItemsTable.runId, run.runId));
+    expect(items).toHaveLength(20);
   });
 });
 
-test("a run whose total is not set yet is not finished by early progress", async () => {
+test("a failed result transaction rolls back both lead changes and progress", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { context } = await boot(db, pool);
-    const { pipelineRun } = context.repositories;
-    const campaign = await insertCampaign(db);
-    const run = await insertRun(db, {
-      campaignId: campaign.campaignId,
-      step: "scrape",
-    });
-
-    await pipelineRun.incrementProgress({
-      runId: run.runId,
-      field: "processed",
-    });
-
+    const { lead, run } = await seedLead(context, db);
+    const progress = new PipelineProgressService({ context });
+    await expect(
+      progress.complete(
+        {
+          runId: run.runId,
+          itemKey: `lead:${lead.leadId}`,
+          status: "processed",
+        },
+        async (tx) => {
+          await tx.lead.update(
+            { leadId: lead.leadId },
+            { website: "https://rollback.example.com" },
+          );
+          throw new Error("result persistence failed");
+        },
+      ),
+    ).rejects.toThrow("result persistence failed");
+    expect((await leadRow(db, lead.leadId)).website).toBeNull();
     expect(await runRow(db, run.runId)).toMatchObject({
       status: "running",
-      total: 0,
-      processed: 1,
+      processed: 0,
+      failed: 0,
     });
-
-    await pipelineRun.setTotal({ runId: run.runId, total: 1 });
-    await pipelineRun.incrementProgress({
-      runId: run.runId,
-      field: "processed",
-    });
-
-    expect(await runRow(db, run.runId)).toMatchObject({
-      status: "done",
-      total: 1,
-      processed: 2,
-    });
+    const items = await db
+      .select()
+      .from(pipelineItemsTable)
+      .where(eq(pipelineItemsTable.runId, run.runId));
+    expect(items).toEqual([]);
   });
 });

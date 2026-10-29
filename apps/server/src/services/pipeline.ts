@@ -24,15 +24,27 @@ export class PipelineService extends BaseService {
 
     const { pipelineRun, lead } = this.context.repositories;
 
-    const [scrape, enrich, contactableCount] = await Promise.all([
+    const [scrape, enrich] = await Promise.all([
       pipelineRun.findLatest({ ...where, step: "scrape" }),
       pipelineRun.findLatest({ ...where, step: "enrich" }),
-      lead.countContactableByCampaignId(where),
     ]);
 
+    const [scrapedCount, contactableCount] = await Promise.all([
+      lead.countResultsByRunId({
+        ...where,
+        runId: scrape?.runId ?? null,
+        contactable: false,
+      }),
+      lead.countResultsByRunId({
+        ...where,
+        runId: enrich?.runId ?? null,
+        contactable: true,
+      }),
+    ]);
     return {
       scrape,
       enrich,
+      scrapedCount,
       enrichmentAvailable: this.context.webSearch.isAvailable,
       contactableCount,
     };
@@ -94,9 +106,10 @@ export class PipelineService extends BaseService {
       pipelineRun.findLatestDone({ ...where, step: "scrape" }),
     ]);
 
-    if (runningScrape || !finishedScrape) {
+    if (runningScrape || !finishedScrape || !finishedScrape.itemsReady) {
       throw new BadRequestError({
-        message: "Finish a scrape before enriching its leads.",
+        message:
+          "Run a scrape to collect tracked results before enriching its leads.",
         code: "scrapeRequired",
       });
     }
@@ -104,9 +117,22 @@ export class PipelineService extends BaseService {
     const run = await this.createRun({ ...where, step: "enrich" });
 
     try {
-      const leadIds = await lead.findLeadIdsByCampaignId(where);
+      const leadIds = await lead.findLeadIdsByRunId({
+        runId: finishedScrape.runId,
+        campaignId: where.campaignId,
+      });
 
-      await pipelineRun.setTotal({ runId: run.runId, total: leadIds.length });
+      await this.context.repositories.transaction(async ({ tx }) => {
+        await tx.pipelineRun.lockByRunId({ runId: run.runId });
+        await tx.pipelineRun.createItems({
+          runId: run.runId,
+          itemKeys: leadIds.map((leadId) => `lead:${leadId}`),
+        });
+        await tx.pipelineRun.initializeItems({
+          runId: run.runId,
+          total: leadIds.length,
+        });
+      });
 
       await Promise.all(
         leadIds.map(

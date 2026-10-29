@@ -10,6 +10,8 @@ import {
   communitiesTable,
   leadsTable,
   pipelineRunsTable,
+  pipelineItemsTable,
+  type PipelineItemInsert,
   sessionTable,
   userTable,
   verificationTable,
@@ -647,6 +649,12 @@ export interface SeedPipelineRunInput {
   processed?: number;
   failed?: number;
   error?: string | null;
+  results?: {
+    leadId: number;
+    website?: string | null;
+    linkedin?: string | null;
+    email?: string | null;
+  }[];
 }
 
 export const createPipelineRun = async (
@@ -660,8 +668,9 @@ export const createPipelineRun = async (
         campaignId: input.campaignId,
         step: input.step,
         status: input.status,
-        total: input.total,
-        processed: input.processed,
+        total: input.total ?? input.results?.length,
+        processed: input.processed ?? input.results?.length,
+        itemsReady: true,
         failed: input.failed,
         error: input.error ?? null,
       })
@@ -670,7 +679,18 @@ export const createPipelineRun = async (
     if (!run) {
       throw new Error(`could not create ${input.step} run`);
     }
-
+    if (input.results && input.results.length > 0) {
+      await db.insert(pipelineItemsTable).values(
+        input.results.map(
+          (result): PipelineItemInsert => ({
+            ...result,
+            runId: run.runId,
+            itemKey: `lead:${result.leadId}`,
+            status: "processed",
+          }),
+        ),
+      );
+    }
     return run;
   });
 

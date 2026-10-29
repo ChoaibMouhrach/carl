@@ -1,3 +1,4 @@
+import { insertRunResults } from "./helpers/pipeline";
 import { expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import z from "zod";
@@ -10,6 +11,7 @@ import {
   communitiesTable,
   leadsTable,
   pipelineRunsTable,
+  pipelineItemsTable,
 } from "@server/infrastructure/database/schemas";
 import { ScrapeService } from "@server/services/scrape";
 import { ScrapeWorker } from "@server/workers/scrape";
@@ -283,23 +285,21 @@ test("a scrape and an enrich can run together, and so can the same step on two c
     });
     const first = await insertCampaign(db, { name: "First" });
     const second = await insertCampaign(db, { name: "Second" });
-    await insertRun(db, {
+    const scrapeRun = await insertRun(db, {
       campaignId: first.campaignId,
       step: "scrape",
       status: "done",
     });
+    const ann = await context.repositories.lead.create({
+      name: "Ann",
+      username: "ann",
+      skoolUrl: `${SKOOL}/@ann`,
+    });
     await context.repositories.campaign.addLeads({
       campaignId: first.campaignId,
-      leadIds: [
-        (
-          await context.repositories.lead.create({
-            name: "Ann",
-            username: "ann",
-            skoolUrl: `${SKOOL}/@ann`,
-          })
-        ).leadId,
-      ],
+      leadIds: [ann.leadId],
     });
+    await insertRunResults(db, scrapeRun.runId, [ann]);
 
     const statuses = [
       (await admin.post(enrichPath(first.campaignId))).status,
@@ -389,8 +389,24 @@ test("a scrape stores new communities and leads, links the stored ones, and fini
       communities.map((community) => community.communityId).sort(),
     );
     expect(await runRows(db)).toMatchObject([
-      { step: "scrape", status: "done", total: 2, processed: 2, failed: 0 },
+      { step: "scrape", status: "done", total: 3, processed: 3, failed: 0 },
     ]);
+    const runs = await runRows(db);
+    const run = runs[0];
+    if (!run) throw new Error("Missing scrape run");
+    const items = await db
+      .select()
+      .from(pipelineItemsTable)
+      .where(eq(pipelineItemsTable.runId, run.runId));
+    expect(items).toHaveLength(3);
+    expect(items.every((item) => item.status === "processed")).toBe(true);
+    await new ScrapeService({ context }).discover({
+      runId: run.runId,
+      campaignId: campaign.campaignId,
+      search: campaign.keyword,
+    });
+    expect(await runRows(db)).toEqual(runs);
+    expect(scrapper.discoverCalls).toHaveLength(1);
   });
 });
 
@@ -419,7 +435,7 @@ test("a scrape whose hits are all filtered out or already stored finishes at onc
     );
 
     expect(await runRows(db)).toMatchObject([
-      { status: "done", total: 0, processed: 0, failed: 0 },
+      { status: "done", total: 1, processed: 1, failed: 0 },
     ]);
     expect(context.queueHub.scrape.added.map((job) => job.type)).toEqual([
       "discover",
@@ -534,6 +550,10 @@ test("an enrich needs a finished scrape of the same campaign and stores no run o
       scrapes: [{ status: "running" as const }],
     },
     { name: "only a failed scrape", scrapes: [{ status: "failed" as const }] },
+    {
+      name: "a legacy scrape without saved results",
+      scrapes: [{ status: "done" as const, itemsReady: false }],
+    },
     { name: "a finished scrape of another campaign", other: true },
   ];
 
@@ -550,6 +570,10 @@ test("an enrich needs a finished scrape of the same campaign and stores no run o
           campaignId: campaign.campaignId,
           step: "scrape",
           status: scrape.status,
+          itemsReady:
+            "itemsReady" in scrape
+              ? scrape.itemsReady
+              : scrape.status === "done",
         });
       }
 
@@ -581,7 +605,7 @@ test("starting an enrich stores a running run sized to the campaign's leads and 
       webSearch: new FakeWebSearch(),
     });
     const campaign = await insertCampaign(db);
-    await insertRun(db, {
+    const scrapeRun = await insertRun(db, {
       campaignId: campaign.campaignId,
       step: "scrape",
       status: "done",
@@ -605,6 +629,8 @@ test("starting an enrich stores a running run sized to the campaign's leads and 
       campaignId: campaign.campaignId,
       leadIds: members.map((member) => member.leadId),
     });
+
+    await insertRunResults(db, scrapeRun.runId, members);
 
     const response = await admin.post(enrichPath(campaign.campaignId));
 
@@ -665,7 +691,7 @@ test("a second enrich while one runs is a 409 and queues no extra jobs", async (
       webSearch: new FakeWebSearch(),
     });
     const campaign = await insertCampaign(db);
-    await insertRun(db, {
+    const scrapeRun = await insertRun(db, {
       campaignId: campaign.campaignId,
       step: "scrape",
       status: "done",
@@ -679,6 +705,8 @@ test("a second enrich while one runs is a 409 and queues no extra jobs", async (
       campaignId: campaign.campaignId,
       leadIds: [ann.leadId],
     });
+
+    await insertRunResults(db, scrapeRun.runId, [ann]);
 
     expect((await admin.post(enrichPath(campaign.campaignId))).status).toBe(
       202,
@@ -707,7 +735,7 @@ test("a queue that refuses the enrich jobs fails the run with the reason", async
     queue.failAddWith = new Error("redis is down");
     context.queueHub.enrich = queue;
     const campaign = await insertCampaign(db);
-    await insertRun(db, {
+    const scrapeRun = await insertRun(db, {
       campaignId: campaign.campaignId,
       step: "scrape",
       status: "done",
@@ -722,6 +750,8 @@ test("a queue that refuses the enrich jobs fails the run with the reason", async
       leadIds: [ann.leadId],
     });
 
+    await insertRunResults(db, scrapeRun.runId, [ann]);
+
     const response = await admin.post(enrichPath(campaign.campaignId));
 
     expect(response.status).toBe(500);
@@ -734,7 +764,7 @@ test("a queue that refuses the enrich jobs fails the run with the reason", async
   });
 });
 
-test("the status reports the newest run per step, availability, and only in-campaign leads with a website or LinkedIn", async () => {
+test("the status reports the newest run per step, availability, and only enriched in-campaign leads with a website or LinkedIn", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { context, admin } = await boot(db, pool, {
       webSearch: new FakeWebSearch(),
@@ -759,12 +789,18 @@ test("the status reports the newest run per step, availability, and only in-camp
     });
     const make = async (
       username: string,
-      extra: { website?: string; linkedin?: string; email?: string },
+      extra: {
+        website?: string;
+        linkedin?: string;
+        email?: string;
+        enrichedAt?: Date | null;
+      },
     ) =>
       await context.repositories.lead.create({
         name: username,
         username,
         skoolUrl: `${SKOOL}/@${username}`,
+        enrichedAt: new Date(),
         ...extra,
       });
     const inCampaign = [
@@ -776,6 +812,10 @@ test("the status reports the newest run per step, availability, and only in-camp
       }),
       await make("mail", { email: "mail@example.com" }),
       await make("bare", {}),
+      await make("pending", {
+        website: "https://pending.example.com",
+        enrichedAt: null,
+      }),
     ];
     await make("outsider", { website: "https://outsider.example.com" });
     await context.repositories.campaign.addLeads({
@@ -783,13 +823,23 @@ test("the status reports the newest run per step, availability, and only in-camp
       leadIds: inCampaign.map((lead) => lead.leadId),
     });
 
+    const enrichRun = await insertRun(db, {
+      campaignId: campaign.campaignId,
+      step: "enrich",
+      status: "done",
+    });
+    await insertRunResults(
+      db,
+      enrichRun.runId,
+      inCampaign.filter((lead) => lead.enrichedAt !== null),
+    );
     const response = await admin.get(statusPath(campaign.campaignId));
 
     expect(response.status).toBe(200);
     const status = statusSchema.parse(await response.json());
     expect(status.scrape?.runId).toBe(newestScrape.runId);
     expect(status.scrape?.status).toBe("failed");
-    expect(status.enrich).toBeNull();
+    expect(status.enrich?.runId).toBe(enrichRun.runId);
     expect(status.enrichmentAvailable).toBe(true);
     expect(status.contactableCount).toBe(3);
   });
@@ -867,7 +917,7 @@ test("a permanently failed scrape job is accounted on its run by job type", asyn
     );
 
     expect(await runRows(db)).toMatchObject([
-      { status: "running", processed: 0, failed: 2, error: null },
+      { status: "running", processed: 0, failed: 1, error: null },
     ]);
 
     await scrape.recordFailure(
@@ -881,7 +931,7 @@ test("a permanently failed scrape job is accounted on its run by job type", asyn
     );
 
     expect(await runRows(db)).toMatchObject([
-      { status: "failed", failed: 2, error: "search page changed" },
+      { status: "failed", failed: 1, error: "search page changed" },
     ]);
   });
 });

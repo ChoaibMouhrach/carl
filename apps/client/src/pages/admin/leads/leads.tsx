@@ -1,3 +1,4 @@
+import type { CampaignPipelineStep } from "@repo/constants/pipeline";
 import { api } from "@/api";
 import { AddToCampaignButton } from "@/components/add-to-campaign-button";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
@@ -39,13 +40,54 @@ import { LeadTable } from "./lead-table";
 export const Leads = () => {
   const searchParams = adminLeadsRoute.useSearch();
   const navigate = adminLeadsRoute.useNavigate();
+  return <LeadList searchParams={searchParams} navigate={navigate} />;
+};
+
+type LeadSearch = ReturnType<typeof adminLeadsRoute.useSearch>;
+
+interface LeadListProps {
+  searchParams: LeadSearch;
+  navigate: (options: {
+    search: (current: LeadSearch) => LeadSearch;
+  }) => unknown;
+  campaignId?: number;
+  pipelineStep?: CampaignPipelineStep;
+  emptyDescription?: string;
+  refetchInterval?: number | false;
+}
+
+export const LeadList = ({
+  searchParams,
+  navigate,
+  campaignId,
+  pipelineStep,
+  emptyDescription,
+  refetchInterval,
+}: LeadListProps) => {
   const { view, setView } = useView();
   const queryClient = useQueryClient();
 
   const leads = useQuery({
-    queryKey: ["admin", "leads", searchParams],
-    queryFn: () => api.lead.list(searchParams),
-    placeholderData: (previousData) => previousData,
+    queryKey: [
+      "admin",
+      "leads",
+      pipelineStep ?? "all",
+      campaignId ?? searchParams.campaignId ?? null,
+      { ...searchParams, campaignId: campaignId ?? searchParams.campaignId },
+    ],
+    queryFn: () =>
+      api.lead.list({
+        ...searchParams,
+        pipelineStep,
+        campaignId: campaignId ?? searchParams.campaignId,
+      }),
+    placeholderData: (previousData, previousQuery) =>
+      previousQuery?.queryKey[2] === (pipelineStep ?? "all") &&
+      previousQuery?.queryKey[3] ===
+        (campaignId ?? searchParams.campaignId ?? null)
+        ? previousData
+        : undefined,
+    refetchInterval,
   });
 
   const selection = useSelection(
@@ -166,7 +208,7 @@ export const Leads = () => {
               }),
           },
         ]),
-    ...(searchParams.campaignId === undefined
+    ...(campaignId !== undefined || searchParams.campaignId === undefined
       ? []
       : [
           {
@@ -212,8 +254,8 @@ export const Leads = () => {
         <div className="space-y-4">
           <LeadFilters
             campaignId={searchParams.campaignId}
-            campaigns={campaigns}
-            createAction={newLead}
+            campaigns={campaignId === undefined ? campaigns : undefined}
+            createAction={campaignId === undefined ? newLead : undefined}
             onCampaignChange={(campaignId) =>
               navigate({
                 search: (current) => ({ ...current, page: 1, campaignId }),
@@ -307,7 +349,8 @@ export const Leads = () => {
                 <EmptyDescription>
                   {chips.length > 0
                     ? "Try a different search or remove a filter."
-                    : "Leads appear here after a scrape, or you can add one by hand."}
+                    : (emptyDescription ??
+                      "Leads appear here after a scrape, or you can add one by hand.")}
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
@@ -318,9 +361,9 @@ export const Leads = () => {
                   >
                     Clear filters
                   </Tip>
-                ) : (
+                ) : campaignId === undefined ? (
                   newLead
-                )}
+                ) : null}
               </EmptyContent>
             </Empty>
           ) : view === "cards" ? (

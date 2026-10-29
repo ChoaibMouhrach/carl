@@ -1,11 +1,7 @@
 import z from "zod";
+import { campaignPipelineSteps } from "@repo/constants/pipeline";
 
-export const pipelineStepSchema = z.enum([
-  "scrape",
-  "tavily",
-  "ai-filter",
-  "accepted",
-]);
+export const pipelineStepSchema = z.enum(campaignPipelineSteps);
 
 export type PipelineStepId = z.infer<typeof pipelineStepSchema>;
 
