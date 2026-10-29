@@ -30,7 +30,7 @@ export class EnrichService extends BaseService {
 
     const communityName = lead.communities.at(0)?.name ?? "";
     const results = await webSearch.search({
-      query: `${lead.name} ${communityName} contact website LinkedIn email`,
+      query: `"${lead.name}" owner of the skool community "${communityName}" contact website LinkedIn email`,
     });
     const contact = extractContact(results, lead.name);
 
