@@ -1,3 +1,4 @@
+import { useEntitySheet } from "@/components/entity-sheet/use-entity-sheet";
 import { EmailLink } from "@/components/external-link";
 import { PictureAvatar } from "@/components/picture-avatar";
 import { RowActions } from "@/components/row-actions";
@@ -13,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/ui/table";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { ExternalLinkIcon } from "lucide-react";
 import { CommunityPrice } from "./community-price";
 import type { CommunityListProps } from "./community-row";
@@ -26,7 +27,7 @@ export const CommunityTable = ({
   selection,
   showLead,
 }: CommunityListProps) => {
-  const navigate = useNavigate();
+  const { openCommunity, openLead } = useEntitySheet();
 
   return (
     <Table>
@@ -56,12 +57,7 @@ export const CommunityTable = ({
           <TableRow
             className="cursor-pointer"
             key={community.communityId}
-            onClick={() =>
-              navigate({
-                to: "/admin/communities/$communityId",
-                params: { communityId: community.communityId },
-              })
-            }
+            onClick={() => openCommunity(community.communityId)}
           >
             <TableCell onClick={(event) => event.stopPropagation()}>
               <SelectCheckbox
@@ -78,23 +74,27 @@ export const CommunityTable = ({
                   src={community.logoUrl ?? community.thumbnailUrl}
                 />
                 <div className="min-w-0">
-                  <Link
-                    className="block max-w-64 truncate font-medium hover:underline"
-                    onClick={(event) => event.stopPropagation()}
-                    params={{ communityId: community.communityId }}
-                    to="/admin/communities/$communityId"
+                  <button
+                    className="block max-w-64 cursor-pointer truncate text-left font-medium hover:underline"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      openCommunity(community.communityId);
+                    }}
+                    type="button"
                   >
                     {community.name}
-                  </Link>
+                  </button>
                   {showLead && community.lead && (
-                    <Link
-                      className="block max-w-64 truncate text-muted-foreground hover:underline"
-                      onClick={(event) => event.stopPropagation()}
-                      params={{ leadId: community.lead.leadId }}
-                      to="/admin/leads/$leadId"
+                    <button
+                      className="block max-w-64 cursor-pointer truncate text-left text-muted-foreground hover:underline"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openLead(community.lead!.leadId);
+                      }}
+                      type="button"
                     >
                       {community.lead.name}
-                    </Link>
+                    </button>
                   )}
                 </div>
               </div>

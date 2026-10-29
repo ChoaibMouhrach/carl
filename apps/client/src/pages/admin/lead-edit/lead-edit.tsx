@@ -28,7 +28,7 @@ export const LeadEdit = () => {
     onSuccess: async () => {
       toast.success("Lead updated.");
       await invalidateLeadData(queryClient);
-      await navigate({ to: "/admin/leads/$leadId", params: { leadId } });
+      await navigate({ to: "/admin/leads", search: { page: 1 } });
     },
   });
 
@@ -62,7 +62,7 @@ export const LeadEdit = () => {
           label="Go back without saving"
           render={
             <Button
-              render={<Link params={{ leadId }} to="/admin/leads/$leadId" />}
+              render={<Link search={{ page: 1 }} to="/admin/leads" />}
               variant="outline"
             />
           }

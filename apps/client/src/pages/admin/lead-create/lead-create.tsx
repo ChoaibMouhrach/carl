@@ -15,13 +15,10 @@ export const LeadCreate = () => {
   const create = useMutation({
     mutationFn: (values: LeadFormValues) => api.lead.create(values),
     onError,
-    onSuccess: async (lead) => {
+    onSuccess: async () => {
       toast.success("Lead created.");
       await invalidateLeadData(queryClient);
-      await navigate({
-        to: "/admin/leads/$leadId",
-        params: { leadId: lead.leadId },
-      });
+      await navigate({ to: "/admin/leads", search: { page: 1 } });
     },
   });
 

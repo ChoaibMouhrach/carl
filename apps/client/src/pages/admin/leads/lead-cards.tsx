@@ -1,4 +1,5 @@
 import { api } from "@/api";
+import { useEntitySheet } from "@/components/entity-sheet/use-entity-sheet";
 import { CardFacts } from "@/components/card-facts";
 import { CardFrame } from "@/components/card-frame";
 import { CardGrid } from "@/components/card-grid";
@@ -15,7 +16,7 @@ import {
   CardHeader,
 } from "@repo/ui/components/ui/card";
 import { Separator } from "@repo/ui/components/ui/separator";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { Building2Icon, CalendarIcon, MailIcon } from "lucide-react";
 
 type Lead = Awaited<ReturnType<typeof api.lead.list>>["leads"][number];
@@ -35,7 +36,7 @@ export const LeadCards = ({
   removingLeadId,
   selection,
 }: LeadCardsProps) => {
-  const navigate = useNavigate();
+  const { openLead } = useEntitySheet();
 
   return (
     <CardGrid>
@@ -43,12 +44,7 @@ export const LeadCards = ({
         <CardFrame
           key={lead.leadId}
           selected={selection.isSelected(lead.leadId)}
-          onClick={() =>
-            navigate({
-              to: "/admin/leads/$leadId",
-              params: { leadId: lead.leadId },
-            })
-          }
+          onClick={() => openLead(lead.leadId)}
         >
           <Card>
             <CardHeader>

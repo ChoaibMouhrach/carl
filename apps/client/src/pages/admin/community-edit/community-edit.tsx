@@ -34,10 +34,7 @@ export const CommunityEdit = () => {
     onSuccess: async () => {
       toast.success("Community updated.");
       await invalidateLeadData(queryClient);
-      await navigate({
-        to: "/admin/communities/$communityId",
-        params: { communityId },
-      });
+      await navigate({ to: "/admin/communities", search: { page: 1 } });
     },
   });
 
@@ -71,12 +68,7 @@ export const CommunityEdit = () => {
           label="Go back without saving"
           render={
             <Button
-              render={
-                <Link
-                  params={{ communityId }}
-                  to="/admin/communities/$communityId"
-                />
-              }
+              render={<Link search={{ page: 1 }} to="/admin/communities" />}
               variant="outline"
             />
           }

@@ -35,8 +35,7 @@ test("creates a lead from the form and stores every field", async ({
   await page.getByLabel("Website").fill(`https://${id}.example.com`);
   await page.getByRole("button", { name: "Save lead" }).click();
 
-  await expect(page).toHaveURL(/\/admin\/leads\/\d+$/);
-  await expect(page.getByRole("heading", { name: `Lead ${id}` })).toBeVisible();
+  await expect(page).toHaveURL(/\/admin\/leads(\?|$)/);
 
   const stored = await seed.findLeadByUsername(username);
   expect(stored).toMatchObject({
@@ -138,7 +137,9 @@ test("shows a skeleton while the leads load", async ({ page, seed }) => {
   await page.goto(`/admin/leads?search=${id}`);
 
   await expect(page.locator('[data-slot="skeleton"]').first()).toBeVisible();
-  await expect(page.getByRole("link", { name: `Slow ${id}` })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: `Slow ${id}`, exact: true }),
+  ).toBeVisible();
   await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
 });
 
@@ -215,10 +216,7 @@ test("edits a lead and keeps what was not changed", async ({ page, seed }) => {
   await page.getByLabel("Email").fill("");
   await page.getByRole("button", { name: "Save lead" }).click();
 
-  await expect(page).toHaveURL(new RegExp(`/admin/leads/${lead.leadId}$`));
-  await expect(
-    page.getByRole("heading", { name: `After ${id}` }),
-  ).toBeVisible();
+  await expect(page).toHaveURL(/\/admin\/leads(\?|$)/);
   expect(await seed.findLeadByUsername(`edit-${id}`)).toMatchObject({
     name: `After ${id}`,
     email: null,
@@ -255,9 +253,11 @@ test("deleting a lead from its row removes the lead and its communities", async 
   await expect(dialog).toContainText("1 community");
   await dialog.getByRole("button", { name: "Delete" }).click();
 
-  await expect(page.getByRole("link", { name: `Doomed ${id}` })).toHaveCount(0);
   await expect(
-    page.getByRole("link", { name: `Survivor ${id}` }),
+    page.getByRole("button", { name: `Doomed ${id}`, exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: `Survivor ${id}`, exact: true }),
   ).toBeVisible();
   expect(await seed.findLeadByUsername(`doomed-${id}`)).toBeNull();
   expect(await seed.findCommunityBySlug(`doomed-community-${id}`)).toBeNull();
@@ -328,4 +328,120 @@ test("a non-admin cannot bulk delete leads", async ({ page, seed }) => {
 
   expect(response.status()).toBe(403);
   expect(await seed.findLeadByUsername(`protected-${id}`)).not.toBeNull();
+});
+
+test("opens a lead sheet with every detail and the owned communities", async ({
+  page,
+  seed,
+}) => {
+  const admin = await seed.createVerifiedAdmin();
+  await seed.authenticate(page.context(), admin.email);
+  const id = token();
+  const lead = await seed.createLead({
+    name: `Sheet ${id}`,
+    username: `sheet-${id}`,
+    email: `sheet-${id}@example.com`,
+    bio: `Bio ${id}`,
+    linkedin: `https://linkedin.com/in/${id}`,
+    website: `https://${id}.example.com`,
+  });
+  await seed.createCommunity({
+    leadId: lead.leadId,
+    name: `Owned ${id}`,
+    slug: `owned-${id}`,
+    members: 77,
+  });
+
+  await page.goto(`/admin/leads?search=${id}`);
+  await page.locator("tbody tr").first().getByText(`@sheet-${id}`).click();
+
+  const sheet = page.getByRole("dialog");
+  await expect(
+    sheet.getByRole("heading", { name: `Sheet ${id}` }),
+  ).toBeVisible();
+  await expect(sheet.getByText(`sheet-${id}@example.com`)).toBeVisible();
+  await expect(sheet.getByText(`Bio ${id}`)).toBeVisible();
+  await expect(
+    sheet.getByRole("link", { name: `linkedin.com/in/${id}` }),
+  ).toBeVisible();
+  await expect(
+    sheet.getByRole("link", { name: `${id}.example.com` }),
+  ).toBeVisible();
+  await expect(sheet.getByText("1 community", { exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\/admin\/leads(\?|$)/);
+
+  await sheet.getByRole("button", { name: /Owned/ }).click();
+  await expect(
+    sheet.getByRole("heading", { name: `Owned ${id}` }),
+  ).toBeVisible();
+
+  expect(await seed.findLeadByUsername(`sheet-${id}`)).toMatchObject({
+    leadId: lead.leadId,
+    linkedin: `https://linkedin.com/in/${id}`,
+  });
+});
+
+test("shows a skeleton while the lead sheet loads", async ({ page, seed }) => {
+  const admin = await seed.createVerifiedAdmin();
+  await seed.authenticate(page.context(), admin.email);
+  const id = token();
+  const lead = await seed.createLead({
+    name: `Pending ${id}`,
+    username: `pending-${id}`,
+  });
+
+  await page.route(
+    (url) => url.pathname === `/api/leads/${lead.leadId}`,
+    async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      await route.continue();
+    },
+  );
+  await page.goto(`/admin/leads?search=${id}`);
+  await page
+    .getByRole("button", { name: `Pending ${id}`, exact: true })
+    .click();
+
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.locator('[data-slot="skeleton"]').first()).toBeVisible();
+  await expect(
+    sheet.getByRole("heading", { name: `Pending ${id}` }),
+  ).toBeVisible();
+  await expect(sheet.locator('[data-slot="skeleton"]')).toHaveCount(0);
+});
+
+test("deleting a lead from its sheet removes the lead and its communities", async ({
+  page,
+  seed,
+}) => {
+  const admin = await seed.createVerifiedAdmin();
+  await seed.authenticate(page.context(), admin.email);
+  const id = token();
+  const lead = await seed.createLead({
+    name: `Sheet doomed ${id}`,
+    username: `sheet-doomed-${id}`,
+  });
+  await seed.createCommunity({
+    leadId: lead.leadId,
+    name: `Sheet doomed community ${id}`,
+    slug: `sheet-doomed-community-${id}`,
+  });
+
+  await page.goto(`/admin/leads?search=${id}`);
+  await page
+    .getByRole("button", { name: `Sheet doomed ${id}`, exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Delete", exact: true })
+    .click();
+  const confirm = page.getByRole("alertdialog");
+  await expect(confirm).toContainText("their community");
+  await confirm.getByRole("button", { name: "Delete" }).click();
+
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(await seed.findLeadByUsername(`sheet-doomed-${id}`)).toBeNull();
+  expect(
+    await seed.findCommunityBySlug(`sheet-doomed-community-${id}`),
+  ).toBeNull();
 });

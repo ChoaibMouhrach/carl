@@ -394,7 +394,9 @@ test("filters leads and communities by campaign and the chip clears it", async (
     `/admin/leads?search=${id}&campaignId=${campaign.campaignId}`,
   );
   await expect(page.locator("tbody tr")).toHaveCount(1);
-  await expect(page.getByRole("link", { name: `Inside ${id}` })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: `Inside ${id}`, exact: true }),
+  ).toBeVisible();
   await expect(page.getByText(`Campaign: ${campaignName(id)}`)).toBeVisible();
 
   await page
@@ -410,7 +412,7 @@ test("filters leads and communities by campaign and the chip clears it", async (
   );
   await expect(page.locator("tbody tr")).toHaveCount(1);
   await expect(
-    page.getByRole("link", { name: `Inside community ${id}` }),
+    page.getByRole("button", { name: `Inside community ${id}`, exact: true }),
   ).toBeVisible();
 });
 

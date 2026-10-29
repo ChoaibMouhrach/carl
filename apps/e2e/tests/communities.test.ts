@@ -48,8 +48,7 @@ test("creates a paid community from the form and stores the price", async ({
   await expect(field(page, "MRR")).toHaveValue("5880");
   await page.getByRole("button", { name: "Save community" }).click();
 
-  await expect(page).toHaveURL(/\/admin\/communities\/\d+$/);
-  await expect(page.getByText("$49 per month")).toBeVisible();
+  await expect(page).toHaveURL(/\/admin\/communities(\?|$)/);
   expect(await seed.findCommunityBySlug(`community-${id}`)).toMatchObject({
     leadId: lead.leadId,
     name: `Community ${id}`,
@@ -85,7 +84,7 @@ test("a free community has no price fields and stores no price", async ({
   await page.getByLabel("Skool link").fill(`https://www.skool.com/free-${id}`);
   await page.getByRole("button", { name: "Save community" }).click();
 
-  await expect(page).toHaveURL(/\/admin\/communities\/\d+$/);
+  await expect(page).toHaveURL(/\/admin\/communities(\?|$)/);
   expect(await seed.findCommunityBySlug(`free-${id}`)).toMatchObject({
     isFree: true,
     priceCents: null,
@@ -176,7 +175,9 @@ test("shows a skeleton while the communities load", async ({ page, seed }) => {
   await page.goto(`/admin/communities?search=${id}`);
 
   await expect(page.locator('[data-slot="skeleton"]').first()).toBeVisible();
-  await expect(page.getByRole("link", { name: `Slow ${id}` })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: `Slow ${id}`, exact: true }),
+  ).toBeVisible();
   await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
 });
 
@@ -240,7 +241,7 @@ test("filters by pricing, members and sorts, with removable chips", async ({
   await expect(page).not.toHaveURL(/search=/);
 });
 
-test("opens a community from its row and shows the price and owner", async ({
+test("opens a community sheet from its row and jumps to the owner and back", async ({
   page,
   seed,
 }) => {
@@ -260,16 +261,25 @@ test("opens a community from its row and shows the price and owner", async ({
   });
 
   await page.goto(`/admin/communities?search=${id}`);
-  // The whole row opens the community, not only its name
+  // The whole row opens the sheet, not only the name
   await page.locator("tbody tr").first().getByText("$27 per month").click();
 
-  await expect(page).toHaveURL(/\/admin\/communities\/\d+$/);
+  const sheet = page.getByRole("dialog");
   await expect(
-    page.getByRole("heading", { name: `Detail ${id}` }),
+    sheet.getByRole("heading", { name: `Detail ${id}` }),
   ).toBeVisible();
-  await expect(page.getByText("321")).toBeVisible();
-  await page.getByRole("link", { name: `Owner ${id}` }).click();
-  await expect(page).toHaveURL(new RegExp(`/admin/leads/${lead.leadId}$`));
+  await expect(sheet.getByText("$27 per month")).toBeVisible();
+  await expect(sheet.getByText("321")).toBeVisible();
+  await expect(page).toHaveURL(/\/admin\/communities(\?|$)/);
+
+  await sheet.getByRole("button", { name: `Owner ${id}` }).click();
+  await expect(
+    sheet.getByRole("heading", { name: `Owner ${id}` }),
+  ).toBeVisible();
+  await sheet.getByRole("button", { name: `Detail ${id}` }).click();
+  await expect(
+    sheet.getByRole("heading", { name: `Detail ${id}` }),
+  ).toBeVisible();
 });
 
 test("edits a community, moves it to free and keeps the rest", async ({
@@ -299,9 +309,7 @@ test("edits a community, moves it to free and keeps the rest", async ({
   await page.getByRole("button", { name: "Free" }).click();
   await page.getByRole("button", { name: "Save community" }).click();
 
-  await expect(page).toHaveURL(
-    new RegExp(`/admin/communities/${community.communityId}$`),
-  );
+  await expect(page).toHaveURL(/\/admin\/communities(\?|$)/);
   expect(await seed.findCommunityBySlug(`edit-${id}`)).toMatchObject({
     name: `After ${id}`,
     isFree: true,
@@ -314,7 +322,7 @@ test("edits a community, moves it to free and keeps the rest", async ({
   });
 });
 
-test("deletes a community from its page and leaves the owner", async ({
+test("deletes a community from its sheet and leaves the owner", async ({
   page,
   seed,
 }) => {
@@ -325,20 +333,24 @@ test("deletes a community from its page and leaves the owner", async ({
     name: `Owner ${id}`,
     username: `owner-${id}`,
   });
-  const community = await seed.createCommunity({
+  await seed.createCommunity({
     leadId: lead.leadId,
     name: `Doomed ${id}`,
     slug: `doomed-${id}`,
   });
 
-  await page.goto(`/admin/communities/${community.communityId}`);
-  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await page.goto(`/admin/communities?search=${id}`);
+  await page.getByRole("button", { name: `Doomed ${id}`, exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Delete", exact: true })
+    .click();
   await page
     .getByRole("alertdialog")
     .getByRole("button", { name: "Delete" })
     .click();
 
-  await expect(page).toHaveURL(/\/admin\/communities(\?|$)/);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(await seed.findCommunityBySlug(`doomed-${id}`)).toBeNull();
   expect(await seed.findLeadByUsername(`owner-${id}`)).not.toBeNull();
 });
@@ -367,7 +379,9 @@ test("deletes a community from its row menu", async ({ page, seed }) => {
     .getByRole("button", { name: "Delete" })
     .click();
 
-  await expect(page.getByRole("link", { name: `gone ${id}` })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: `gone ${id}`, exact: true }),
+  ).toHaveCount(0);
   expect(await seed.findCommunityBySlug(`gone-${id}`)).toBeNull();
   expect(await seed.findCommunityBySlug(`stays-${id}`)).not.toBeNull();
 });
@@ -421,7 +435,7 @@ test("bulk deletes the selected communities only after confirmation", async ({
   expect(await seed.findLeadByUsername(`owner-${id}`)).not.toBeNull();
 });
 
-test("adding a community from a lead pre-selects that lead as owner", async ({
+test("adding a community from a lead sheet pre-selects that lead as owner", async ({
   page,
   seed,
 }) => {
@@ -433,8 +447,12 @@ test("adding a community from a lead pre-selects that lead as owner", async ({
     username: `owner-${id}`,
   });
 
-  await page.goto(`/admin/leads/${lead.leadId}`);
-  await page.getByRole("link", { name: "Add community" }).first().click();
+  await page.goto(`/admin/leads?search=${id}`);
+  await page.getByRole("button", { name: `Owner ${id}`, exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("link", { name: "Add community" })
+    .click();
 
   await expect(page).toHaveURL(new RegExp(`leadId=${lead.leadId}`));
   await expect(page.getByRole("combobox", { name: "Owner" })).toHaveValue(

@@ -1,3 +1,4 @@
+import { useEntitySheet } from "@/components/entity-sheet/use-entity-sheet";
 import { CardFacts } from "@/components/card-facts";
 import { CardFrame } from "@/components/card-frame";
 import { CardGrid } from "@/components/card-grid";
@@ -14,7 +15,7 @@ import {
   CardHeader,
 } from "@repo/ui/components/ui/card";
 import { Separator } from "@repo/ui/components/ui/separator";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import {
   BadgeDollarSignIcon,
   MailIcon,
@@ -32,7 +33,7 @@ export const CommunityCards = ({
   selection,
   showLead,
 }: CommunityListProps) => {
-  const navigate = useNavigate();
+  const { openCommunity } = useEntitySheet();
 
   return (
     <CardGrid>
@@ -40,12 +41,7 @@ export const CommunityCards = ({
         <CardFrame
           key={community.communityId}
           selected={selection.isSelected(community.communityId)}
-          onClick={() =>
-            navigate({
-              to: "/admin/communities/$communityId",
-              params: { communityId: community.communityId },
-            })
-          }
+          onClick={() => openCommunity(community.communityId)}
         >
           <Card>
             <CardHeader>

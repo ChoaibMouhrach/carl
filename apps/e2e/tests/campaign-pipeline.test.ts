@@ -99,7 +99,7 @@ test("a finished scrape shows its leads, the count on the stepper and offers a r
   await expect(stepper(page, "Scrape")).toContainText("Done");
   for (const index of [1, 2, 3]) {
     await expect(
-      page.getByRole("link", { name: `Owner ${id} ${index}`, exact: true }),
+      page.getByRole("button", { name: `Owner ${id} ${index}`, exact: true }),
     ).toBeVisible();
   }
   await expect(page.getByRole("button", { name: "Run again" })).toBeEnabled();
@@ -344,7 +344,7 @@ test("pipeline steps fetch their own leads through the same searchable card", as
   });
   await open();
   const leadLink = (name: string) =>
-    page.getByRole("link", { name: `${name} ${id}`, exact: true });
+    page.getByRole("button", { name: `${name} ${id}`, exact: true });
   await expect(leadLink("Waiting")).toBeVisible();
   await expect(leadLink("Mail")).toBeVisible();
 
@@ -528,7 +528,7 @@ test("an idle campaign page discovers a run started elsewhere and refreshes its 
     timeout: 15_000,
   });
   await expect(
-    page.getByRole("link", { name: lead.name, exact: true }),
+    page.getByRole("button", { name: lead.name, exact: true }),
   ).toBeVisible();
   await seed.updatePipelineRun({
     runId: run.runId,

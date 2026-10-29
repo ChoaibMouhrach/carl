@@ -1,5 +1,6 @@
 import { api } from "@/api";
-import { EmailLink } from "@/components/external-link";
+import { useEntitySheet } from "@/components/entity-sheet/use-entity-sheet";
+import { EmailLink, ExternalLink } from "@/components/external-link";
 import { PictureAvatar } from "@/components/picture-avatar";
 import { RowActions } from "@/components/row-actions";
 import { SelectCheckbox } from "@/components/select-checkbox";
@@ -14,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/ui/table";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 
 type Lead = Awaited<ReturnType<typeof api.lead.list>>["leads"][number];
 
@@ -33,7 +34,7 @@ export const LeadTable = ({
   removingLeadId,
   selection,
 }: LeadTableProps) => {
-  const navigate = useNavigate();
+  const { openLead } = useEntitySheet();
 
   return (
     <Table>
@@ -50,6 +51,8 @@ export const LeadTable = ({
           </TableHead>
           <TableHead>Lead</TableHead>
           <TableHead>Email</TableHead>
+          <TableHead>LinkedIn</TableHead>
+          <TableHead>Website</TableHead>
           <TableHead>Communities</TableHead>
           <TableHead>Added</TableHead>
           <TableHead className="w-12">
@@ -62,12 +65,7 @@ export const LeadTable = ({
           <TableRow
             className="cursor-pointer"
             key={lead.leadId}
-            onClick={() =>
-              navigate({
-                to: "/admin/leads/$leadId",
-                params: { leadId: lead.leadId },
-              })
-            }
+            onClick={() => openLead(lead.leadId)}
           >
             <TableCell onClick={(event) => event.stopPropagation()}>
               <SelectCheckbox
@@ -81,14 +79,16 @@ export const LeadTable = ({
               <div className="flex items-center gap-3">
                 <PictureAvatar name={lead.name} src={lead.pictureUrl} />
                 <div className="min-w-0">
-                  <Link
-                    className="block truncate font-medium hover:underline"
-                    onClick={(event) => event.stopPropagation()}
-                    params={{ leadId: lead.leadId }}
-                    to="/admin/leads/$leadId"
+                  <button
+                    className="block max-w-full cursor-pointer truncate text-left font-medium hover:underline"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      openLead(lead.leadId);
+                    }}
+                    type="button"
                   >
                     {lead.name}
-                  </Link>
+                  </button>
                   <div className="truncate text-muted-foreground">
                     @{lead.username}
                   </div>
@@ -97,6 +97,12 @@ export const LeadTable = ({
             </TableCell>
             <TableCell>
               <EmailLink email={lead.email ?? undefined} />
+            </TableCell>
+            <TableCell>
+              <ExternalLink href={lead.linkedin} />
+            </TableCell>
+            <TableCell>
+              <ExternalLink href={lead.website} />
             </TableCell>
             <TableCell>
               <Badge

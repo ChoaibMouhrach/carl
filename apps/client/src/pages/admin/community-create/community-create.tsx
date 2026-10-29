@@ -31,13 +31,10 @@ export const CommunityCreate = () => {
   const create = useMutation({
     mutationFn: (values: CommunityFormValues) => api.community.create(values),
     onError,
-    onSuccess: async (community) => {
+    onSuccess: async () => {
       toast.success("Community created.");
       await invalidateLeadData(queryClient);
-      await navigate({
-        to: "/admin/communities/$communityId",
-        params: { communityId: community.communityId },
-      });
+      await navigate({ to: "/admin/communities", search: { page: 1 } });
     },
   });
 
