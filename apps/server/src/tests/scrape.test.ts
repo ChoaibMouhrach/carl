@@ -89,6 +89,9 @@ test("a scrape discovers communities, then stores them and their leads in the da
       email: "ann@example.com",
       pictureUrl: "https://assets.skool.com/ann-md.jpg",
       enrichedAt: null,
+      workEmail: null,
+      personalEmail: null,
+      emailEnrichedAt: null,
       ...timestamps,
     });
     expect(leadByName("bob")).toEqual({
@@ -104,6 +107,9 @@ test("a scrape discovers communities, then stores them and their leads in the da
       email: "bob@example.com",
       pictureUrl: "https://assets.skool.com/bob-md.jpg",
       enrichedAt: null,
+      workEmail: null,
+      personalEmail: null,
+      emailEnrichedAt: null,
       ...timestamps,
     });
 
