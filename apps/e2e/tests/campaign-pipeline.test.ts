@@ -544,3 +544,158 @@ test("an idle campaign page discovers a run started elsewhere and refreshes its 
     { runId: run.runId, status: "done", processed: 1, failed: 1 },
   ]);
 });
+
+test("run progress arrives over the event stream step by step, without polling", async ({
+  page,
+  seed,
+  id,
+}) => {
+  const { campaign, open } = await openCampaign(page, seed, id);
+  const run = await seed.createPipelineRun({
+    campaignId: campaign.campaignId,
+    step: "scrape",
+    status: "running",
+    total: 4,
+    processed: 1,
+  });
+  const pipelinePath = `/api/campaigns/${campaign.campaignId}/pipeline`;
+  const pipelineLoads: string[] = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === pipelinePath) {
+      pipelineLoads.push(request.url());
+    }
+  });
+  const stream = page.waitForRequest(
+    (request) => new URL(request.url()).pathname === `${pipelinePath}/events`,
+  );
+
+  await open();
+  await stream;
+  await expect(page.getByText("1 of 4 communities")).toBeVisible();
+
+  for (const processed of [2, 3]) {
+    await seed.updatePipelineRun({
+      runId: run.runId,
+      status: "running",
+      processed,
+    });
+    await expect(page.getByText(`${processed} of 4 communities`)).toBeVisible();
+    const [stored] = await seed.listPipelineRuns(campaign.campaignId);
+    expect(stored).toMatchObject({ status: "running", processed });
+  }
+
+  expect(pipelineLoads).toHaveLength(1);
+});
+
+test("a run that fails while the page is open shows the failure and its reason", async ({
+  page,
+  seed,
+  id,
+}) => {
+  const { campaign, open } = await openCampaign(page, seed, id);
+  const run = await seed.createPipelineRun({
+    campaignId: campaign.campaignId,
+    step: "scrape",
+    status: "running",
+    total: 4,
+    processed: 1,
+  });
+  await open();
+  await expect(page.getByText("1 of 4 communities")).toBeVisible();
+
+  await seed.updatePipelineRun({
+    runId: run.runId,
+    status: "failed",
+    processed: 1,
+    error: "Skool blocked the search",
+  });
+
+  await expect(page.getByText("The run failed")).toBeVisible();
+  await expect(page.getByText("Skool blocked the search")).toBeVisible();
+  await expect(stepper(page, "Scrape")).toContainText("Failed");
+  await expect(page.getByRole("button", { name: "Run again" })).toBeEnabled();
+  const [stored] = await seed.listPipelineRuns(campaign.campaignId);
+  expect(stored).toMatchObject({
+    status: "failed",
+    error: "Skool blocked the search",
+  });
+});
+
+test("a page only follows the runs of its own campaign", async ({
+  page,
+  seed,
+  id,
+}) => {
+  const { campaign, open } = await openCampaign(page, seed, id);
+  const other = await seed.createCampaign({
+    name: `1-${id}`,
+    keyword: "other",
+  });
+  await open();
+  await expect(page.getByRole("button", { name: "Run scrape" })).toBeEnabled();
+
+  await seed.createPipelineRun({
+    campaignId: other.campaignId,
+    step: "scrape",
+    status: "running",
+    total: 99,
+    processed: 5,
+  });
+  await seed.createPipelineRun({
+    campaignId: campaign.campaignId,
+    step: "scrape",
+    status: "running",
+    total: 2,
+    processed: 1,
+  });
+
+  await expect(page.getByText("1 of 2 communities")).toBeVisible();
+  await expect(page.getByText(/of 99/)).toHaveCount(0);
+  expect(await seed.listPipelineRuns(other.campaignId)).toHaveLength(1);
+  expect(await seed.listPipelineRuns(campaign.campaignId)).toHaveLength(1);
+});
+
+test("a dropped event stream reconnects and catches up on what it missed", async ({
+  page,
+  seed,
+  id,
+}) => {
+  const { campaign, open } = await openCampaign(page, seed, id);
+  const run = await seed.createPipelineRun({
+    campaignId: campaign.campaignId,
+    step: "scrape",
+    status: "running",
+    total: 4,
+    processed: 1,
+  });
+  let dropped = false;
+  await page.route(
+    (url) =>
+      url.pathname.endsWith(
+        `/campaigns/${campaign.campaignId}/pipeline/events`,
+      ),
+    async (route) => {
+      if (dropped) {
+        await route.continue();
+        return;
+      }
+      dropped = true;
+      await route.abort();
+    },
+  );
+
+  await open();
+  await expect(page.getByText("1 of 4 communities")).toBeVisible();
+  await expect.poll(() => dropped).toBe(true);
+  await seed.updatePipelineRun({
+    runId: run.runId,
+    status: "running",
+    processed: 3,
+  });
+
+  await expect(page.getByText("3 of 4 communities")).toBeVisible({
+    timeout: 20_000,
+  });
+  const [stored] = await seed.listPipelineRuns(campaign.campaignId);
+  expect(stored).toMatchObject({ status: "running", processed: 3 });
+});

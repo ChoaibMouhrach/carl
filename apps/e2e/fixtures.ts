@@ -64,6 +64,7 @@ interface Seed {
     status: "running" | "done" | "failed";
     processed: number;
     failed?: number;
+    error?: string | null;
   }) => Promise<void>;
   listPipelineRuns: (campaignId: number) => ReturnType<typeof listPipelineRuns>;
   findCampaignByName: (name: string) => ReturnType<typeof findCampaignByName>;

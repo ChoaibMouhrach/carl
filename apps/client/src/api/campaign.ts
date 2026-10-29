@@ -49,6 +49,14 @@ export class CampaignApi extends BaseApi {
     );
   }
 
+  public pipelineEvents(where: { campaignId: number }) {
+    const url = http.api.campaigns[":campaignId"].pipeline.events.$url({
+      param: { campaignId: where.campaignId.toString() },
+    });
+
+    return new EventSource(url, { withCredentials: true });
+  }
+
   public startScrape(where: { campaignId: number }) {
     return this.call(() =>
       http.api.campaigns[":campaignId"].pipeline.scrape.$post({

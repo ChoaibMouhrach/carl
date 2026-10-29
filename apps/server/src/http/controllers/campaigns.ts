@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import { describeRoute, validator } from "hono-openapi";
+import { streamSSE } from "hono/streaming";
 import type { AppContext } from "@server/app";
+import { SSE_HEARTBEAT_MS } from "@server/config/constants";
 import { adminMiddleware } from "../middlewares/auth";
 import {
   campaignBulkDeleteSchema,
@@ -179,6 +181,36 @@ export const campaignController = new Hono<AppContext>()
         .pipeline.get({ campaignId });
 
       return context.json(pipeline);
+    },
+  )
+
+  .get(
+    "/:campaignId/pipeline/events",
+    describeRoute({ tags: ["campaigns"] }),
+    validator("param", campaignParamSchema),
+    async (context) => {
+      const { campaignId } = context.req.valid("param");
+      const abort = new AbortController();
+
+      const states = await context
+        .get("services")
+        .pipeline.watch({ campaignId }, abort.signal);
+
+      return streamSSE(context, async (stream) => {
+        stream.onAbort(() => abort.abort());
+
+        const heartbeat = setInterval(() => {
+          void stream.writeSSE({ event: "heartbeat", data: "" });
+        }, SSE_HEARTBEAT_MS);
+
+        try {
+          for await (const state of states) {
+            await stream.writeSSE({ data: JSON.stringify(state) });
+          }
+        } finally {
+          clearInterval(heartbeat);
+        }
+      });
     },
   )
 

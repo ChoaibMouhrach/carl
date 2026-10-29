@@ -59,6 +59,7 @@ export const initServer = async () => {
       stopHttpServer?.();
       await context.rateLimiter.close();
       await context.queueHub.close();
+      await context.pubSub.close();
       await context.errorMonitor.flush();
     },
   };

@@ -9,6 +9,8 @@ import { ResendMailer } from "./infrastructure/mailer/resend";
 import { RateLimitedMailer } from "./infrastructure/mailer/rate-limited";
 import type { BaseQueueHub } from "./lib/base-queue";
 import { QueueHub } from "./infrastructure/queue/bullmq";
+import type { BasePubSubHub } from "./lib/base-pubsub";
+import { RedisPubSubHub } from "./infrastructure/pubsub/redis";
 import type { BaseRateLimiter } from "./lib/base-rate-limiter";
 import { RedisRateLimiter } from "./infrastructure/rate-limiter/redis";
 import { DisabledRateLimiter } from "./infrastructure/rate-limiter/disabled";
@@ -76,6 +78,10 @@ export const initContext = async () => {
     redisUrl: env.REDIS_CONNECTION_STRING,
   });
 
+  const pubSub: BasePubSubHub = new RedisPubSubHub({
+    redisUrl: env.REDIS_CONNECTION_STRING,
+  });
+
   const rateLimiter: BaseRateLimiter = env.IS_DEVELOPMENT
     ? new DisabledRateLimiter()
     : new RedisRateLimiter({
@@ -94,6 +100,7 @@ export const initContext = async () => {
   return {
     repositories,
     queueHub,
+    pubSub,
     rateLimiter,
     logger,
     mailer,

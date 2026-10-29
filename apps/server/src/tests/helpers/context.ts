@@ -21,6 +21,12 @@ import {
 } from "@server/lib/base-queue";
 import { BaseSkoolScrapper } from "@server/lib/base-skool-scrapper";
 import { BaseRateLimiter } from "@server/lib/base-rate-limiter";
+import {
+  BasePubSub,
+  BasePubSubHub,
+  type PipelineEvent,
+  type PubSubHandler,
+} from "@server/lib/base-pubsub";
 import { Repositories } from "@server/repositories";
 import { DisabledErrorMonitor } from "@server/infrastructure/error-monitor/disabled";
 import type { AppContext, AuthAppContext } from "@server/app";
@@ -311,13 +317,46 @@ class TestRateLimiter extends BaseRateLimiter {
   public override async close(): Promise<void> {}
 }
 
+export class TestPubSub<Message> extends BasePubSub<Message> {
+  public published: Message[] = [];
+  private handlers = new Map<string, Set<PubSubHandler<Message>>>();
+
+  public subscriberCount(topic: string): number {
+    return this.handlers.get(topic)?.size ?? 0;
+  }
+
+  public override async publish(topic: string, message: Message) {
+    this.published.push(message);
+    for (const handler of this.handlers.get(topic) ?? []) handler(message);
+  }
+
+  public override async subscribe(
+    topic: string,
+    handler: PubSubHandler<Message>,
+  ) {
+    const handlers = this.handlers.get(topic) ?? new Set();
+    handlers.add(handler);
+    this.handlers.set(topic, handlers);
+
+    return async () => {
+      handlers.delete(handler);
+    };
+  }
+}
+
+export class TestPubSubHub extends BasePubSubHub {
+  public pipeline = new TestPubSub<PipelineEvent>();
+
+  public override async close(): Promise<void> {}
+}
+
 export const createContext = (
   db: DB,
   pool: Pool,
   env: ENV,
   mailer: BaseMailer = new TestMailer(),
   rateLimiter: BaseRateLimiter = new TestRateLimiter(),
-): Context & { queueHub: TestQueueHub } => {
+): Context & { queueHub: TestQueueHub; pubSub: TestPubSubHub } => {
   const queueHub = new TestQueueHub({ mailer });
 
   return {
@@ -327,6 +366,7 @@ export const createContext = (
     logger: new TestLogger(),
     mailer,
     queueHub,
+    pubSub: new TestPubSubHub(),
     rateLimiter,
     repositories: new Repositories({ dbConnection: { db, pool } }),
     skoolScrapper: new UnconfiguredSkoolScrapper(),

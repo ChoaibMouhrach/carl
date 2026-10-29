@@ -53,7 +53,6 @@ interface LeadListProps {
   campaignId?: number;
   pipelineStep?: CampaignPipelineStep;
   emptyDescription?: string;
-  refetchInterval?: number | false;
 }
 
 export const LeadList = ({
@@ -62,7 +61,6 @@ export const LeadList = ({
   campaignId,
   pipelineStep,
   emptyDescription,
-  refetchInterval,
 }: LeadListProps) => {
   const { view, setView } = useView();
   const queryClient = useQueryClient();
@@ -87,7 +85,6 @@ export const LeadList = ({
         (campaignId ?? searchParams.campaignId ?? null)
         ? previousData
         : undefined,
-    refetchInterval,
   });
 
   const selection = useSelection(

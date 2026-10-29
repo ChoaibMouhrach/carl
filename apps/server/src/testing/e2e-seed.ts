@@ -2,6 +2,8 @@ import { and, desc, eq, like } from "drizzle-orm";
 import { hashPassword, makeSignature, signJWT } from "better-auth/crypto";
 import IORedis from "ioredis";
 import { initDB, type DB } from "../infrastructure/database/client";
+import { RedisPubSubHub } from "../infrastructure/pubsub/redis";
+import { pipelineTopic } from "../lib/base-pubsub";
 import {
   accountTable,
   campaignCommunitiesTable,
@@ -31,6 +33,19 @@ const withDb = async <T>(
     return await run(connection.db);
   } finally {
     await connection.pool.end();
+  }
+};
+
+const publishPipelineChanged = async (
+  config: SeedConfig,
+  campaignId: number,
+): Promise<void> => {
+  const pubSub = new RedisPubSubHub({ redisUrl: config.redisUrl });
+
+  try {
+    await pubSub.pipeline.publish(pipelineTopic(campaignId), { campaignId });
+  } finally {
+    await pubSub.close();
   }
 };
 
@@ -660,6 +675,15 @@ export interface SeedPipelineRunInput {
 export const createPipelineRun = async (
   config: SeedConfig,
   input: SeedPipelineRunInput,
+) => {
+  const run = await insertPipelineRun(config, input);
+  await publishPipelineChanged(config, input.campaignId);
+  return run;
+};
+
+const insertPipelineRun = async (
+  config: SeedConfig,
+  input: SeedPipelineRunInput,
 ) =>
   withDb(config, async (db) => {
     const [run] = await db
@@ -701,18 +725,28 @@ export const updatePipelineRun = async (
     status: "running" | "done" | "failed";
     processed: number;
     failed?: number;
+    error?: string | null;
   },
-): Promise<void> =>
-  withDb(config, async (db) => {
-    await db
+): Promise<void> => {
+  const [run] = await withDb(config, (db) =>
+    db
       .update(pipelineRunsTable)
       .set({
         status: input.status,
         processed: input.processed,
         failed: input.failed ?? 0,
+        error: input.error ?? null,
       })
-      .where(eq(pipelineRunsTable.runId, input.runId));
-  });
+      .where(eq(pipelineRunsTable.runId, input.runId))
+      .returning(),
+  );
+
+  if (!run) {
+    throw new Error(`no pipeline run ${input.runId}`);
+  }
+
+  await publishPipelineChanged(config, run.campaignId);
+};
 
 export const listPipelineRuns = async (
   config: SeedConfig,

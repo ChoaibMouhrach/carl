@@ -4,7 +4,9 @@ import {
   ConflictError,
   NotFoundError,
 } from "@server/lib/errors";
+import { pipelineTopic } from "@server/lib/base-pubsub";
 import { describeError } from "@server/lib/utils";
+import { publishPipelineChanged } from "./pipeline-events";
 import type { PipelineRun } from "@server/infrastructure/database/schemas";
 
 const UNIQUE_VIOLATION = "23505";
@@ -17,6 +19,8 @@ const isUniqueViolation = (error: unknown): boolean => {
 
   return code === UNIQUE_VIOLATION;
 };
+
+export type PipelineState = Awaited<ReturnType<PipelineService["get"]>>;
 
 export class PipelineService extends BaseService {
   public async get(where: { campaignId: number }) {
@@ -50,6 +54,45 @@ export class PipelineService extends BaseService {
     };
   }
 
+  public async watch(
+    where: { campaignId: number },
+    signal: AbortSignal,
+  ): Promise<AsyncGenerator<PipelineState>> {
+    await this.requireCampaign(where);
+
+    let isDirty = true;
+    const waiters: Array<() => void> = [];
+    const wakeAll = () => {
+      for (const waiter of waiters.splice(0)) waiter();
+    };
+
+    const unsubscribe = await this.context.pubSub.pipeline.subscribe(
+      pipelineTopic(where.campaignId),
+      () => {
+        isDirty = true;
+        wakeAll();
+      },
+    );
+    signal.addEventListener("abort", wakeAll, { once: true });
+
+    const load = () => this.get(where);
+
+    return (async function* () {
+      try {
+        while (!signal.aborted) {
+          if (!isDirty) {
+            await new Promise<void>((resolve) => waiters.push(resolve));
+            continue;
+          }
+          isDirty = false;
+          yield await load();
+        }
+      } finally {
+        await unsubscribe();
+      }
+    })();
+  }
+
   public async startScrape(where: {
     campaignId: number;
   }): Promise<PipelineRun> {
@@ -81,6 +124,7 @@ export class PipelineService extends BaseService {
         runId: run.runId,
         error: describeError(error),
       });
+      await publishPipelineChanged(this.context, where.campaignId);
       throw error;
     }
 
@@ -133,6 +177,7 @@ export class PipelineService extends BaseService {
           total: leadIds.length,
         });
       });
+      await publishPipelineChanged(this.context, where.campaignId);
 
       await Promise.all(
         leadIds.map(
@@ -148,6 +193,7 @@ export class PipelineService extends BaseService {
         runId: run.runId,
         error: describeError(error),
       });
+      await publishPipelineChanged(this.context, where.campaignId);
       throw error;
     }
 
@@ -179,7 +225,9 @@ export class PipelineService extends BaseService {
     }
 
     try {
-      return await pipelineRun.create(input);
+      const run = await pipelineRun.create(input);
+      await publishPipelineChanged(this.context, input.campaignId);
+      return run;
     } catch (error) {
       throw isUniqueViolation(error) ? this.inProgress() : error;
     }

@@ -1,0 +1,2 @@
+# Captured Skool HTML: never reformat, and keep it out of diffs
+apps/server/src/tests/fixtures/** -diff linguist-generated

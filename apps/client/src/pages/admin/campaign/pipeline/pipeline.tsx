@@ -1,4 +1,5 @@
 import { api } from "@/api";
+import { usePipelineEvents } from "@/hooks/use-pipeline-events";
 import { onError } from "@/lib/base-api";
 import { adminCampaignRoute } from "@/routes/admin/campaign";
 import {
@@ -21,9 +22,6 @@ import { TavilyStep } from "./tavily-step";
 
 type CampaignDetails = Awaited<ReturnType<typeof api.campaign.show>>;
 
-const POLL_MS = 2_000;
-const IDLE_POLL_MS = 10_000;
-
 interface PipelineProps {
   campaign: CampaignDetails;
 }
@@ -40,16 +38,12 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
     queryFn: () => api.campaign.pipeline({ campaignId }),
     placeholderData: (previousData, previousQuery) =>
       previousQuery?.queryKey[2] === campaignId ? previousData : undefined,
-    refetchInterval: (query) =>
-      query.state.data?.scrape?.status === "running" ||
-      query.state.data?.enrich?.status === "running"
-        ? POLL_MS
-        : IDLE_POLL_MS,
   });
+
+  usePipelineEvents(campaignId);
 
   const scrapeStatus = runStatus(pipeline.data?.scrape ?? null);
   const enrichStatus = runStatus(pipeline.data?.enrich ?? null);
-  const isRunning = scrapeStatus === "running" || enrichStatus === "running";
 
   const revision = JSON.stringify([
     campaignId,
@@ -197,7 +191,7 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
             </AlertDescription>
           </Alert>
         )}
-      <CampaignLeads refetchInterval={isRunning ? POLL_MS : false} />
+      <CampaignLeads />
     </section>
   );
 };

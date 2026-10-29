@@ -1,11 +1,7 @@
 import { adminCampaignRoute } from "@/routes/admin/campaign";
 import { LeadList } from "../leads/leads";
 
-interface CampaignLeadsProps {
-  refetchInterval: number | false;
-}
-
-export const CampaignLeads = ({ refetchInterval }: CampaignLeadsProps) => {
+export const CampaignLeads = () => {
   const { campaignId } = adminCampaignRoute.useParams();
   const searchParams = adminCampaignRoute.useSearch();
   const navigate = adminCampaignRoute.useNavigate();
@@ -23,7 +19,6 @@ export const CampaignLeads = ({ refetchInterval }: CampaignLeadsProps) => {
         campaignId={campaignId}
         pipelineStep={searchParams.step}
         emptyDescription={emptyDescriptions[searchParams.step]}
-        refetchInterval={refetchInterval}
         searchParams={{
           page: searchParams.page,
           perPage: searchParams.perPage,

@@ -1,3 +1,4 @@
+import { publishPipelineChanged } from "./pipeline-events";
 import { PipelineProgressService } from "./pipeline-progress";
 import { BaseService } from "@server/lib/base-service";
 import type { Community as ScrapedCommunity } from "@server/lib/base-skool-scrapper";
@@ -41,6 +42,7 @@ export class ScrapeService extends BaseService {
           await tx.pipelineRun.initializeItems({ runId, total: items.length });
           await tx.pipelineRun.refreshProgress({ runId });
         });
+        await publishPipelineChanged(this.context, run.campaignId);
         await this.queueCommunities(
           input,
           items
@@ -80,18 +82,24 @@ export class ScrapeService extends BaseService {
 
     const runId = input.runId;
     if (runId !== undefined) {
-      await this.context.repositories.transaction(async ({ tx }) => {
-        const run = await tx.pipelineRun.lockByRunId({ runId });
-        if (!run || run.itemsReady) return;
-        await tx.pipelineRun.createItems({
-          runId,
-          itemKeys: matching.map((community) => community.communityURL),
-        });
-        await tx.pipelineRun.initializeItems({
-          runId,
-          total: matching.length,
-        });
-      });
+      const initializedCampaignId = await this.context.repositories.transaction(
+        async ({ tx }) => {
+          const run = await tx.pipelineRun.lockByRunId({ runId });
+          if (!run || run.itemsReady) return null;
+          await tx.pipelineRun.createItems({
+            runId,
+            itemKeys: matching.map((community) => community.communityURL),
+          });
+          await tx.pipelineRun.initializeItems({
+            runId,
+            total: matching.length,
+          });
+          return run.campaignId;
+        },
+      );
+      if (initializedCampaignId !== null) {
+        await publishPipelineChanged(this.context, initializedCampaignId);
+      }
       for (const community of stored) {
         await new PipelineProgressService({ context: this.context }).complete(
           {
@@ -149,6 +157,8 @@ export class ScrapeService extends BaseService {
         runId: job.runId,
         error: describeError(error),
       });
+      const run = await pipelineRun.findByRunId({ runId: job.runId });
+      if (run) await publishPipelineChanged(this.context, run.campaignId);
       return;
     }
 
