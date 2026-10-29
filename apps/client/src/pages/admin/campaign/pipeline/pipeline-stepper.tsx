@@ -12,9 +12,12 @@ import type { PipelineStepId, StepStatus } from "./pipeline-step";
 interface PipelineStepperProps {
   scrapeStatus: StepStatus;
   tavilyStatus: StepStatus;
+  fullenrichStatus: StepStatus;
   scrapeCount: number | null;
   tavilyCount: number | null;
+  fullenrichCount: number | null;
   isScrapeDone: boolean;
+  isTavilyDone: boolean;
   selected: PipelineStepId;
   onSelect: (step: PipelineStepId) => void;
 }
@@ -33,14 +36,17 @@ const statusBadge: Record<StepStatus, StepBadge> = {
   failed: { label: "Failed", variant: "destructive" },
 };
 
-const soonBadge: StepBadge = { label: "Soon", variant: "outline" };
+const waitingBadge: StepBadge = { label: "Waiting", variant: "outline" };
 
 export const PipelineStepper = ({
   scrapeStatus,
   tavilyStatus,
+  fullenrichStatus,
   scrapeCount,
   tavilyCount,
+  fullenrichCount,
   isScrapeDone,
+  isTavilyDone,
   selected,
   onSelect,
 }: PipelineStepperProps) => {
@@ -64,26 +70,21 @@ export const PipelineStepper = ({
         tavilyCount === null
           ? "Find owner contact details"
           : `${tavilyCount} contactable`,
-      badge: isScrapeDone
-        ? statusBadge[tavilyStatus]
-        : { label: "Waiting", variant: "outline" },
+      badge: isScrapeDone ? statusBadge[tavilyStatus] : waitingBadge,
     },
     {
-      id: "ai-filter",
-      title: "AI filter",
-      description: "Classify each lead",
-      badge: soonBadge,
-    },
-    {
-      id: "accepted",
-      title: "Accepted",
-      description: "Review the best fits",
-      badge: soonBadge,
+      id: "fullenrich",
+      title: "FullEnrich",
+      description:
+        fullenrichCount === null
+          ? "Find work and personal emails"
+          : `${fullenrichCount} with email`,
+      badge: isTavilyDone ? statusBadge[fullenrichStatus] : waitingBadge,
     },
   ];
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-3">
       {steps.map((step, index) => (
         <Tip
           key={step.id}

@@ -1,6 +1,6 @@
 import { api } from "@/api";
 import { useEntitySheet } from "@/components/entity-sheet/use-entity-sheet";
-import { EmailLink, ExternalLink } from "@/components/external-link";
+import { ExternalLink } from "@/components/external-link";
 import { PictureAvatar } from "@/components/picture-avatar";
 import { RowActions } from "@/components/row-actions";
 import { SelectCheckbox } from "@/components/select-checkbox";
@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "@repo/ui/components/ui/table";
 import { Link } from "@tanstack/react-router";
+import { LeadEmails } from "./lead-emails";
 
 type Lead = Awaited<ReturnType<typeof api.lead.list>>["leads"][number];
 
@@ -96,7 +97,7 @@ export const LeadTable = ({
               </div>
             </TableCell>
             <TableCell>
-              <EmailLink email={lead.email ?? undefined} />
+              <LeadEmails lead={lead} />
             </TableCell>
             <TableCell>
               <ExternalLink href={lead.linkedin} />

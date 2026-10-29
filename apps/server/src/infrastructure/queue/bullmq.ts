@@ -8,6 +8,7 @@ import {
   type AddJobOptions,
   type EmailJob,
   type EnrichJob,
+  type FullEnrichJob,
   type ListFailedInput,
   type ListFailedResult,
   type MaintenanceJob,
@@ -31,6 +32,12 @@ const scrapeJobName = "run";
 
 const enrichQueueName = "enrich";
 const enrichJobName = "run";
+
+const fullenrichQueueName = "fullenrich";
+const fullenrichJobName = "run";
+// A retry starts a fresh paid FullEnrich job, so retry rarely and slowly.
+const fullenrichAttempts = 3;
+const fullenrichBackoffDelayMs = 30_000;
 
 const FAILED_JOB_RETENTION_SECONDS = 60 * 60 * 24 * 7;
 const FAILED_JOB_RETENTION_COUNT = 5_000;
@@ -332,9 +339,29 @@ export class EnrichQueue extends BullQueue<EnrichJob> {
   }
 }
 
+interface FullEnrichQueueInit {
+  concurrency: number;
+  errorMonitor: BaseErrorMonitor;
+  logger: BaseLogger;
+  redisUrl: string;
+}
+
+export class FullEnrichQueue extends BullQueue<FullEnrichJob> {
+  public constructor(init: FullEnrichQueueInit) {
+    super({
+      ...init,
+      attempts: fullenrichAttempts,
+      backoffDelayMs: fullenrichBackoffDelayMs,
+      jobName: fullenrichJobName,
+      name: fullenrichQueueName,
+    });
+  }
+}
+
 interface QueueHubInit extends EmailQueueInit {
   scrapeConcurrency: number;
   enrichConcurrency: number;
+  fullenrichConcurrency: number;
 }
 
 export class QueueHub extends BaseQueueHub {
@@ -342,6 +369,7 @@ export class QueueHub extends BaseQueueHub {
   public maintenance: MaintenanceQueue;
   public scrape: ScrapeQueue;
   public enrich: EnrichQueue;
+  public fullenrich: FullEnrichQueue;
 
   public constructor(init: QueueHubInit) {
     super();
@@ -354,6 +382,12 @@ export class QueueHub extends BaseQueueHub {
     });
     this.enrich = new EnrichQueue({
       concurrency: init.enrichConcurrency,
+      errorMonitor: init.errorMonitor,
+      logger: init.logger,
+      redisUrl: init.redisUrl,
+    });
+    this.fullenrich = new FullEnrichQueue({
+      concurrency: init.fullenrichConcurrency,
       errorMonitor: init.errorMonitor,
       logger: init.logger,
       redisUrl: init.redisUrl,
@@ -371,6 +405,7 @@ export class QueueHub extends BaseQueueHub {
       { name: maintenanceQueueName, queue: this.maintenance },
       { name: scrapeQueueName, queue: this.scrape },
       { name: enrichQueueName, queue: this.enrich },
+      { name: fullenrichQueueName, queue: this.fullenrich },
     ];
   }
 
@@ -379,5 +414,6 @@ export class QueueHub extends BaseQueueHub {
     await this.maintenance.close();
     await this.scrape.close();
     await this.enrich.close();
+    await this.fullenrich.close();
   }
 }

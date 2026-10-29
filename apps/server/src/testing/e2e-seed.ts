@@ -397,6 +397,8 @@ export interface SeedLeadInput {
   pictureUrl?: string | null;
   website?: string | null;
   linkedin?: string | null;
+  workEmail?: string | null;
+  personalEmail?: string | null;
   enrichedAt?: Date | null;
 }
 
@@ -413,6 +415,8 @@ export const createLead = async (config: SeedConfig, input: SeedLeadInput) =>
         pictureUrl: input.pictureUrl ?? null,
         website: input.website ?? null,
         linkedin: input.linkedin ?? null,
+        workEmail: input.workEmail ?? null,
+        personalEmail: input.personalEmail ?? null,
         enrichedAt: input.enrichedAt ?? null,
       })
       .returning();
@@ -658,7 +662,7 @@ export const listCampaignCommunityIds = async (
 
 export interface SeedPipelineRunInput {
   campaignId: number;
-  step: "scrape" | "enrich";
+  step: "scrape" | "enrich" | "fullenrich";
   status?: "running" | "done" | "failed";
   total?: number;
   processed?: number;
@@ -669,6 +673,8 @@ export interface SeedPipelineRunInput {
     website?: string | null;
     linkedin?: string | null;
     email?: string | null;
+    workEmail?: string | null;
+    personalEmail?: string | null;
   }[];
 }
 

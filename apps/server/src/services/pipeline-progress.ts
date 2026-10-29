@@ -7,6 +7,8 @@ interface ItemResult {
   website?: string | null;
   linkedin?: string | null;
   email?: string | null;
+  workEmail?: string | null;
+  personalEmail?: string | null;
 }
 
 export class PipelineProgressService extends BaseService {

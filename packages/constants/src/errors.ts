@@ -20,6 +20,8 @@ export const serverErrorCodes = [
   "pipelineRunInProgress",
   "scrapeRequired",
   "enrichmentUnavailable",
+  "enrichRequired",
+  "emailEnrichmentUnavailable",
 ] as const;
 
 export type ServerErrorCode = (typeof serverErrorCodes)[number];

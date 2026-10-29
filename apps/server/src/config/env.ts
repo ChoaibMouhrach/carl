@@ -51,6 +51,10 @@ const baseSchema = z.object({
   // Web search (Tavily) — optional, enrichment is unavailable without it
   TAVILY_API_KEY: optional(z.string().nonempty()),
 
+  // Contact enrichment (FullEnrich) — optional, work and personal emails are not enriched without it
+  FULLENRICH_API_KEY: optional(z.string().nonempty()),
+  FULLENRICH_CONCURRENCY: z.coerce.number().int().positive().default(2),
+
   // Mail
   RESEND_API_KEY: z.string().nonempty(),
   MAIL_DOMAIN: z.string().nonempty(),

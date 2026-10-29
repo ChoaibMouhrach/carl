@@ -21,6 +21,7 @@ import {
   leadsTable,
   type Lead,
   type LeadInsert,
+  type PipelineStep,
 } from "@server/infrastructure/database/schemas";
 import { BaseRepository } from "@server/lib/base-repository";
 import { escapeLike } from "@server/lib/utils";
@@ -29,7 +30,7 @@ export interface LeadListWhere {
   search?: string;
   hasEmail?: boolean;
   campaignId?: number;
-  pipelineStep?: Extract<CampaignPipelineStep, "scrape" | "tavily">;
+  pipelineStep?: CampaignPipelineStep;
   sort: "name" | "username" | "createdAt";
   order: "asc" | "desc";
   limit: number;
@@ -106,6 +107,8 @@ export class LeadRepository extends BaseRepository {
             ilike(table.name, pattern),
             ilike(table.username, pattern),
             ilike(email, pattern),
+            ilike(table.workEmail, pattern),
+            ilike(table.personalEmail, pattern),
             ilike(table.skoolUrl, pattern),
           )
         : undefined,
@@ -122,16 +125,11 @@ export class LeadRepository extends BaseRepository {
                     pipelineItemsTable.runId,
                     this.latestRunId(
                       where.campaignId,
-                      where.pipelineStep === "tavily" ? "enrich" : "scrape",
+                      LeadRepository.runStep[where.pipelineStep],
                     ),
                   ),
                   eq(pipelineItemsTable.status, "processed"),
-                  where.pipelineStep === "tavily"
-                    ? or(
-                        isNotNull(pipelineItemsTable.website),
-                        isNotNull(pipelineItemsTable.linkedin),
-                      )
-                    : undefined,
+                  this.stepResultFilter(where.pipelineStep),
                 ),
               ),
           ),
@@ -189,6 +187,7 @@ export class LeadRepository extends BaseRepository {
   public async findLeadIdsByRunId(where: {
     runId: number;
     campaignId: number;
+    contactable?: boolean;
   }): Promise<number[]> {
     const rows = await this.db
       .selectDistinct({ leadId: pipelineItemsTable.leadId })
@@ -205,6 +204,12 @@ export class LeadRepository extends BaseRepository {
           eq(pipelineItemsTable.runId, where.runId),
           eq(pipelineItemsTable.status, "processed"),
           isNotNull(pipelineItemsTable.leadId),
+          where.contactable
+            ? or(
+                isNotNull(pipelineItemsTable.website),
+                isNotNull(pipelineItemsTable.linkedin),
+              )
+            : undefined,
         ),
       );
     return rows.flatMap((row) => (row.leadId === null ? [] : [row.leadId]));
@@ -240,9 +245,59 @@ export class LeadRepository extends BaseRepository {
     return rows.at(0)?.total ?? 0;
   }
 
+  public async countEmailedByRunId(where: {
+    campaignId: number;
+    runId: number | null;
+  }): Promise<number> {
+    const rows = await this.db
+      .select({ total: countDistinct(pipelineItemsTable.leadId) })
+      .from(pipelineItemsTable)
+      .innerJoin(
+        campaignLeadsTable,
+        and(
+          eq(campaignLeadsTable.leadId, pipelineItemsTable.leadId),
+          eq(campaignLeadsTable.campaignId, where.campaignId),
+        ),
+      )
+      .where(
+        and(
+          eq(pipelineItemsTable.runId, where.runId ?? -1),
+          eq(pipelineItemsTable.status, "processed"),
+          or(
+            isNotNull(pipelineItemsTable.workEmail),
+            isNotNull(pipelineItemsTable.personalEmail),
+          ),
+        ),
+      );
+    return rows.at(0)?.total ?? 0;
+  }
+
+  private static runStep = {
+    scrape: "scrape",
+    tavily: "enrich",
+    fullenrich: "fullenrich",
+  } as const satisfies Record<CampaignPipelineStep, PipelineStep>;
+
+  private stepResultFilter(step: CampaignPipelineStep): SQL | undefined {
+    switch (step) {
+      case "scrape":
+        return undefined;
+      case "tavily":
+        return or(
+          isNotNull(pipelineItemsTable.website),
+          isNotNull(pipelineItemsTable.linkedin),
+        );
+      case "fullenrich":
+        return or(
+          isNotNull(pipelineItemsTable.workEmail),
+          isNotNull(pipelineItemsTable.personalEmail),
+        );
+    }
+  }
+
   private latestRunId(
     campaignId: number | undefined,
-    step: "scrape" | "enrich",
+    step: PipelineStep,
   ): SQL<number> {
     return sql<number>`(select ${pipelineRunsTable.runId} from ${pipelineRunsTable} where ${pipelineRunsTable.campaignId} = ${campaignId ?? null} and ${pipelineRunsTable.step} = ${step} order by ${pipelineRunsTable.runId} desc limit 1)`;
   }
@@ -251,6 +306,11 @@ export class LeadRepository extends BaseRepository {
     field: "website" | "linkedin" | "email",
     where: LeadListWhere,
   ) {
+    if (where.pipelineStep === "fullenrich" && field === "email") {
+      return sql<
+        string | null
+      >`coalesce(${LeadRepository.table.workEmail}, ${LeadRepository.table.personalEmail})`;
+    }
     if (where.pipelineStep !== "tavily") return LeadRepository.table[field];
     return sql<
       string | null

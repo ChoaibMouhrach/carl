@@ -10,12 +10,13 @@ import {
 import { Card, CardContent } from "@repo/ui/components/ui/card";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CircleCheckIcon, ScanSearchIcon, SparklesIcon } from "lucide-react";
+import { MailSearchIcon, ScanSearchIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { TableSkeleton } from "@/components/table-skeleton";
 import { runStatus } from "./pipeline-step";
 import { PipelineStepper } from "./pipeline-stepper";
 import { CampaignLeads } from "../campaign-leads";
+import { FullEnrichStep } from "./fullenrich-step";
 import { ScrapeStep } from "./scrape-step";
 import { StepPlaceholder } from "./step-placeholder";
 import { TavilyStep } from "./tavily-step";
@@ -44,11 +45,13 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
 
   const scrapeStatus = runStatus(pipeline.data?.scrape ?? null);
   const enrichStatus = runStatus(pipeline.data?.enrich ?? null);
+  const fullenrichStatus = runStatus(pipeline.data?.fullenrich ?? null);
 
   const revision = JSON.stringify([
     campaignId,
     pipeline.data?.scrape,
     pipeline.data?.enrich,
+    pipeline.data?.fullenrich,
   ]);
   const previousRevision = useRef(revision);
 
@@ -82,6 +85,12 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
     onSuccess: refreshPipeline,
   });
 
+  const startFullEnrich = useMutation({
+    mutationFn: () => api.campaign.startFullEnrich({ campaignId }),
+    onError,
+    onSuccess: refreshPipeline,
+  });
+
   const selectStep = (next: typeof step) =>
     routeNavigate({
       search: (current) => ({ ...current, step: next, page: 1 }),
@@ -90,8 +99,8 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
   if (pipeline.isPending) {
     return (
       <section className="space-y-6">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }, (_, index) => (
+        <div className="grid gap-3 sm:grid-cols-3">
+          {Array.from({ length: 3 }, (_, index) => (
             <Skeleton className="h-16" key={index} />
           ))}
         </div>
@@ -121,13 +130,24 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
   const state = pipeline.data;
   const isScrapeDone =
     state.scrape?.status === "done" && state.scrape.itemsReady;
+  const isTavilyDone =
+    state.enrich?.status === "done" && state.enrich.itemsReady;
   const selectedRun =
-    step === "scrape" ? state.scrape : step === "tavily" ? state.enrich : null;
+    step === "scrape"
+      ? state.scrape
+      : step === "tavily"
+        ? state.enrich
+        : state.fullenrich;
 
   return (
     <section className="space-y-6">
       <PipelineStepper
+        fullenrichCount={
+          state.fullenrich?.status === "done" ? state.emailedCount : null
+        }
+        fullenrichStatus={fullenrichStatus}
         isScrapeDone={isScrapeDone}
+        isTavilyDone={isTavilyDone}
         onSelect={selectStep}
         scrapeCount={isScrapeDone ? state.scrapedCount : null}
         scrapeStatus={scrapeStatus}
@@ -166,20 +186,27 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
             title="Waiting for the scrape"
           />
         ))}
-      {step === "ai-filter" && (
-        <StepPlaceholder
-          description="Leads will be classified here once this step is built."
-          icon={<SparklesIcon />}
-          title="AI filter is coming soon"
-        />
-      )}
-      {step === "accepted" && (
-        <StepPlaceholder
-          description="Leads that pass the AI filter will be listed here."
-          icon={<CircleCheckIcon />}
-          title="Accepted is coming soon"
-        />
-      )}
+      {step === "fullenrich" &&
+        (isTavilyDone ? (
+          <FullEnrichStep
+            contactableCount={state.contactableCount}
+            isAvailable={state.emailEnrichmentAvailable}
+            isStarting={startFullEnrich.isPending}
+            onRun={() => startFullEnrich.mutate()}
+            run={state.fullenrich}
+          />
+        ) : (
+          <StepPlaceholder
+            action={{
+              label: "Go to Tavily",
+              tip: "Open the Tavily step",
+              onClick: () => selectStep("tavily"),
+            }}
+            description="FullEnrich looks up emails for the leads Tavily found a website or LinkedIn profile for, so finish a Tavily enrichment first."
+            icon={<MailSearchIcon />}
+            title="Waiting for Tavily"
+          />
+        ))}
       {selectedRun &&
         !selectedRun.itemsReady &&
         selectedRun.status !== "running" && (

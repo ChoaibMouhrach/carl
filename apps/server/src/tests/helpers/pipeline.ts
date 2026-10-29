@@ -17,6 +17,11 @@ import {
   BaseWebSearch,
   type WebSearchResult,
 } from "@server/lib/base-web-search";
+import {
+  BaseContactEnrichment,
+  type ContactEnrichmentInput,
+  type ContactEnrichmentResult,
+} from "@server/lib/base-contact-enrichment";
 import { TestQueue } from "./context";
 
 export class FakeWebSearch extends BaseWebSearch {
@@ -35,6 +40,30 @@ export class FakeWebSearch extends BaseWebSearch {
     this.queries.push(input.query);
 
     return this.respond(input.query);
+  }
+}
+
+export class FakeContactEnrichment extends BaseContactEnrichment {
+  public override readonly isAvailable = true;
+  public inputs: ContactEnrichmentInput[] = [];
+
+  public constructor(
+    private readonly respond: (
+      input: ContactEnrichmentInput,
+    ) => ContactEnrichmentResult = () => ({
+      workEmail: null,
+      personalEmail: null,
+    }),
+  ) {
+    super();
+  }
+
+  public override async enrich(
+    input: ContactEnrichmentInput,
+  ): Promise<ContactEnrichmentResult> {
+    this.inputs.push(input);
+
+    return this.respond(input);
   }
 }
 

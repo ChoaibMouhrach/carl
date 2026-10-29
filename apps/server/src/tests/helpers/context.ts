@@ -9,6 +9,7 @@ import {
   type AddJobOptions,
   type EmailJob,
   type EnrichJob,
+  type FullEnrichJob,
   type FailedJob,
   type ListFailedInput,
   type ListFailedResult,
@@ -34,6 +35,7 @@ import type { MiddlewareHandler } from "hono";
 import type { Pool } from "pg";
 import { createAuth } from "@server/infrastructure/auth";
 import { DisabledWebSearch } from "@server/infrastructure/web-search/disabled";
+import { DisabledContactEnrichment } from "@server/infrastructure/contact-enrichment/disabled";
 
 export interface LogRecord {
   level: "debug" | "info" | "warn" | "error";
@@ -258,6 +260,7 @@ export class TestQueueHub extends BaseQueueHub {
   public maintenance: TestQueue<MaintenanceJob>;
   public scrape: TestQueue<ScrapeJob>;
   public enrich: TestQueue<EnrichJob>;
+  public fullenrich: TestQueue<FullEnrichJob>;
 
   public constructor(init: { mailer: BaseMailer }) {
     super();
@@ -275,6 +278,9 @@ export class TestQueueHub extends BaseQueueHub {
     this.enrich = new TestQueue<EnrichJob>({
       process: async () => {},
     });
+    this.fullenrich = new TestQueue<FullEnrichJob>({
+      process: async () => {},
+    });
   }
 
   public override queues(): RegisteredQueue[] {
@@ -283,6 +289,7 @@ export class TestQueueHub extends BaseQueueHub {
       { name: "maintenance", queue: this.maintenance },
       { name: "scrape", queue: this.scrape },
       { name: "enrich", queue: this.enrich },
+      { name: "fullenrich", queue: this.fullenrich },
     ];
   }
 
@@ -371,5 +378,6 @@ export const createContext = (
     repositories: new Repositories({ dbConnection: { db, pool } }),
     skoolScrapper: new UnconfiguredSkoolScrapper(),
     webSearch: new DisabledWebSearch(),
+    contactEnrichment: new DisabledContactEnrichment(),
   };
 };

@@ -7,6 +7,7 @@ import type { DB } from "@server/infrastructure/database/client";
 import {
   communitiesTable,
   leadsTable,
+  pipelineItemsTable,
   type LeadInsert,
 } from "@server/infrastructure/database/schemas";
 import { createAdminClient } from "./helpers/api";
@@ -35,6 +36,16 @@ const listSchema = z.object({
     lastPage: z.number(),
     total: z.number(),
   }),
+});
+
+const emailListSchema = z.object({
+  leads: z.array(
+    leadSchema.extend({
+      workEmail: z.string().nullable(),
+      personalEmail: z.string().nullable(),
+    }),
+  ),
+  meta: listSchema.shape.meta,
 });
 
 const errorSchema = z.object({ code: z.string().optional() });
@@ -126,6 +137,9 @@ test("creating a lead stores every field", async () => {
       ...body,
       leadId: created.leadId,
       enrichedAt: null,
+      workEmail: null,
+      personalEmail: null,
+      emailEnrichedAt: null,
       createdAt: expect.any(Date),
       updatedAt: expect.any(Date),
     });
@@ -758,12 +772,6 @@ test("pipeline steps filter campaign leads before search, sorting, pagination an
     expect(reversed.leads.map((lead) => lead.leadId)).toEqual(
       contactableIds.toReversed(),
     );
-    const ai = await list("pipelineStep=ai-filter");
-    const accepted = await list("pipelineStep=accepted");
-    expect(ai.leads).toEqual([]);
-    expect(ai.meta.total).toBe(0);
-    expect(accepted.leads).toEqual([]);
-    expect(accepted.meta.total).toBe(0);
     const all = await list("perPage=100");
     expect(all.meta.total).toBe(15);
   });
@@ -778,6 +786,151 @@ test("pipeline filtering requires a campaign and a recognized step", async () =>
     );
     expect(missingCampaign.status).toBe(400);
     expect(unknownStep.status).toBe(400);
+
+    for (const removed of ["ai-filter", "accepted"]) {
+      const response = await admin.get(
+        `/api/leads?campaignId=1&pipelineStep=${removed}`,
+      );
+      expect(response.status).toBe(400);
+    }
+  });
+});
+
+test("the email step lists only the leads its latest run found an email for, and searches and filters by those emails", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const { context, admin } = await boot(db, pool);
+    const campaign = await context.repositories.campaign.create({
+      name: "Emails",
+      keyword: "emails",
+    });
+    const other = await context.repositories.campaign.create({
+      name: "Other",
+      keyword: "other",
+    });
+    const make = async (slug: string) =>
+      await context.repositories.lead.create({
+        ...newLead(slug),
+        email: null,
+        workEmail: null,
+        personalEmail: null,
+      });
+    const work = await make("work");
+    const personal = await make("personal");
+    const both = await make("both");
+    const none = await make("none");
+    const failed = await make("failed");
+    await context.repositories.campaign.addLeads({
+      campaignId: campaign.campaignId,
+      leadIds: [work, personal, both, none, failed].map((lead) => lead.leadId),
+    });
+    await context.repositories.lead.update(
+      { leadId: work.leadId },
+      { workEmail: "work@acme.com" },
+    );
+    await context.repositories.lead.update(
+      { leadId: personal.leadId },
+      { personalEmail: "personal@home.com" },
+    );
+    await context.repositories.lead.update(
+      { leadId: both.leadId },
+      { workEmail: "both@acme.com", personalEmail: "both@home.com" },
+    );
+    const older = await insertRun(db, {
+      campaignId: campaign.campaignId,
+      step: "fullenrich",
+      status: "done",
+    });
+    await db.insert(pipelineItemsTable).values({
+      runId: older.runId,
+      itemKey: `lead:${none.leadId}`,
+      leadId: none.leadId,
+      status: "processed",
+      workEmail: "stale@acme.com",
+    });
+    const run = await insertRun(db, {
+      campaignId: campaign.campaignId,
+      step: "fullenrich",
+      status: "done",
+    });
+    await db.insert(pipelineItemsTable).values([
+      {
+        runId: run.runId,
+        itemKey: `lead:${work.leadId}`,
+        leadId: work.leadId,
+        status: "processed",
+        workEmail: "work@acme.com",
+      },
+      {
+        runId: run.runId,
+        itemKey: `lead:${personal.leadId}`,
+        leadId: personal.leadId,
+        status: "processed",
+        personalEmail: "personal@home.com",
+      },
+      {
+        runId: run.runId,
+        itemKey: `lead:${both.leadId}`,
+        leadId: both.leadId,
+        status: "processed",
+        workEmail: "both@acme.com",
+        personalEmail: "both@home.com",
+      },
+      {
+        runId: run.runId,
+        itemKey: `lead:${none.leadId}`,
+        leadId: none.leadId,
+        status: "processed",
+      },
+      {
+        runId: run.runId,
+        itemKey: `lead:${failed.leadId}`,
+        leadId: failed.leadId,
+        status: "failed",
+        workEmail: "failed@acme.com",
+      },
+    ]);
+    const list = async (campaignId: number, query = "") => {
+      const response = await admin.get(
+        `/api/leads?campaignId=${campaignId}&pipelineStep=fullenrich&sort=name&order=asc${query}`,
+      );
+      expect(response.status).toBe(200);
+      const json: unknown = await response.json();
+      return emailListSchema.parse(json);
+    };
+
+    const listed = await list(campaign.campaignId);
+
+    expect(listed.meta.total).toBe(3);
+    expect(listed.leads.map((lead) => lead.leadId)).toEqual([
+      both.leadId,
+      personal.leadId,
+      work.leadId,
+    ]);
+    expect(listed.leads).toMatchObject([
+      {
+        workEmail: "both@acme.com",
+        personalEmail: "both@home.com",
+        email: "both@acme.com",
+      },
+      {
+        workEmail: null,
+        personalEmail: "personal@home.com",
+        email: "personal@home.com",
+      },
+      {
+        workEmail: "work@acme.com",
+        personalEmail: null,
+        email: "work@acme.com",
+      },
+    ]);
+    const searched = await list(campaign.campaignId, "&search=home.com");
+    expect(searched.leads.map((lead) => lead.leadId)).toEqual([
+      both.leadId,
+      personal.leadId,
+    ]);
+    const withEmail = await list(campaign.campaignId, "&hasEmail=true");
+    expect(withEmail.meta.total).toBe(3);
+    expect((await list(other.campaignId)).leads).toEqual([]);
   });
 });
 

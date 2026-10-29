@@ -103,6 +103,7 @@ test("the overview lists every queue with its live counts", async () => {
     expect(overview.queues.map((queue) => queue.name).toSorted()).toEqual([
       "email",
       "enrich",
+      "fullenrich",
       "maintenance",
       "scrape",
     ]);
@@ -112,6 +113,7 @@ test("the overview lists every queue with its live counts", async () => {
     expect(failed).toEqual({
       email: 2,
       enrich: 0,
+      fullenrich: 0,
       maintenance: 0,
       scrape: 0,
     });

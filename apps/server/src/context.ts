@@ -23,6 +23,9 @@ import { CustomSkoolScrapper } from "./infrastructure/skool-scrapper/custom";
 import type { BaseWebSearch } from "./lib/base-web-search";
 import { TavilyWebSearch } from "./infrastructure/web-search/tavily";
 import { DisabledWebSearch } from "./infrastructure/web-search/disabled";
+import type { BaseContactEnrichment } from "./lib/base-contact-enrichment";
+import { FullEnrichContactEnrichment } from "./infrastructure/contact-enrichment/fullenrich";
+import { DisabledContactEnrichment } from "./infrastructure/contact-enrichment/disabled";
 
 export const initContext = async () => {
   const env = initENV();
@@ -73,6 +76,7 @@ export const initContext = async () => {
     concurrency: env.QUEUE_CONCURRENCY,
     scrapeConcurrency: env.SCRAPE_CONCURRENCY,
     enrichConcurrency: env.ENRICH_CONCURRENCY,
+    fullenrichConcurrency: env.FULLENRICH_CONCURRENCY,
     errorMonitor,
     logger,
     redisUrl: env.REDIS_CONNECTION_STRING,
@@ -95,6 +99,10 @@ export const initContext = async () => {
     ? new TavilyWebSearch({ apiKey: env.TAVILY_API_KEY })
     : new DisabledWebSearch();
 
+  const contactEnrichment: BaseContactEnrichment = env.FULLENRICH_API_KEY
+    ? new FullEnrichContactEnrichment({ apiKey: env.FULLENRICH_API_KEY })
+    : new DisabledContactEnrichment();
+
   const auth = createAuth({ db: dbConnection.db, env, queueHub });
 
   return {
@@ -109,6 +117,7 @@ export const initContext = async () => {
     errorMonitor,
     skoolScrapper,
     webSearch,
+    contactEnrichment,
   };
 };
 

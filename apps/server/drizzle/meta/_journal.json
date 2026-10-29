@@ -50,6 +50,13 @@
       "when": 1793188985696,
       "tag": "0006_heavy_lilandra",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793308481640,
+      "tag": "0007_striped_ezekiel_stane",
+      "breakpoints": true
     }
   ]
 }

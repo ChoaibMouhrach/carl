@@ -18,22 +18,17 @@ type CreateLeadInput = Omit<LeadInsert, "leadId" | "createdAt" | "updatedAt">;
 
 export class LeadService extends BaseService {
   public async list(input: ListLeadsInput) {
-    const { pipelineStep } = input;
-    const result =
-      pipelineStep === "ai-filter" || pipelineStep === "accepted"
-        ? { leads: [], total: 0 }
-        : await this.context.repositories.lead.list({
-            search: input.search,
-            hasEmail: input.hasEmail,
-            campaignId: input.campaignId,
-            pipelineStep,
-            sort: input.sort,
-            order: input.order,
-            limit: input.perPage,
-            offset: (input.page - 1) * input.perPage,
-          });
+    const { leads, total } = await this.context.repositories.lead.list({
+      search: input.search,
+      hasEmail: input.hasEmail,
+      campaignId: input.campaignId,
+      pipelineStep: input.pipelineStep,
+      sort: input.sort,
+      order: input.order,
+      limit: input.perPage,
+      offset: (input.page - 1) * input.perPage,
+    });
 
-    const { leads, total } = result;
     return {
       leads,
       meta: {

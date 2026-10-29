@@ -26,4 +26,8 @@ export const serverErrorMessages: Record<ServerErrorCode, string> = {
   scrapeRequired: "Finish a scrape before running this step.",
   enrichmentUnavailable:
     "Lead enrichment isn't configured. Set TAVILY_API_KEY on the server.",
+  enrichRequired:
+    "Finish a lead enrichment run before looking up emails for its leads.",
+  emailEnrichmentUnavailable:
+    "Email enrichment isn't configured. Set FULLENRICH_API_KEY on the server.",
 };

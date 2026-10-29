@@ -4,7 +4,6 @@ import { CardFacts } from "@/components/card-facts";
 import { CardFrame } from "@/components/card-frame";
 import { CardGrid } from "@/components/card-grid";
 import { CardIdentity } from "@/components/card-identity";
-import { EmailLink } from "@/components/external-link";
 import { RowActions } from "@/components/row-actions";
 import { SelectCheckbox } from "@/components/select-checkbox";
 import type { Selection } from "@/lib/use-selection";
@@ -18,6 +17,7 @@ import {
 import { Separator } from "@repo/ui/components/ui/separator";
 import { Link } from "@tanstack/react-router";
 import { Building2Icon, CalendarIcon, MailIcon } from "lucide-react";
+import { LeadEmails } from "./lead-emails";
 
 type Lead = Awaited<ReturnType<typeof api.lead.list>>["leads"][number];
 
@@ -90,7 +90,7 @@ export const LeadCards = ({
                     {
                       icon: MailIcon,
                       label: "Email",
-                      value: <EmailLink email={lead.email ?? undefined} />,
+                      value: <LeadEmails lead={lead} />,
                     },
                     {
                       icon: Building2Icon,

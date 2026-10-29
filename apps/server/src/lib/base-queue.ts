@@ -32,6 +32,12 @@ export type ScrapeJob =
 
 export type EnrichJob = { type: "enrich-lead"; runId: number; leadId: number };
 
+export type FullEnrichJob = {
+  type: "fullenrich-lead";
+  runId: number;
+  leadId: number;
+};
+
 /** A job that retrying cannot fix; the queue fails it for good instead of retrying */
 export class NonRetryableJobError extends Error {
   public constructor(message: string, options?: { cause?: unknown }) {
@@ -123,6 +129,7 @@ export abstract class BaseQueueHub {
   public abstract maintenance: BaseQueue<MaintenanceJob>;
   public abstract scrape: BaseQueue<ScrapeJob>;
   public abstract enrich: BaseQueue<EnrichJob>;
+  public abstract fullenrich: BaseQueue<FullEnrichJob>;
 
   public abstract queues(): RegisteredQueue[];
 
