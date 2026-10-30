@@ -16,6 +16,10 @@ export const expectRequired = async (
   const field = page.locator("label").filter({ hasText: exact }).first();
 
   await expect(field.locator('span[aria-hidden="true"]')).toHaveText("*");
+  await expect(field.locator('span[aria-hidden="true"]')).toHaveCSS(
+    "color",
+    /oklch\((?:0\.577 0\.245 27\.325|0\.704 0\.191 22\.216)\)/,
+  );
 
   if (placeholder !== undefined) {
     // Inputs carry the placeholder attribute; selects show it as the value text

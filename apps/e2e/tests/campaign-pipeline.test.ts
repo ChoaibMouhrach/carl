@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test";
 import { test as base, expect } from "../fixtures";
 import { faker } from "@faker-js/faker";
 import { API_URL } from "../config";
+import { createServer } from "node:http";
 
 // Each test names its campaign after a token and removes it afterwards (its runs cascade)
 const test = base.extend<{ id: string }>({
@@ -32,6 +33,252 @@ const openCampaign = async (page: Page, seed: Seed, id: string, query = "") => {
     open: () => page.goto(`/admin/campaigns/${campaign.campaignId}${query}`),
   };
 };
+
+test("website scraping persists emails from real pages, streams completion and keeps sources on rerun", async ({
+  page,
+  seed,
+  id,
+}) => {
+  const { campaign, open } = await openCampaign(
+    page,
+    seed,
+    id,
+    "?step=website",
+  );
+  const foundEmail = `found-${id}@gmail.com`;
+  const existingEmail = `existing-${id}@gmail.com`;
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const website = createServer((request, response) => {
+    void gate.then(() => {
+      response.writeHead(200, { "content-type": "text/html" });
+      response.end(
+        request.url === "/contact"
+          ? `<a href="mailto:${foundEmail}">Contact</a> ${existingEmail}`
+          : foundEmail.toUpperCase(),
+      );
+    });
+  });
+  await new Promise<void>((resolve) => {
+    website.listen(0, "0.0.0.0", resolve);
+  });
+  const address = website.address();
+  if (!address || typeof address === "string")
+    throw new Error("Missing website port");
+
+  try {
+    const lead = await seed.createLead({
+      name: `Website ${id}`,
+      username: `website-${id}`,
+      website: `http://${process.env.CI ? "host.docker.internal" : "127.0.0.1"}:${address.port}`,
+      emails: [{ address: existingEmail, source: "skool" }],
+    });
+    await seed.addLeadsToCampaign({
+      campaignId: campaign.campaignId,
+      leadIds: [lead.leadId],
+    });
+    await seed.createPipelineRun({
+      campaignId: campaign.campaignId,
+      step: "scrape",
+      status: "done",
+      results: [{ leadId: lead.leadId }],
+    });
+    await seed.createPipelineRun({
+      campaignId: campaign.campaignId,
+      step: "enrich",
+      status: "done",
+      results: [{ leadId: lead.leadId, website: lead.website }],
+    });
+    await open();
+    await expect(
+      page.getByRole("button", { name: "Scrape websites", exact: true }),
+    ).toBeVisible();
+    const started = page.waitForResponse(
+      (response) =>
+        response
+          .url()
+          .endsWith(`/api/campaigns/${campaign.campaignId}/pipeline/website`) &&
+        response.request().method() === "POST",
+    );
+
+    await page
+      .getByRole("button", { name: "Scrape websites", exact: true })
+      .click();
+
+    const response = await started;
+    expect(response.status()).toBe(202);
+    await expect(stepper(page, "Website")).toContainText("Running");
+    await expect(
+      page.getByRole("button", { name: /Run again$/ }),
+    ).toBeDisabled();
+    await expect
+      .poll(async () => {
+        const runs = await seed.listPipelineRuns(campaign.campaignId);
+        return runs.filter((run) => run.step === "website");
+      })
+      .toMatchObject([
+        { status: "running", total: 1, processed: 0, failed: 0 },
+      ]);
+    expect(await seed.findLeadByUsername(lead.username)).toMatchObject({
+      emails: [{ address: existingEmail, source: "skool" }],
+    });
+    release();
+
+    await expect(stepper(page, "Website")).toContainText("Done");
+    await expect(stepper(page, "Website")).toContainText("1 with email");
+    await expect(
+      page.getByRole("link", { name: foundEmail, exact: true }),
+    ).toHaveAttribute("href", `mailto:${foundEmail}`);
+    await expect
+      .poll(async () => {
+        const stored = await seed.findLeadByUsername(lead.username);
+        return stored?.emails;
+      })
+      .toEqual([
+        { address: existingEmail, source: "skool" },
+        { address: foundEmail, source: "website" },
+      ]);
+
+    await page.getByRole("button", { name: "Run again", exact: true }).click();
+
+    await expect
+      .poll(async () => {
+        const runs = await seed.listPipelineRuns(campaign.campaignId);
+        return runs
+          .filter((run) => run.step === "website")
+          .map((run) => ({
+            status: run.status,
+            total: run.total,
+            processed: run.processed,
+            failed: run.failed,
+          }));
+      })
+      .toEqual([
+        { status: "done", total: 1, processed: 1, failed: 0 },
+        { status: "done", total: 1, processed: 1, failed: 0 },
+      ]);
+    expect(await seed.findLeadByUsername(lead.username)).toMatchObject({
+      emails: [
+        { address: existingEmail, source: "skool" },
+        { address: foundEmail, source: "website" },
+      ],
+    });
+    await page.reload();
+    await expect(page).toHaveURL(/step=website/);
+    await expect(stepper(page, "Website")).toContainText("1 with email");
+    await page.getByRole("button", { name: lead.name, exact: true }).click();
+    const sheet = page.getByRole("dialog");
+    await expect(
+      sheet.getByRole("link", { name: foundEmail, exact: true }),
+    ).toBeVisible();
+    await expect(
+      sheet.locator('[data-slot="badge"]').filter({ hasText: /^Website$/ }),
+    ).toBeVisible();
+    await expect(sheet.getByText("Skool", { exact: true })).toBeVisible();
+  } finally {
+    release();
+    website.closeAllConnections();
+    await new Promise<void>((resolve, reject) => {
+      website.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
+for (const status of ["missing", "running", "failed"] satisfies Array<
+  "missing" | "running" | "failed"
+>) {
+  test(`website scraping waits when enrichment is ${status}`, async ({
+    page,
+    seed,
+    id,
+  }) => {
+    const { campaign, open } = await openCampaign(
+      page,
+      seed,
+      id,
+      "?step=website",
+    );
+    await seed.createPipelineRun({
+      campaignId: campaign.campaignId,
+      step: "scrape",
+      status: "done",
+    });
+    if (status !== "missing")
+      await seed.createPipelineRun({
+        campaignId: campaign.campaignId,
+        step: "enrich",
+        status,
+      });
+    await open();
+
+    await expect(stepper(page, "Website")).toContainText("Waiting");
+    await expect(
+      page.getByRole("button", { name: "Scrape websites", exact: true }),
+    ).toHaveCount(0);
+    await page
+      .getByRole("button", { name: "Go to Tavily", exact: true })
+      .click();
+
+    await expect(page).toHaveURL(/step=tavily/);
+    const runs = await seed.listPipelineRuns(campaign.campaignId);
+    expect(runs.filter((run) => run.step === "website")).toEqual([]);
+  });
+}
+
+test("enrichment without a website starts an empty website run and preserves existing emails", async ({
+  page,
+  seed,
+  id,
+}) => {
+  const { campaign, open } = await openCampaign(
+    page,
+    seed,
+    id,
+    "?step=website",
+  );
+  const lead = await seed.createLead({
+    name: `No website ${id}`,
+    username: `no-website-${id}`,
+    emails: [{ address: `${id}@gmail.com`, source: "manual" }],
+    linkedin: `https://linkedin.com/in/${id}`,
+  });
+  await seed.addLeadsToCampaign({
+    campaignId: campaign.campaignId,
+    leadIds: [lead.leadId],
+  });
+  await seed.createPipelineRun({
+    campaignId: campaign.campaignId,
+    step: "scrape",
+    status: "done",
+    results: [{ leadId: lead.leadId }],
+  });
+  await seed.createPipelineRun({
+    campaignId: campaign.campaignId,
+    step: "enrich",
+    status: "done",
+    results: [{ leadId: lead.leadId, linkedin: lead.linkedin }],
+  });
+  await open();
+  await page
+    .getByRole("button", { name: "Scrape websites", exact: true })
+    .click();
+
+  await expect(stepper(page, "Website")).toContainText("Done");
+  await expect(
+    page.getByRole("button", { name: lead.name, exact: true }),
+  ).toHaveCount(0);
+  await expect
+    .poll(async () => {
+      const runs = await seed.listPipelineRuns(campaign.campaignId);
+      return runs.filter((run) => run.step === "website");
+    })
+    .toMatchObject([{ status: "done", total: 0, processed: 0, failed: 0 }]);
+  expect(await seed.findLeadByUsername(lead.username)).toMatchObject({
+    emails: [{ address: `${id}@gmail.com`, source: "manual" }],
+  });
+});
 
 const seedCommunities = async (
   seed: Seed,
@@ -304,17 +551,22 @@ test("pipeline steps fetch their own leads through the same searchable card", as
 }) => {
   const { campaign, open } = await openCampaign(page, seed, id);
   const enrichedAt = new Date();
-  const leads = [
+  const leads: Omit<Parameters<Seed["createLead"]>[0], "username">[] = [
     {
       name: `Site ${id}`,
       website: "https://site.example.com",
-      workEmail: `site-${id}@acme.com`,
+      emails: [{ address: `site-${id}@acme.com`, source: "fullenrich-work" }],
       enrichedAt,
     },
     {
       name: `Linked ${id}`,
       linkedin: "https://linkedin.com/in/x",
-      personalEmail: `linked-${id}@home.com`,
+      emails: [
+        {
+          address: `linked-${id}@home.com`,
+          source: "fullenrich-personal",
+        },
+      ],
       enrichedAt,
     },
     { name: `Mail ${id}`, email: "mail@example.com", enrichedAt },
@@ -350,17 +602,13 @@ test("pipeline steps fetch their own leads through the same searchable card", as
         leadId: lead.leadId,
         website: lead.website,
         linkedin: lead.linkedin,
-        email: lead.email,
       })),
   });
   await seed.createPipelineRun({
     campaignId: campaign.campaignId,
     step: "fullenrich",
     status: "done",
-    results: [
-      { leadId: created[0]!.leadId, workEmail: created[0]!.workEmail },
-      { leadId: created[1]!.leadId, personalEmail: created[1]!.personalEmail },
-    ],
+    results: [{ leadId: created[0]!.leadId }, { leadId: created[1]!.leadId }],
   });
   await open();
   const leadLink = (name: string) =>
@@ -791,7 +1039,7 @@ test("an email-only Tavily result starts an empty FullEnrich run without looking
     campaignId: campaign.campaignId,
     step: "enrich",
     status: "done",
-    results: [{ leadId: lead.leadId, email: lead.email }],
+    results: [{ leadId: lead.leadId }],
   });
   await open();
   await expect(
@@ -814,9 +1062,7 @@ test("an email-only Tavily result starts an empty FullEnrich run without looking
       { status: "done", total: 0, processed: 0, failed: 0, itemsReady: true },
     ]);
   expect(await seed.findLeadByUsername(lead.username)).toMatchObject({
-    email: lead.email,
-    workEmail: null,
-    personalEmail: null,
+    emails: [{ address: `${id}@example.com`, source: "unknown" }],
     emailEnrichedAt: null,
   });
 });
@@ -835,7 +1081,7 @@ test("FullEnrich streams progress and a newer empty run replaces earlier email r
   const lead = await seed.createLead({
     name: `Email result ${id}`,
     username: `result-${id}`,
-    workEmail: `${id}@work.example.com`,
+    emails: [{ address: `${id}@work.example.com`, source: "fullenrich-work" }],
   });
   await seed.addLeadsToCampaign({
     campaignId: campaign.campaignId,
@@ -857,7 +1103,7 @@ test("FullEnrich streams progress and a newer empty run replaces earlier email r
     status: "running",
     total: 2,
     processed: 1,
-    results: [{ leadId: lead.leadId, workEmail: lead.workEmail }],
+    results: [{ leadId: lead.leadId }],
   });
   await open();
   await expect(page.getByText("1 of 2 leads", { exact: true })).toBeVisible();
@@ -866,7 +1112,10 @@ test("FullEnrich streams progress and a newer empty run replaces earlier email r
     page.getByRole("button", { name: "Loading Run again", exact: true }),
   ).toBeDisabled();
   await expect(
-    page.getByRole("link", { name: lead.workEmail ?? "", exact: true }),
+    page.getByRole("link", {
+      name: `${id}@work.example.com`,
+      exact: true,
+    }),
   ).toBeVisible();
 
   await seed.updatePipelineRun({
@@ -889,7 +1138,7 @@ test("FullEnrich streams progress and a newer empty run replaces earlier email r
     page.getByRole("button", { name: lead.name, exact: true }),
   ).toHaveCount(0);
   expect(await seed.findLeadByUsername(lead.username)).toMatchObject({
-    workEmail: lead.workEmail,
+    emails: [{ address: `${id}@work.example.com`, source: "fullenrich-work" }],
   });
   const runs = await seed.listPipelineRuns(campaign.campaignId);
   expect(runs.filter((stored) => stored.step === "fullenrich")).toMatchObject([
@@ -912,7 +1161,7 @@ test("a member cannot start FullEnrich or change its campaign's leads", async ({
   const lead = await seed.createLead({
     name: `Protected ${id}`,
     username: `protected-${id}`,
-    workEmail: `${id}@example.com`,
+    emails: [{ address: `${id}@example.com`, source: "fullenrich-work" }],
   });
   await seed.addLeadsToCampaign({
     campaignId: campaign.campaignId,
@@ -929,8 +1178,7 @@ test("a member cannot start FullEnrich or change its campaign's leads", async ({
     lead.leadId,
   ]);
   expect(await seed.findLeadByUsername(lead.username)).toMatchObject({
-    workEmail: lead.workEmail,
-    personalEmail: null,
+    emails: [{ address: `${id}@example.com`, source: "fullenrich-work" }],
     emailEnrichedAt: null,
   });
 });

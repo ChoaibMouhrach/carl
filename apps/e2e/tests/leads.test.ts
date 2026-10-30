@@ -29,7 +29,7 @@ test("creates a lead from the form and stores every field", async ({
     `https://www.skool.com/@${username}`,
   );
   await page.getByLabel("Bio").fill("Coach for new founders");
-  await page.getByLabel("Email").fill(`${id}@example.com`);
+  await page.getByLabel("Add email").fill(`${id}@example.com`);
   await page.getByLabel("Instagram").fill(`https://instagram.com/${id}`);
   await page.getByLabel("Facebook").fill(`https://facebook.com/${id}`);
   await page.getByLabel("LinkedIn").fill(`https://linkedin.com/in/${id}`);
@@ -44,7 +44,7 @@ test("creates a lead from the form and stores every field", async ({
     username,
     skoolUrl: `https://www.skool.com/@${username}`,
     bio: "Coach for new founders",
-    email: `${id}@example.com`,
+    emails: [{ address: `${id}@example.com`, source: "manual" }],
     instagram: `https://instagram.com/${id}`,
     facebook: `https://facebook.com/${id}`,
     linkedin: `https://linkedin.com/in/${id}`,
@@ -80,12 +80,12 @@ test("refuses invalid input and creates no lead", async ({ page, seed }) => {
   await page.goto("/admin/leads/new");
   await field(page, "Name").fill(`Lead ${id}`);
   await page.getByLabel("Username").fill(`lead-${id}`);
-  await page.getByLabel("Email").fill("not-an-email");
+  await page.getByLabel("Add email").fill("not-an-email");
   await page.getByLabel("Website").fill("not a link");
   await page.getByRole("button", { name: "Save lead" }).click();
 
   await expect(page).toHaveURL(/\/admin\/leads\/new$/);
-  await expect(page.getByLabel("Email")).toHaveAttribute(
+  await expect(page.getByLabel("Add email")).toHaveAttribute(
     "aria-invalid",
     "true",
   );
@@ -200,7 +200,10 @@ test("a search with no matches offers to clear the filters", async ({
   await expect(page.getByText("No leads match")).toHaveCount(0);
 });
 
-test("edits a lead and keeps what was not changed", async ({ page, seed }) => {
+test("edits a lead, keeps what was not changed and only adds emails", async ({
+  page,
+  seed,
+}) => {
   const admin = await seed.createVerifiedAdmin();
   await seed.authenticate(page.context(), admin.email);
   const id = token();
@@ -210,20 +213,47 @@ test("edits a lead and keeps what was not changed", async ({ page, seed }) => {
     email: `edit-${id}@example.com`,
     bio: "Keep this bio",
   });
+  const extraEmail = `extra-${id}@example.com`;
 
   await page.goto(`/admin/leads/${lead.leadId}/edit`);
+  await expectRequired(page, "Name", "Jane Doe");
+  await expectRequired(page, "Username", "jane-doe");
+  await expectRequired(
+    page,
+    "Skool profile link",
+    "https://www.skool.com/@jane-doe",
+  );
   await expect(field(page, "Name")).toHaveValue(`Before ${id}`);
   await field(page, "Name").fill(`After ${id}`);
-  await page.getByLabel("Email").fill("");
+  await page.getByLabel("Add email").fill(extraEmail);
   await page.getByRole("button", { name: "Save lead" }).click();
 
   await expect(page).toHaveURL(/\/admin\/leads(\?|$)/);
   expect(await seed.findLeadByUsername(`edit-${id}`)).toMatchObject({
     name: `After ${id}`,
-    email: null,
+    emails: [
+      { address: `edit-${id}@example.com`, source: "unknown" },
+      { address: extraEmail, source: "manual" },
+    ],
     bio: "Keep this bio",
     skoolUrl: `https://www.skool.com/@edit-${id}`,
   });
+
+  await page.goto(`/admin/leads/${lead.leadId}/edit`);
+  await page.getByLabel("Add email").fill(extraEmail.toUpperCase());
+  await page.getByRole("button", { name: "Save lead" }).click();
+
+  await expect(page).toHaveURL(/\/admin\/leads(\?|$)/);
+  expect(await seed.findLeadByUsername(lead.username)).toMatchObject({
+    emails: [
+      { address: `edit-${id}@example.com`, source: "unknown" },
+      { address: extraEmail, source: "manual" },
+    ],
+  });
+  await page.goto(`/admin/leads?search=${id}`);
+  await expect(
+    page.getByRole("link", { name: extraEmail, exact: true }),
+  ).toHaveAttribute("href", `mailto:${extraEmail}`);
 });
 
 test("deleting a lead from its row removes the lead and its communities", async ({
@@ -448,7 +478,7 @@ test("deleting a lead from its sheet removes the lead and its communities", asyn
 });
 
 for (const view of ["table", "cards"]) {
-  test(`shows distinct work, personal and found emails and searches enriched addresses in ${view} view`, async ({
+  test(`shows every email with its source and searches enriched addresses in ${view} view`, async ({
     page,
     seed,
   }) => {
@@ -461,16 +491,16 @@ for (const view of ["table", "cards"]) {
     const lead = await seed.createLead({
       name: `Emails ${id}`,
       username: `emails-${id}`,
-      email: foundEmail,
-      workEmail,
-      personalEmail,
+      emails: [
+        { address: workEmail, source: "fullenrich-work" },
+        { address: personalEmail, source: "fullenrich-personal" },
+        { address: foundEmail, source: "website" },
+      ],
     });
     await seed.createLead({
       name: `Duplicate ${id}`,
       username: `duplicate-${id}`,
-      email: workEmail,
-      workEmail,
-      personalEmail: workEmail,
+      emails: [{ address: workEmail, source: "fullenrich-work" }],
     });
     await page.goto(`/admin/leads?search=${id}`);
     await page
@@ -489,9 +519,11 @@ for (const view of ["table", "cards"]) {
     await expect(
       page.getByRole("link", { name: foundEmail, exact: true }),
     ).toHaveAttribute("href", `mailto:${foundEmail}`);
-    await expect(page.getByText("Work", { exact: true })).toHaveCount(2);
+    await expect(page.getByText("Work", { exact: true })).toHaveCount(1);
     await expect(page.getByText("Personal", { exact: true })).toHaveCount(1);
-    await expect(page.getByText("Found", { exact: true })).toHaveCount(1);
+    await expect(
+      page.locator('[data-slot="badge"]').filter({ hasText: /^Website$/ }),
+    ).toHaveCount(1);
 
     await page.locator("#lead-search").fill(personalEmail);
     await expect(
@@ -516,9 +548,11 @@ for (const view of ["table", "cards"]) {
       }),
     ).toBeVisible();
     expect(await seed.findLeadByUsername(lead.username)).toMatchObject({
-      email: foundEmail,
-      workEmail,
-      personalEmail,
+      emails: [
+        { address: workEmail, source: "fullenrich-work" },
+        { address: personalEmail, source: "fullenrich-personal" },
+        { address: foundEmail, source: "website" },
+      ],
     });
   });
 }

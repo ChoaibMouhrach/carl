@@ -65,7 +65,7 @@ jobs:
       - name: Build and start carl
         run: |
           POSTGRES_HOST=carl-postgres REDIS_HOST=carl-redis \
-            docker compose -f compose.prod.yml --env-file .env up -d --build carl
+            docker compose -f compose.prod.yml -f .github/compose.e2e.yml --env-file .env up -d --build carl
 
       - name: Wait for carl
         run: |

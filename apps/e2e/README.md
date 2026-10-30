@@ -66,3 +66,7 @@ Keep specs consistent — codegen defaults are cleaned up to follow these:
 
 `config.ts` loads the repo-root `.env` and derives the client URL, API URL, and
 database connection. Override the app target with `E2E_BASE_URL`.
+
+The website pipeline test serves HTML on an ephemeral local HTTP port so the
+real worker can fetch it. CI uses `.github/compose.e2e.yml` to let the app
+container reach that server through `host.docker.internal`.
