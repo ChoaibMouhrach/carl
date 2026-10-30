@@ -12,9 +12,11 @@ import type { PipelineStepId, StepStatus } from "./pipeline-step";
 interface PipelineStepperProps {
   scrapeStatus: StepStatus;
   tavilyStatus: StepStatus;
+  websiteStatus: StepStatus;
   fullenrichStatus: StepStatus;
   scrapeCount: number | null;
   tavilyCount: number | null;
+  websiteCount: number | null;
   fullenrichCount: number | null;
   isScrapeDone: boolean;
   isTavilyDone: boolean;
@@ -41,9 +43,11 @@ const waitingBadge: StepBadge = { label: "Waiting", variant: "outline" };
 export const PipelineStepper = ({
   scrapeStatus,
   tavilyStatus,
+  websiteStatus,
   fullenrichStatus,
   scrapeCount,
   tavilyCount,
+  websiteCount,
   fullenrichCount,
   isScrapeDone,
   isTavilyDone,
@@ -73,6 +77,15 @@ export const PipelineStepper = ({
       badge: isScrapeDone ? statusBadge[tavilyStatus] : waitingBadge,
     },
     {
+      id: "website",
+      title: "Website",
+      description:
+        websiteCount === null
+          ? "Scrape emails from websites"
+          : `${websiteCount} with email`,
+      badge: isTavilyDone ? statusBadge[websiteStatus] : waitingBadge,
+    },
+    {
       id: "fullenrich",
       title: "FullEnrich",
       description:
@@ -84,7 +97,7 @@ export const PipelineStepper = ({
   ];
 
   return (
-    <div className="grid gap-3 sm:grid-cols-3">
+    <div className="grid gap-3 sm:grid-cols-4">
       {steps.map((step, index) => (
         <Tip
           key={step.id}

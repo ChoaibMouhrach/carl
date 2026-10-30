@@ -5,6 +5,7 @@ import { MaintenanceWorker } from "./maintenance";
 import { ScrapeWorker } from "./scrape";
 import { EnrichWorker } from "./enrich";
 import { FullEnrichWorker } from "./fullenrich";
+import { WebsiteWorker } from "./website";
 
 export class Workers {
   private static workers: BaseWorker[] = [];
@@ -15,6 +16,7 @@ export class Workers {
       new MaintenanceWorker({ context: init.context }),
       new ScrapeWorker({ context: init.context }),
       new EnrichWorker({ context: init.context }),
+      new WebsiteWorker({ context: init.context }),
       new FullEnrichWorker({ context: init.context }),
     ];
 

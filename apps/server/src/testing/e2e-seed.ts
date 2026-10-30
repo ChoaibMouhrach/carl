@@ -1,6 +1,7 @@
-import { and, desc, eq, like } from "drizzle-orm";
+import { and, asc, desc, eq, like } from "drizzle-orm";
 import { hashPassword, makeSignature, signJWT } from "better-auth/crypto";
 import IORedis from "ioredis";
+import type { LeadEmailSource } from "@repo/constants/lead-emails";
 import { initDB, type DB } from "../infrastructure/database/client";
 import { RedisPubSubHub } from "../infrastructure/pubsub/redis";
 import { pipelineTopic } from "../lib/base-pubsub";
@@ -10,6 +11,7 @@ import {
   campaignLeadsTable,
   campaignsTable,
   communitiesTable,
+  leadEmailsTable,
   leadsTable,
   pipelineRunsTable,
   pipelineItemsTable,
@@ -393,12 +395,11 @@ export interface SeedLeadInput {
   name: string;
   username: string;
   email?: string | null;
+  emails?: { address: string; source: LeadEmailSource }[];
   bio?: string | null;
   pictureUrl?: string | null;
   website?: string | null;
   linkedin?: string | null;
-  workEmail?: string | null;
-  personalEmail?: string | null;
   enrichedAt?: Date | null;
 }
 
@@ -410,19 +411,27 @@ export const createLead = async (config: SeedConfig, input: SeedLeadInput) =>
         name: input.name,
         username: input.username,
         skoolUrl: `https://www.skool.com/@${input.username}`,
-        email: input.email ?? null,
         bio: input.bio ?? null,
         pictureUrl: input.pictureUrl ?? null,
         website: input.website ?? null,
         linkedin: input.linkedin ?? null,
-        workEmail: input.workEmail ?? null,
-        personalEmail: input.personalEmail ?? null,
         enrichedAt: input.enrichedAt ?? null,
       })
       .returning();
 
     if (!lead) {
       throw new Error(`could not create lead ${input.username}`);
+    }
+
+    const emails: { address: string; source: LeadEmailSource }[] = [];
+    if (input.email) {
+      emails.push({ address: input.email, source: "unknown" });
+    }
+    emails.push(...(input.emails ?? []));
+    if (emails.length > 0) {
+      await db
+        .insert(leadEmailsTable)
+        .values(emails.map((email) => ({ ...email, leadId: lead.leadId })));
     }
 
     return lead;
@@ -501,7 +510,18 @@ export const findLeadByUsername = async (
       .where(eq(leadsTable.username, username))
       .limit(1);
 
-    return lead ?? null;
+    if (!lead) return null;
+
+    const emails = await db
+      .select({
+        address: leadEmailsTable.address,
+        source: leadEmailsTable.source,
+      })
+      .from(leadEmailsTable)
+      .where(eq(leadEmailsTable.leadId, lead.leadId))
+      .orderBy(asc(leadEmailsTable.emailId));
+
+    return { ...lead, emails };
   });
 
 export const findCommunityBySlug = async (config: SeedConfig, slug: string) =>
@@ -662,7 +682,7 @@ export const listCampaignCommunityIds = async (
 
 export interface SeedPipelineRunInput {
   campaignId: number;
-  step: "scrape" | "enrich" | "fullenrich";
+  step: "scrape" | "enrich" | "website" | "fullenrich";
   status?: "running" | "done" | "failed";
   total?: number;
   processed?: number;
@@ -672,9 +692,6 @@ export interface SeedPipelineRunInput {
     leadId: number;
     website?: string | null;
     linkedin?: string | null;
-    email?: string | null;
-    workEmail?: string | null;
-    personalEmail?: string | null;
   }[];
 }
 

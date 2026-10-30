@@ -14,7 +14,12 @@ interface ListLeadsInput {
   order: "asc" | "desc";
 }
 
-type CreateLeadInput = Omit<LeadInsert, "leadId" | "createdAt" | "updatedAt">;
+type CreateLeadInput = Omit<
+  LeadInsert,
+  "leadId" | "createdAt" | "updatedAt"
+> & {
+  emails?: string[];
+};
 
 export class LeadService extends BaseService {
   public async list(input: ListLeadsInput) {
@@ -29,8 +34,15 @@ export class LeadService extends BaseService {
       offset: (input.page - 1) * input.perPage,
     });
 
+    const emails = await this.context.repositories.leadEmail.findAllByLeadIds({
+      leadIds: leads.map((lead) => lead.leadId),
+    });
+
     return {
-      leads,
+      leads: leads.map((lead) => ({
+        ...lead,
+        emails: emails.filter((email) => email.leadId === lead.leadId),
+      })),
       meta: {
         page: input.page,
         perPage: input.perPage,
@@ -54,7 +66,18 @@ export class LeadService extends BaseService {
   public async create(input: CreateLeadInput) {
     await this.assertUnique(input);
 
-    return await this.context.repositories.lead.create(input);
+    const { emails = [], ...fields } = input;
+
+    return await this.context.repositories.transaction(async ({ tx }) => {
+      const lead = await tx.lead.create(fields);
+      await tx.leadEmail.addMany({
+        leadId: lead.leadId,
+        addresses: emails,
+        source: "manual",
+      });
+
+      return lead;
+    });
   }
 
   public async update(
@@ -68,7 +91,19 @@ export class LeadService extends BaseService {
     }
 
     await this.assertUnique(input, where.leadId);
-    await this.context.repositories.lead.update(where, input);
+
+    const { emails = [], ...fields } = input;
+
+    await this.context.repositories.transaction(async ({ tx }) => {
+      if (Object.keys(fields).length > 0) {
+        await tx.lead.update(where, fields);
+      }
+      await tx.leadEmail.addMany({
+        leadId: where.leadId,
+        addresses: emails,
+        source: "manual",
+      });
+    });
 
     const updated = await this.context.repositories.lead.findByLeadId(where);
 

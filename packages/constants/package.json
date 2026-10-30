@@ -5,6 +5,7 @@
   "exports": {
     "./auth": "./src/auth.ts",
     "./errors": "./src/errors.ts",
+    "./lead-emails": "./src/lead-emails.ts",
     "./pagination": "./src/pagination.ts",
     "./pipeline": "./src/pipeline.ts"
   }

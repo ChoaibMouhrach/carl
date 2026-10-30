@@ -18,7 +18,7 @@ export interface LeadFormValues {
   name: string;
   username: string;
   skoolUrl: string;
-  email: string | null;
+  emails: string[];
   bio: string | null;
   instagram: string | null;
   facebook: string | null;
@@ -29,7 +29,7 @@ export interface LeadFormValues {
 interface LeadFormProps {
   cancelAction: React.ReactNode;
   isPending: boolean;
-  lead?: LeadFormValues;
+  lead?: Omit<LeadFormValues, "emails">;
   onSubmit: (values: LeadFormValues) => Promise<unknown>;
 }
 
@@ -96,7 +96,7 @@ export const LeadForm = ({
       name: lead?.name ?? "",
       username: lead?.username ?? "",
       skoolUrl: lead?.skoolUrl ?? "",
-      email: lead?.email ?? "",
+      email: "",
       bio: lead?.bio ?? "",
       instagram: lead?.instagram ?? "",
       facebook: lead?.facebook ?? "",
@@ -123,7 +123,7 @@ export const LeadForm = ({
         name: input.name,
         username: input.username,
         skoolUrl: input.skoolUrl,
-        email: emptyToNull(input.email),
+        emails: input.email.trim() ? [input.email.trim()] : [],
         bio: emptyToNull(input.bio),
         instagram: emptyToNull(input.instagram),
         facebook: emptyToNull(input.facebook),
@@ -186,7 +186,7 @@ export const LeadForm = ({
               <div className="grid gap-4 sm:grid-cols-2">
                 <TextField
                   control={form.control}
-                  label="Email"
+                  label="Add email"
                   name="email"
                   placeholder="jane@example.com"
                   wrapperClassName="sm:col-span-2"

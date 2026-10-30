@@ -32,6 +32,12 @@ export type ScrapeJob =
 
 export type EnrichJob = { type: "enrich-lead"; runId: number; leadId: number };
 
+export type WebsiteJob = {
+  type: "website-lead";
+  runId: number;
+  leadId: number;
+};
+
 export type FullEnrichJob = {
   type: "fullenrich-lead";
   runId: number;
@@ -129,6 +135,7 @@ export abstract class BaseQueueHub {
   public abstract maintenance: BaseQueue<MaintenanceJob>;
   public abstract scrape: BaseQueue<ScrapeJob>;
   public abstract enrich: BaseQueue<EnrichJob>;
+  public abstract website: BaseQueue<WebsiteJob>;
   public abstract fullenrich: BaseQueue<FullEnrichJob>;
 
   public abstract queues(): RegisteredQueue[];

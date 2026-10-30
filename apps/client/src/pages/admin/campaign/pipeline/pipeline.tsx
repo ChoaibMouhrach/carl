@@ -10,7 +10,7 @@ import {
 import { Card, CardContent } from "@repo/ui/components/ui/card";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MailSearchIcon, ScanSearchIcon } from "lucide-react";
+import { GlobeIcon, MailSearchIcon, ScanSearchIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { TableSkeleton } from "@/components/table-skeleton";
 import { runStatus } from "./pipeline-step";
@@ -18,6 +18,7 @@ import { PipelineStepper } from "./pipeline-stepper";
 import { CampaignLeads } from "../campaign-leads";
 import { FullEnrichStep } from "./fullenrich-step";
 import { ScrapeStep } from "./scrape-step";
+import { WebsiteStep } from "./website-step";
 import { StepPlaceholder } from "./step-placeholder";
 import { TavilyStep } from "./tavily-step";
 
@@ -45,12 +46,14 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
 
   const scrapeStatus = runStatus(pipeline.data?.scrape ?? null);
   const enrichStatus = runStatus(pipeline.data?.enrich ?? null);
+  const websiteStatus = runStatus(pipeline.data?.website ?? null);
   const fullenrichStatus = runStatus(pipeline.data?.fullenrich ?? null);
 
   const revision = JSON.stringify([
     campaignId,
     pipeline.data?.scrape,
     pipeline.data?.enrich,
+    pipeline.data?.website,
     pipeline.data?.fullenrich,
   ]);
   const previousRevision = useRef(revision);
@@ -85,6 +88,12 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
     onSuccess: refreshPipeline,
   });
 
+  const startWebsite = useMutation({
+    mutationFn: () => api.campaign.startWebsite({ campaignId }),
+    onError,
+    onSuccess: refreshPipeline,
+  });
+
   const startFullEnrich = useMutation({
     mutationFn: () => api.campaign.startFullEnrich({ campaignId }),
     onError,
@@ -99,8 +108,8 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
   if (pipeline.isPending) {
     return (
       <section className="space-y-6">
-        <div className="grid gap-3 sm:grid-cols-3">
-          {Array.from({ length: 3 }, (_, index) => (
+        <div className="grid gap-3 sm:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => (
             <Skeleton className="h-16" key={index} />
           ))}
         </div>
@@ -137,7 +146,9 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
       ? state.scrape
       : step === "tavily"
         ? state.enrich
-        : state.fullenrich;
+        : step === "website"
+          ? state.website
+          : state.fullenrich;
 
   return (
     <section className="space-y-6">
@@ -156,6 +167,10 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
           state.enrich?.status === "done" ? state.contactableCount : null
         }
         tavilyStatus={enrichStatus}
+        websiteCount={
+          state.website?.status === "done" ? state.websiteEmailedCount : null
+        }
+        websiteStatus={websiteStatus}
       />
       {step === "scrape" && (
         <ScrapeStep
@@ -184,6 +199,26 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
             description="Tavily researches the leads the scrape found, so finish a scrape first."
             icon={<ScanSearchIcon />}
             title="Waiting for the scrape"
+          />
+        ))}
+      {step === "website" &&
+        (isTavilyDone ? (
+          <WebsiteStep
+            isStarting={startWebsite.isPending}
+            onRun={() => startWebsite.mutate()}
+            run={state.website}
+            websiteCount={state.websiteCount}
+          />
+        ) : (
+          <StepPlaceholder
+            action={{
+              label: "Go to Tavily",
+              tip: "Open the Tavily step",
+              onClick: () => selectStep("tavily"),
+            }}
+            description="The website step scrapes the sites Tavily found for emails, so finish a Tavily enrichment first."
+            icon={<GlobeIcon />}
+            title="Waiting for Tavily"
           />
         ))}
       {step === "fullenrich" &&

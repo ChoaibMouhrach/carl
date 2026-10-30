@@ -28,6 +28,15 @@ export class EnrichService extends BaseService {
       return;
     }
 
+    if (lead.linkedin) {
+      await new PipelineProgressService({ context: this.context }).complete({
+        runId: input.runId,
+        itemKey: `lead:${input.leadId}`,
+        status: "processed",
+      });
+      return;
+    }
+
     const communityName = lead.communities.at(0)?.name ?? "";
     const results = await webSearch.search({
       query: `"${lead.name}" owner of the skool community "${communityName}" contact website LinkedIn email`,
@@ -37,7 +46,6 @@ export class EnrichService extends BaseService {
     const savedContact = {
       website: lead.website ?? contact.website,
       linkedin: lead.linkedin ?? contact.linkedin,
-      email: lead.email ?? contact.email,
     };
     await new PipelineProgressService({ context: this.context }).complete(
       {
@@ -50,6 +58,11 @@ export class EnrichService extends BaseService {
           { leadId: lead.leadId },
           { ...savedContact, enrichedAt: new Date() },
         );
+        await tx.leadEmail.addMany({
+          leadId: lead.leadId,
+          addresses: contact.emails,
+          source: "tavily",
+        });
         return { leadId: lead.leadId, ...savedContact };
       },
     );

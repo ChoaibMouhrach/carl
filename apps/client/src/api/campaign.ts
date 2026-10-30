@@ -73,6 +73,14 @@ export class CampaignApi extends BaseApi {
     );
   }
 
+  public startWebsite(where: { campaignId: number }) {
+    return this.call(() =>
+      http.api.campaigns[":campaignId"].pipeline.website.$post({
+        param: { campaignId: where.campaignId.toString() },
+      }),
+    );
+  }
+
   public startFullEnrich(where: { campaignId: number }) {
     return this.call(() =>
       http.api.campaigns[":campaignId"].pipeline.fullenrich.$post({

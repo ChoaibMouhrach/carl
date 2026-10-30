@@ -8,6 +8,8 @@ export const CampaignLeads = () => {
   const emptyDescriptions = {
     scrape: "Run the scrape to collect leads for this campaign.",
     tavily: "Run enrichment to find leads with a website or LinkedIn profile.",
+    website:
+      "Scrape websites to list the leads with an email found on their site.",
     fullenrich: "Find emails to list the leads with a work or personal email.",
   };
 

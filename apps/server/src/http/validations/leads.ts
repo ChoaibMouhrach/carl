@@ -20,7 +20,7 @@ const leadFields = {
   facebook: optionalUrl,
   linkedin: optionalUrl,
   website: optionalUrl,
-  email: z.email().nullish(),
+  emails: z.array(z.email()).max(20).optional(),
   pictureUrl: optionalUrl,
 };
 

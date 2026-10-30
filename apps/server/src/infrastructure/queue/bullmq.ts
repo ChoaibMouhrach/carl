@@ -17,6 +17,7 @@ import {
   type QueueJobCounts,
   type RegisteredQueue,
   type ScrapeJob,
+  type WebsiteJob,
   type ScheduleJobOptions,
 } from "@server/lib/base-queue";
 
@@ -32,6 +33,9 @@ const scrapeJobName = "run";
 
 const enrichQueueName = "enrich";
 const enrichJobName = "run";
+
+const websiteQueueName = "website";
+const websiteJobName = "run";
 
 const fullenrichQueueName = "fullenrich";
 const fullenrichJobName = "run";
@@ -339,6 +343,19 @@ export class EnrichQueue extends BullQueue<EnrichJob> {
   }
 }
 
+interface WebsiteQueueInit {
+  concurrency: number;
+  errorMonitor: BaseErrorMonitor;
+  logger: BaseLogger;
+  redisUrl: string;
+}
+
+export class WebsiteQueue extends BullQueue<WebsiteJob> {
+  public constructor(init: WebsiteQueueInit) {
+    super({ ...init, jobName: websiteJobName, name: websiteQueueName });
+  }
+}
+
 interface FullEnrichQueueInit {
   concurrency: number;
   errorMonitor: BaseErrorMonitor;
@@ -361,6 +378,7 @@ export class FullEnrichQueue extends BullQueue<FullEnrichJob> {
 interface QueueHubInit extends EmailQueueInit {
   scrapeConcurrency: number;
   enrichConcurrency: number;
+  websiteConcurrency: number;
   fullenrichConcurrency: number;
 }
 
@@ -369,6 +387,7 @@ export class QueueHub extends BaseQueueHub {
   public maintenance: MaintenanceQueue;
   public scrape: ScrapeQueue;
   public enrich: EnrichQueue;
+  public website: WebsiteQueue;
   public fullenrich: FullEnrichQueue;
 
   public constructor(init: QueueHubInit) {
@@ -382,6 +401,12 @@ export class QueueHub extends BaseQueueHub {
     });
     this.enrich = new EnrichQueue({
       concurrency: init.enrichConcurrency,
+      errorMonitor: init.errorMonitor,
+      logger: init.logger,
+      redisUrl: init.redisUrl,
+    });
+    this.website = new WebsiteQueue({
+      concurrency: init.websiteConcurrency,
       errorMonitor: init.errorMonitor,
       logger: init.logger,
       redisUrl: init.redisUrl,
@@ -405,6 +430,7 @@ export class QueueHub extends BaseQueueHub {
       { name: maintenanceQueueName, queue: this.maintenance },
       { name: scrapeQueueName, queue: this.scrape },
       { name: enrichQueueName, queue: this.enrich },
+      { name: websiteQueueName, queue: this.website },
       { name: fullenrichQueueName, queue: this.fullenrich },
     ];
   }
@@ -414,6 +440,7 @@ export class QueueHub extends BaseQueueHub {
     await this.maintenance.close();
     await this.scrape.close();
     await this.enrich.close();
+    await this.website.close();
     await this.fullenrich.close();
   }
 }

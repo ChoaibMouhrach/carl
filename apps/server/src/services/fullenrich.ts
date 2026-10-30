@@ -31,22 +31,28 @@ export class FullEnrichService extends BaseService {
 
     const emails = await contactEnrichment.enrich(this.toInput(lead));
 
-    const found = {
-      workEmail: emails.workEmail?.address ?? null,
-      personalEmail: emails.personalEmail?.address ?? null,
-    };
-    const kept = {
-      workEmail: found.workEmail ?? lead.workEmail,
-      personalEmail: found.personalEmail ?? lead.personalEmail,
-    };
     await progress.complete(
       { runId: input.runId, itemKey, status: "processed" },
       async (tx) => {
         await tx.lead.update(
           { leadId: lead.leadId },
-          { ...kept, emailEnrichedAt: new Date() },
+          { emailEnrichedAt: new Date() },
         );
-        return { leadId: lead.leadId, ...found };
+        await tx.leadEmail.addMany({
+          leadId: lead.leadId,
+          addresses: emails.workEmail ? [emails.workEmail.address] : [],
+          source: "fullenrich-work",
+        });
+        await tx.leadEmail.addMany({
+          leadId: lead.leadId,
+          addresses: emails.personalEmail ? [emails.personalEmail.address] : [],
+          source: "fullenrich-personal",
+        });
+        return {
+          leadId: lead.leadId,
+          website: lead.website,
+          linkedin: lead.linkedin,
+        };
       },
     );
   }

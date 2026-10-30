@@ -71,8 +71,6 @@ interface LeadSpec {
   linkedin?: string;
   itemStatus?: "processed" | "failed";
   inCampaign?: boolean;
-  workEmail?: string;
-  personalEmail?: string;
 }
 
 const seedEnrichedLeads = async (
@@ -110,8 +108,6 @@ const seedEnrichedLeads = async (
       status: spec.itemStatus ?? "processed",
       website: spec.website ?? null,
       linkedin: spec.linkedin ?? null,
-      workEmail: spec.workEmail ?? null,
-      personalEmail: spec.personalEmail ?? null,
     });
   }
 
@@ -471,10 +467,22 @@ test("the status reports the newest run, availability, and counts only processed
         itemKey: `lead:${leads[result.username]}`,
         leadId: leads[result.username],
         status: result.status,
-        workEmail: result.workEmail ?? null,
-        personalEmail: result.personalEmail ?? null,
       })),
     );
+    for (const result of results) {
+      const leadId = leads[result.username];
+      if (leadId === undefined) throw new Error("Seeded lead is missing.");
+      await context.repositories.leadEmail.addMany({
+        leadId,
+        addresses: result.workEmail ? [result.workEmail] : [],
+        source: "fullenrich-work",
+      });
+      await context.repositories.leadEmail.addMany({
+        leadId,
+        addresses: result.personalEmail ? [result.personalEmail] : [],
+        source: "fullenrich-personal",
+      });
+    }
 
     const response = await admin.get(statusPath(campaign.campaignId));
 

@@ -245,6 +245,21 @@ export const campaignController = new Hono<AppContext>()
   )
 
   .post(
+    "/:campaignId/pipeline/website",
+    describeRoute({ tags: ["campaigns"] }),
+    validator("param", campaignParamSchema),
+    async (context) => {
+      const { campaignId } = context.req.valid("param");
+
+      const run = await context
+        .get("services")
+        .pipeline.startWebsite({ campaignId });
+
+      return context.json(run, 202);
+    },
+  )
+
+  .post(
     "/:campaignId/pipeline/fullenrich",
     describeRoute({ tags: ["campaigns"] }),
     validator("param", campaignParamSchema),

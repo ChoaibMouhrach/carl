@@ -660,6 +660,61 @@ test("starting an enrich stores a running run sized to the campaign's leads and 
   });
 });
 
+test("starting an enrich skips leads that already have a LinkedIn profile and sizes the run to the rest", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const { context, admin } = await boot(db, pool, {
+      webSearch: new FakeWebSearch(),
+    });
+    const campaign = await insertCampaign(db);
+    const scrapeRun = await insertRun(db, {
+      campaignId: campaign.campaignId,
+      step: "scrape",
+      status: "done",
+    });
+    const create = async (
+      username: string,
+      contact: { website?: string; linkedin?: string } = {},
+    ) =>
+      await context.repositories.lead.create({
+        name: username,
+        username,
+        skoolUrl: `${SKOOL}/@${username}`,
+        ...contact,
+      });
+    const bare = await create("bare");
+    const websiteOnly = await create("website-only", {
+      website: "https://website-only.example.com",
+    });
+    const linkedinOnly = await create("linkedin-only", {
+      linkedin: "https://www.linkedin.com/in/linkedin-only",
+    });
+    const both = await create("both", {
+      website: "https://both.example.com",
+      linkedin: "https://www.linkedin.com/in/both",
+    });
+    const members = [bare, websiteOnly, linkedinOnly, both];
+    await context.repositories.campaign.addLeads({
+      campaignId: campaign.campaignId,
+      leadIds: members.map((member) => member.leadId),
+    });
+    await insertRunResults(db, scrapeRun.runId, members);
+
+    const response = await admin.post(enrichPath(campaign.campaignId));
+
+    expect(response.status).toBe(202);
+    const returned = runSchema.parse(await response.json());
+    const [stored] = await db
+      .select()
+      .from(pipelineRunsTable)
+      .where(eq(pipelineRunsTable.runId, returned.runId));
+    expect(stored).toMatchObject({ step: "enrich", total: 2 });
+    const queuedIds = context.queueHub.enrich.added
+      .map((job) => job.leadId)
+      .sort();
+    expect(queuedIds).toEqual([bare.leadId, websiteOnly.leadId].sort());
+  });
+});
+
 test("an enrich for a campaign without leads finishes at once and queues nothing", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { context, admin } = await boot(db, pool, {
@@ -795,14 +850,23 @@ test("the status reports the newest run per step, availability, and only enriche
         email?: string;
         enrichedAt?: Date | null;
       },
-    ) =>
-      await context.repositories.lead.create({
+    ) => {
+      const { email, ...fields } = extra;
+      const lead = await context.repositories.lead.create({
         name: username,
         username,
         skoolUrl: `${SKOOL}/@${username}`,
         enrichedAt: new Date(),
-        ...extra,
+        ...fields,
       });
+      await context.repositories.leadEmail.addMany({
+        leadId: lead.leadId,
+        addresses: email ? [email] : [],
+        source: "manual",
+      });
+
+      return lead;
+    };
     const inCampaign = [
       await make("site", { website: "https://site.example.com" }),
       await make("linked", { linkedin: "https://linkedin.com/in/linked" }),

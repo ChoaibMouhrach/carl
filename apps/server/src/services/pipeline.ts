@@ -1,3 +1,4 @@
+import { fullenrichEmailSources } from "@server/repositories/lead";
 import { BaseService } from "@server/lib/base-service";
 import {
   BadRequestError,
@@ -31,13 +32,20 @@ export class PipelineService extends BaseService {
 
     const { pipelineRun, lead } = this.context.repositories;
 
-    const [scrape, enrich, fullenrich] = await Promise.all([
+    const [scrape, enrich, website, fullenrich] = await Promise.all([
       pipelineRun.findLatest({ ...where, step: "scrape" }),
       pipelineRun.findLatest({ ...where, step: "enrich" }),
+      pipelineRun.findLatest({ ...where, step: "website" }),
       pipelineRun.findLatest({ ...where, step: "fullenrich" }),
     ]);
 
-    const [scrapedCount, contactableCount, emailedCount] = await Promise.all([
+    const [
+      scrapedCount,
+      contactableCount,
+      websiteCount,
+      websiteEmailedCount,
+      emailedCount,
+    ] = await Promise.all([
       lead.countResultsByRunId({
         ...where,
         runId: scrape?.runId ?? null,
@@ -48,18 +56,31 @@ export class PipelineService extends BaseService {
         runId: enrich?.runId ?? null,
         contactable: true,
       }),
+      lead.countWithWebsiteByRunId({
+        ...where,
+        runId: enrich?.runId ?? null,
+      }),
+      lead.countEmailedByRunId({
+        ...where,
+        runId: website?.runId ?? null,
+        sources: ["website"],
+      }),
       lead.countEmailedByRunId({
         ...where,
         runId: fullenrich?.runId ?? null,
+        sources: fullenrichEmailSources,
       }),
     ]);
     return {
       scrape,
       enrich,
+      website,
       fullenrich,
       scrapedCount,
       enrichmentAvailable: this.context.webSearch.isAvailable,
       contactableCount,
+      websiteCount,
+      websiteEmailedCount,
       emailEnrichmentAvailable: this.context.contactEnrichment.isAvailable,
       emailedCount,
     };
@@ -176,11 +197,49 @@ export class PipelineService extends BaseService {
         await lead.findLeadIdsByRunId({
           runId: finishedScrape.runId,
           campaignId: where.campaignId,
+          withoutLinkedin: true,
         }),
       enqueue: async ({ runId, leadId }) =>
         await this.context.queueHub.enrich.add(
           { type: "enrich-lead", runId, leadId },
           { idempotencyKey: `enrich-${runId}-${leadId}` },
+        ),
+    });
+  }
+
+  public async startWebsite(where: {
+    campaignId: number;
+  }): Promise<PipelineRun> {
+    await this.requireCampaign(where);
+
+    const { pipelineRun, lead } = this.context.repositories;
+
+    const [runningEnrich, finishedEnrich] = await Promise.all([
+      pipelineRun.findRunning({ ...where, step: "enrich" }),
+      pipelineRun.findLatestDone({ ...where, step: "enrich" }),
+    ]);
+
+    if (runningEnrich || !finishedEnrich || !finishedEnrich.itemsReady) {
+      throw new BadRequestError({
+        message:
+          "Run a lead enrichment to find websites before scraping them for emails.",
+        code: "enrichRequired",
+      });
+    }
+
+    return await this.startLeadRun({
+      ...where,
+      step: "website",
+      findLeadIds: async () =>
+        await lead.findLeadIdsByRunId({
+          runId: finishedEnrich.runId,
+          campaignId: where.campaignId,
+          withWebsite: true,
+        }),
+      enqueue: async ({ runId, leadId }) =>
+        await this.context.queueHub.website.add(
+          { type: "website-lead", runId, leadId },
+          { idempotencyKey: `website-${runId}-${leadId}` },
         ),
     });
   }
@@ -231,7 +290,7 @@ export class PipelineService extends BaseService {
 
   private async startLeadRun(input: {
     campaignId: number;
-    step: "enrich" | "fullenrich";
+    step: "enrich" | "website" | "fullenrich";
     findLeadIds: () => Promise<number[]>;
     enqueue: (job: { runId: number; leadId: number }) => Promise<void>;
   }): Promise<PipelineRun> {

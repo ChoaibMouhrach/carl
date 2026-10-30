@@ -2,6 +2,7 @@ import { relations } from "drizzle-orm";
 import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { id, timestamps } from "../utils";
 import { communitiesTable } from "./communities";
+import { leadEmailsTable } from "./lead-emails";
 
 export const leadsTable = pgTable("leads", {
   leadId: id(),
@@ -15,11 +16,8 @@ export const leadsTable = pgTable("leads", {
   facebook: text(),
   linkedin: text(),
   website: text(),
-  email: text(),
   pictureUrl: text(),
   enrichedAt: timestamp(),
-  workEmail: text(),
-  personalEmail: text(),
   emailEnrichedAt: timestamp(),
 
   // -- timestamps
@@ -28,6 +26,7 @@ export const leadsTable = pgTable("leads", {
 
 export const leadsRelations = relations(leadsTable, ({ many }) => ({
   communities: many(communitiesTable),
+  emails: many(leadEmailsTable),
 }));
 
 export type LeadsTable = typeof leadsTable;

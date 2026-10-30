@@ -1,6 +1,8 @@
+import { asc, eq } from "drizzle-orm";
 import type { DB } from "@server/infrastructure/database/client";
 import {
   campaignsTable,
+  leadEmailsTable,
   pipelineRunsTable,
   pipelineItemsTable,
   type PipelineItemInsert,
@@ -138,7 +140,7 @@ export const runRows = async (db: DB) =>
 export const insertRunResults = async (
   db: DB,
   runId: number,
-  leads: Pick<Lead, "leadId" | "website" | "linkedin" | "email">[],
+  leads: Pick<Lead, "leadId" | "website" | "linkedin">[],
 ) => {
   if (leads.length === 0) return;
   await db.insert(pipelineItemsTable).values(
@@ -150,8 +152,17 @@ export const insertRunResults = async (
         status: "processed",
         website: lead.website,
         linkedin: lead.linkedin,
-        email: lead.email,
       }),
     ),
   );
 };
+
+export const leadEmailRows = async (db: DB, leadId: number) =>
+  await db
+    .select({
+      address: leadEmailsTable.address,
+      source: leadEmailsTable.source,
+    })
+    .from(leadEmailsTable)
+    .where(eq(leadEmailsTable.leadId, leadId))
+    .orderBy(asc(leadEmailsTable.emailId));

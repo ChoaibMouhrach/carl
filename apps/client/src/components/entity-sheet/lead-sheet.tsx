@@ -7,6 +7,8 @@ import { onError } from "@/lib/base-api";
 import { formatDate, formatNumber } from "@/lib/format";
 import { invalidateLeadData } from "@/lib/invalidate";
 import { socialFields, socialLabels } from "@/lib/lead";
+import { leadEmailSourceLabels } from "@/lib/lead-email";
+import { Badge } from "@repo/ui/components/ui/badge";
 import { Button } from "@repo/ui/components/ui/button";
 import { ScrollArea } from "@repo/ui/components/ui/scroll-area";
 import {
@@ -140,20 +142,27 @@ export const LeadSheet = ({ leadId, onClose }: LeadSheetProps) => {
             <ScrollArea className="min-h-0 flex-1">
               <div className="space-y-8 px-4 pb-6">
                 <dl className="grid gap-5">
-                  <SheetField label="Email">
-                    {data.email ? (
-                      <span className="flex items-center gap-2">
-                        <a
-                          className="min-w-0 break-all hover:underline"
-                          href={`mailto:${data.email}`}
-                        >
-                          {data.email}
-                        </a>
-                        <CopyButton
-                          label="Copy email address"
-                          value={data.email}
-                        />
-                      </span>
+                  <SheetField label="Emails">
+                    {data.emails.length > 0 ? (
+                      <ul className="space-y-1">
+                        {data.emails.map(({ emailId, address, source }) => (
+                          <li className="flex items-center gap-2" key={emailId}>
+                            <a
+                              className="min-w-0 break-all hover:underline"
+                              href={`mailto:${address}`}
+                            >
+                              {address}
+                            </a>
+                            <Badge variant="outline">
+                              {leadEmailSourceLabels[source]}
+                            </Badge>
+                            <CopyButton
+                              label="Copy email address"
+                              value={address}
+                            />
+                          </li>
+                        ))}
+                      </ul>
                     ) : (
                       <span className="text-muted-foreground">
                         No email yet

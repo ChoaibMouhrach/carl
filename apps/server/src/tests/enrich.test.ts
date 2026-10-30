@@ -23,6 +23,7 @@ import {
   ManualQueue,
   insertCampaign,
   insertRun,
+  leadEmailRows,
 } from "./helpers/pipeline";
 
 type Pool = Parameters<typeof createContext>[1];
@@ -114,7 +115,7 @@ const runRow = async (db: DB, runId: number) => {
   return row;
 };
 
-test("enriching a lead searches by name and community, then stores the website, LinkedIn profile and email it found", async () => {
+test("enriching a lead searches by name and community, then stores the website and LinkedIn profile and adds the email it found", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { context, queue, webSearch } = await boot(db, pool, () => [
       result(
@@ -137,7 +138,9 @@ test("enriching a lead searches by name and community, then stores the website, 
     const stored = await leadRow(db, lead.leadId);
     expect(stored.website).toBe("https://anncoach.com");
     expect(stored.linkedin).toBe("https://www.linkedin.com/in/anncoach");
-    expect(stored.email).toBe("ann@anncoach.com");
+    expect(await leadEmailRows(db, lead.leadId)).toEqual([
+      { address: "ann@anncoach.com", source: "tavily" },
+    ]);
     expect(stored.enrichedAt).toBeInstanceOf(Date);
     expect(await runRow(db, run.runId)).toMatchObject({
       status: "done",
@@ -148,28 +151,75 @@ test("enriching a lead searches by name and community, then stores the website, 
   });
 });
 
-test("enrichment never overwrites a contact detail the lead already has", async () => {
+test("enrichment never overwrites a website the lead has, fills the missing LinkedIn profile and only adds emails", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { context, queue } = await boot(db, pool, () => [
       result(
-        "https://www.linkedin.com/in/someone-else",
+        "https://www.linkedin.com/in/anncoach",
         "Ann Coach ann@new.example.com",
       ),
       result("https://new.example.com/", "Ann Coach"),
     ]);
     const { lead, job } = await seedLead(context, db, {
       website: "https://old.example.com",
-      linkedin: "https://www.linkedin.com/in/old",
-      email: "old@example.com",
+    });
+    await context.repositories.leadEmail.addMany({
+      leadId: lead.leadId,
+      addresses: ["old@example.com"],
+      source: "manual",
     });
 
     await queue.deliver(job);
 
     const stored = await leadRow(db, lead.leadId);
     expect(stored.website).toBe("https://old.example.com");
-    expect(stored.linkedin).toBe("https://www.linkedin.com/in/old");
-    expect(stored.email).toBe("old@example.com");
+    expect(stored.linkedin).toBe("https://www.linkedin.com/in/anncoach");
+    expect(await leadEmailRows(db, lead.leadId)).toEqual([
+      { address: "old@example.com", source: "manual" },
+      { address: "ann@new.example.com", source: "tavily" },
+    ]);
     expect(stored.enrichedAt).toBeInstanceOf(Date);
+  });
+});
+
+test("a lead that already has a LinkedIn profile is never searched and keeps its data untouched", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const { context, queue, webSearch } = await boot(db, pool, () => [
+      result(
+        "https://www.linkedin.com/in/someone-else",
+        "Ann Coach ann@new.example.com",
+      ),
+      result("https://new.example.com/", "Ann Coach"),
+    ]);
+    const { lead, run, job } = await seedLead(context, db, {
+      linkedin: "https://www.linkedin.com/in/old",
+    });
+
+    await queue.deliver(job);
+
+    expect(webSearch.queries).toHaveLength(0);
+    const stored = await leadRow(db, lead.leadId);
+    expect(stored).toMatchObject({
+      website: null,
+      linkedin: "https://www.linkedin.com/in/old",
+      enrichedAt: null,
+    });
+    expect(await leadEmailRows(db, lead.leadId)).toEqual([]);
+    expect(await runRow(db, run.runId)).toMatchObject({
+      status: "done",
+      total: 1,
+      processed: 1,
+      failed: 0,
+    });
+    const items = await db
+      .select()
+      .from(pipelineItemsTable)
+      .where(eq(pipelineItemsTable.runId, run.runId));
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      itemKey: `lead:${lead.leadId}`,
+      status: "processed",
+    });
   });
 });
 
@@ -186,7 +236,7 @@ test("results that never mention the lead are ignored, yet the lead counts as en
     const stored = await leadRow(db, lead.leadId);
     expect(stored.website).toBeNull();
     expect(stored.linkedin).toBeNull();
-    expect(stored.email).toBeNull();
+    expect(await leadEmailRows(db, lead.leadId)).toEqual([]);
     expect(stored.enrichedAt).toBeInstanceOf(Date);
     expect((await runRow(db, run.runId)).processed).toBe(1);
   });
@@ -203,8 +253,8 @@ test("a search with no results still finishes the lead without contact details",
     expect(stored).toMatchObject({
       website: null,
       linkedin: null,
-      email: null,
     });
+    expect(await leadEmailRows(db, lead.leadId)).toEqual([]);
     expect(stored.enrichedAt).toBeInstanceOf(Date);
     expect(await runRow(db, run.runId)).toMatchObject({
       status: "done",
@@ -219,7 +269,7 @@ const extractionCases: {
   expected: {
     website: string | null;
     linkedin: string | null;
-    email: string | null;
+    emails: string[];
   };
 }[] = [
   {
@@ -229,22 +279,22 @@ const extractionCases: {
       result("https://www.youtube.com/@ann", "Ann Coach"),
       result("https://www.skool.com/@anncoach", "Ann Coach"),
     ],
-    expected: { website: null, linkedin: null, email: null },
+    expected: { website: null, linkedin: null, emails: [] },
   },
   {
     name: "a subdomain of a blocked host is not a personal site",
     results: [result("https://blog.medium.com/ann", "Ann Coach")],
-    expected: { website: null, linkedin: null, email: null },
+    expected: { website: null, linkedin: null, emails: [] },
   },
   {
     name: "a host that only ends like a blocked one is a personal site",
     results: [result("https://notx.com/ann", "Ann Coach")],
-    expected: { website: "https://notx.com", linkedin: null, email: null },
+    expected: { website: "https://notx.com", linkedin: null, emails: [] },
   },
   {
     name: "a LinkedIn company page is not a profile",
     results: [result("https://www.linkedin.com/company/ann", "Ann Coach")],
-    expected: { website: null, linkedin: null, email: null },
+    expected: { website: null, linkedin: null, emails: [] },
   },
   {
     name: "a localized LinkedIn profile is kept as found",
@@ -252,7 +302,7 @@ const extractionCases: {
     expected: {
       website: null,
       linkedin: "https://uk.linkedin.com/in/ann-coach",
-      email: null,
+      emails: [],
     },
   },
   {
@@ -266,23 +316,23 @@ const extractionCases: {
     expected: {
       website: "https://anncoach.com",
       linkedin: null,
-      email: "ann@anncoach.com",
+      emails: ["ann@anncoach.com"],
     },
   },
   {
     name: "only generic mailboxes leaves the email empty",
     results: [result("https://x.com/a", "Ann Coach privacy@anncoach.com")],
-    expected: { website: null, linkedin: null, email: null },
+    expected: { website: null, linkedin: null, emails: [] },
   },
   {
     name: "the name is matched case-insensitively in the title",
     results: [result("https://anncoach.com/page", "", "ANN COACH - home")],
-    expected: { website: "https://anncoach.com", linkedin: null, email: null },
+    expected: { website: "https://anncoach.com", linkedin: null, emails: [] },
   },
   {
     name: "a malformed result URL is ignored without failing the lead",
     results: [result("not a url", "Ann Coach ann@anncoach.com")],
-    expected: { website: null, linkedin: null, email: "ann@anncoach.com" },
+    expected: { website: null, linkedin: null, emails: ["ann@anncoach.com"] },
   },
 ];
 
@@ -295,10 +345,11 @@ for (const scenario of extractionCases) {
       await queue.deliver(job);
 
       const stored = await leadRow(db, lead.leadId);
+      const emails = await leadEmailRows(db, lead.leadId);
       expect({
         website: stored.website,
         linkedin: stored.linkedin,
-        email: stored.email,
+        emails: emails.map((row) => row.address),
       }).toEqual(scenario.expected);
       expect(await runRow(db, run.runId)).toMatchObject({
         processed: 1,
@@ -319,7 +370,7 @@ test("a lead with an empty name does not collect a stranger's details", async ()
 
     const stored = await leadRow(db, lead.leadId);
     expect(stored.website).toBeNull();
-    expect(stored.email).toBeNull();
+    expect(await leadEmailRows(db, lead.leadId)).toEqual([]);
   });
 });
 

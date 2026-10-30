@@ -29,6 +29,7 @@ import {
   ManualQueue,
   insertCampaign,
   insertRun,
+  leadEmailRows,
 } from "./helpers/pipeline";
 
 type Pool = Parameters<typeof createContext>[1];
@@ -137,7 +138,7 @@ const itemRow = async (db: DB, runId: number, leadId: number) => {
   return row;
 };
 
-test("a lead's work and personal emails are stored on the lead and on the run item, and the run finishes", async () => {
+test("a lead's work and personal emails are added to the lead, and the run finishes", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { context, queue, fake } = await boot(db, pool, () => ({
       workEmail: email("ann@anncoach.com"),
@@ -158,14 +159,14 @@ test("a lead's work and personal emails are stored on the lead and on the run it
       },
     ]);
     const stored = await leadRow(db, lead.leadId);
-    expect(stored.workEmail).toBe("ann@anncoach.com");
-    expect(stored.personalEmail).toBe("ann@gmail.com");
+    expect(await leadEmailRows(db, lead.leadId)).toEqual([
+      { address: "ann@anncoach.com", source: "fullenrich-work" },
+      { address: "ann@gmail.com", source: "fullenrich-personal" },
+    ]);
     expect(stored.emailEnrichedAt).toBeInstanceOf(Date);
     expect(await itemRow(db, run.runId, lead.leadId)).toMatchObject({
       status: "processed",
       leadId: lead.leadId,
-      workEmail: "ann@anncoach.com",
-      personalEmail: "ann@gmail.com",
     });
     expect(await runRow(db, run.runId)).toMatchObject({
       status: "done",
@@ -176,23 +177,19 @@ test("a lead's work and personal emails are stored on the lead and on the run it
   });
 });
 
-test("only a work email found leaves the personal email empty", async () => {
+test("only a work email found adds just that email", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { context, queue } = await boot(db, pool, () => ({
       workEmail: email("ann@anncoach.com"),
       personalEmail: null,
     }));
-    const { lead, run, job } = await seedLead(context, db);
+    const { lead, job } = await seedLead(context, db);
 
     await queue.deliver(job);
 
-    const stored = await leadRow(db, lead.leadId);
-    expect(stored.workEmail).toBe("ann@anncoach.com");
-    expect(stored.personalEmail).toBeNull();
-    expect(await itemRow(db, run.runId, lead.leadId)).toMatchObject({
-      workEmail: "ann@anncoach.com",
-      personalEmail: null,
-    });
+    expect(await leadEmailRows(db, lead.leadId)).toEqual([
+      { address: "ann@anncoach.com", source: "fullenrich-work" },
+    ]);
   });
 });
 
@@ -204,12 +201,10 @@ test("finding no email still finishes the lead and stamps when it was looked up"
     await queue.deliver(job);
 
     const stored = await leadRow(db, lead.leadId);
-    expect(stored).toMatchObject({ workEmail: null, personalEmail: null });
+    expect(await leadEmailRows(db, lead.leadId)).toEqual([]);
     expect(stored.emailEnrichedAt).toBeInstanceOf(Date);
     expect(await itemRow(db, run.runId, lead.leadId)).toMatchObject({
       status: "processed",
-      workEmail: null,
-      personalEmail: null,
     });
     expect(await runRow(db, run.runId)).toMatchObject({
       status: "done",
@@ -286,20 +281,32 @@ for (const scenario of inputCases) {
 const rerunCases: {
   name: string;
   found: ContactEnrichmentResult;
-  expectedLead: { workEmail: string; personalEmail: string };
-  expectedItem: { workEmail: string | null; personalEmail: string | null };
+  expectedEmails: { address: string; source: string }[];
 }[] = [
   {
     name: "a re-run that finds nothing keeps the emails the lead already has",
     found: noEmails,
-    expectedLead: { workEmail: "old@work.com", personalEmail: "old@home.com" },
-    expectedItem: { workEmail: null, personalEmail: null },
+    expectedEmails: [
+      { address: "old@work.com", source: "fullenrich-work" },
+      { address: "old@home.com", source: "fullenrich-personal" },
+    ],
   },
   {
-    name: "a new work email replaces only the work email",
+    name: "a new work email is added beside the old one, never replacing it",
     found: { workEmail: email("new@work.com"), personalEmail: null },
-    expectedLead: { workEmail: "new@work.com", personalEmail: "old@home.com" },
-    expectedItem: { workEmail: "new@work.com", personalEmail: null },
+    expectedEmails: [
+      { address: "old@work.com", source: "fullenrich-work" },
+      { address: "old@home.com", source: "fullenrich-personal" },
+      { address: "new@work.com", source: "fullenrich-work" },
+    ],
+  },
+  {
+    name: "finding an email the lead already has adds no duplicate",
+    found: { workEmail: email("old@work.com"), personalEmail: null },
+    expectedEmails: [
+      { address: "old@work.com", source: "fullenrich-work" },
+      { address: "old@home.com", source: "fullenrich-personal" },
+    ],
   },
 ];
 
@@ -307,24 +314,25 @@ for (const scenario of rerunCases) {
   test(`re-run: ${scenario.name}`, async () => {
     await withTestDatabase(async ({ db, pool }) => {
       const { context, queue } = await boot(db, pool, () => scenario.found);
-      const { lead, run, job } = await seedLead(context, db, {
-        workEmail: "old@work.com",
-        personalEmail: "old@home.com",
+      const { lead, job } = await seedLead(context, db);
+      await context.repositories.leadEmail.addMany({
+        leadId: lead.leadId,
+        addresses: ["old@work.com"],
+        source: "fullenrich-work",
+      });
+      await context.repositories.leadEmail.addMany({
+        leadId: lead.leadId,
+        addresses: ["old@home.com"],
+        source: "fullenrich-personal",
       });
 
       await queue.deliver(job);
 
+      expect(await leadEmailRows(db, lead.leadId)).toEqual(
+        scenario.expectedEmails,
+      );
       const stored = await leadRow(db, lead.leadId);
-      expect({
-        workEmail: stored.workEmail,
-        personalEmail: stored.personalEmail,
-      }).toEqual(scenario.expectedLead);
       expect(stored.emailEnrichedAt).toBeInstanceOf(Date);
-      const item = await itemRow(db, run.runId, lead.leadId);
-      expect({
-        workEmail: item.workEmail,
-        personalEmail: item.personalEmail,
-      }).toEqual(scenario.expectedItem);
     });
   });
 }
@@ -350,7 +358,7 @@ test("a lead FullEnrich cannot look up is failed at once with the reason, and st
     expect(item.error).toContain("domain or company name");
     const stored = await leadRow(db, lead.leadId);
     expect(stored.emailEnrichedAt).toBeNull();
-    expect(stored).toMatchObject({ workEmail: null, personalEmail: null });
+    expect(await leadEmailRows(db, lead.leadId)).toEqual([]);
     expect(await runRow(db, run.runId)).toMatchObject({
       status: "done",
       processed: 0,
@@ -413,7 +421,7 @@ for (const scenario of failureCases) {
 
       const stored = await leadRow(db, lead.leadId);
       expect(stored.emailEnrichedAt).toBeNull();
-      expect(stored).toMatchObject({ workEmail: null, personalEmail: null });
+      expect(await leadEmailRows(db, lead.leadId)).toEqual([]);
       expect(await runRow(db, run.runId)).toMatchObject(
         scenario.counted
           ? { status: "done", processed: 0, failed: 1 }
@@ -479,9 +487,11 @@ test("delivering the same job twice calls the provider once and leaves the finis
     await queue.deliver(job);
 
     expect(fake.inputs).toHaveLength(1);
+    expect(await leadEmailRows(db, lead.leadId)).toEqual([
+      { address: "ann@anncoach.com", source: "fullenrich-work" },
+    ]);
     expect(await itemRow(db, run.runId, lead.leadId)).toMatchObject({
       status: "processed",
-      workEmail: "ann@anncoach.com",
     });
     expect(await runRow(db, run.runId)).toMatchObject({
       status: "done",
@@ -541,8 +551,10 @@ test("a run with found, failed and empty leads ends done once every lead is acco
       error: null,
     });
     const emails = await Promise.all(
-      leads.map(async (lead) => (await leadRow(db, lead.leadId)).workEmail),
+      leads.map(async (lead) =>
+        (await leadEmailRows(db, lead.leadId)).map((row) => row.address),
+      ),
     );
-    expect(emails).toEqual(["ann@anncoach.com", null, null]);
+    expect(emails).toEqual([["ann@anncoach.com"], [], []]);
   });
 });

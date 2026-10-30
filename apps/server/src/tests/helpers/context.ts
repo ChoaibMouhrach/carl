@@ -10,6 +10,7 @@ import {
   type EmailJob,
   type EnrichJob,
   type FullEnrichJob,
+  type WebsiteJob,
   type FailedJob,
   type ListFailedInput,
   type ListFailedResult,
@@ -20,6 +21,7 @@ import {
   type ScheduleJobOptions,
   type ScrapeJob,
 } from "@server/lib/base-queue";
+import { BaseWebPageFetcher } from "@server/lib/base-web-page-fetcher";
 import { BaseSkoolScrapper } from "@server/lib/base-skool-scrapper";
 import { BaseRateLimiter } from "@server/lib/base-rate-limiter";
 import {
@@ -260,6 +262,7 @@ export class TestQueueHub extends BaseQueueHub {
   public maintenance: TestQueue<MaintenanceJob>;
   public scrape: TestQueue<ScrapeJob>;
   public enrich: TestQueue<EnrichJob>;
+  public website: TestQueue<WebsiteJob>;
   public fullenrich: TestQueue<FullEnrichJob>;
 
   public constructor(init: { mailer: BaseMailer }) {
@@ -278,6 +281,9 @@ export class TestQueueHub extends BaseQueueHub {
     this.enrich = new TestQueue<EnrichJob>({
       process: async () => {},
     });
+    this.website = new TestQueue<WebsiteJob>({
+      process: async () => {},
+    });
     this.fullenrich = new TestQueue<FullEnrichJob>({
       process: async () => {},
     });
@@ -289,11 +295,18 @@ export class TestQueueHub extends BaseQueueHub {
       { name: "maintenance", queue: this.maintenance },
       { name: "scrape", queue: this.scrape },
       { name: "enrich", queue: this.enrich },
+      { name: "website", queue: this.website },
       { name: "fullenrich", queue: this.fullenrich },
     ];
   }
 
   public override async close(): Promise<void> {}
+}
+
+class NullWebPageFetcher extends BaseWebPageFetcher {
+  public override async fetchHtml(): Promise<string | null> {
+    return null;
+  }
 }
 
 class TestRateLimiter extends BaseRateLimiter {
@@ -378,6 +391,7 @@ export const createContext = (
     repositories: new Repositories({ dbConnection: { db, pool } }),
     skoolScrapper: new UnconfiguredSkoolScrapper(),
     webSearch: new DisabledWebSearch(),
+    webPageFetcher: new NullWebPageFetcher(),
     contactEnrichment: new DisabledContactEnrichment(),
   };
 };

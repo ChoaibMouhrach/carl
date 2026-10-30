@@ -4,7 +4,7 @@ import type { WebSearchResult } from "./base-web-search";
 export interface ExtractedContact {
   website: string | null;
   linkedin: string | null;
-  email: string | null;
+  emails: string[];
 }
 
 const NOT_A_PERSONAL_SITE = [
@@ -53,7 +53,7 @@ export const extractContact = (
   const needle = personName.trim().toLowerCase();
 
   if (needle === "") {
-    return { website: null, linkedin: null, email: null };
+    return { website: null, linkedin: null, emails: [] };
   }
 
   const relevant = results.filter((result) =>
@@ -64,19 +64,19 @@ export const extractContact = (
     LINKEDIN_PROFILE.test(result.url),
   );
   const websiteResult = relevant.find((result) => isPersonalSite(result.url));
-  const email = relevant
+  const emails = relevant
     .flatMap(
       (result) =>
         result.content.match(emailRegex({ allowSingleLabelDomain: false })) ??
         [],
     )
-    .find((candidate) => !GENERIC_MAILBOXES.test(candidate));
+    .filter((candidate) => !GENERIC_MAILBOXES.test(candidate));
 
   return {
     website: websiteResult ? new URL(websiteResult.url).origin : null,
     linkedin: linkedinResult
       ? (linkedinResult.url.match(LINKEDIN_PROFILE)?.[0] ?? null)
       : null,
-    email: email ?? null,
+    emails: [...new Set(emails.map((email) => email.toLowerCase()))],
   };
 };

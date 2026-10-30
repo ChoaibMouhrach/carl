@@ -12,7 +12,12 @@ import { id, timestamps } from "../utils";
 import { leadsTable } from "./leads";
 import { campaignsTable } from "./campaigns";
 
-export const pipelineSteps = ["scrape", "enrich", "fullenrich"] as const;
+export const pipelineSteps = [
+  "scrape",
+  "enrich",
+  "website",
+  "fullenrich",
+] as const;
 export const pipelineRunStatuses = ["running", "done", "failed"] as const;
 
 export const pipelineRunsTable = pgTable(
@@ -65,9 +70,6 @@ export const pipelineItemsTable = pgTable(
       .default("pending"),
     website: text(),
     linkedin: text(),
-    email: text(),
-    workEmail: text(),
-    personalEmail: text(),
     error: text(),
     ...timestamps(),
   },

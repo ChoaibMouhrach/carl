@@ -51,6 +51,9 @@ const baseSchema = z.object({
   // Web search (Tavily) — optional, enrichment is unavailable without it
   TAVILY_API_KEY: optional(z.string().nonempty()),
 
+  // Website email scraping
+  WEBSITE_CONCURRENCY: z.coerce.number().int().positive().default(5),
+
   // Contact enrichment (FullEnrich) — optional, work and personal emails are not enriched without it
   FULLENRICH_API_KEY: optional(z.string().nonempty()),
   FULLENRICH_CONCURRENCY: z.coerce.number().int().positive().default(2),

@@ -3,6 +3,7 @@ import type { DBConnection } from "@server/infrastructure/database/client";
 import { SettingRepository } from "./setting";
 import { HealthRepository } from "./health";
 import { LeadRepository } from "./lead";
+import { LeadEmailRepository } from "./lead-email";
 import { CommunityRepository } from "./community";
 import { CampaignRepository } from "./campaign";
 import { PipelineRunRepository } from "./pipeline-run";
@@ -19,6 +20,7 @@ export class Repositories {
   public setting;
   public health;
   public lead;
+  public leadEmail;
   public community;
   public campaign;
   public pipelineRun;
@@ -40,6 +42,10 @@ export class Repositories {
     });
 
     this.lead = new LeadRepository({
+      db: dbConnection.db,
+    });
+
+    this.leadEmail = new LeadEmailRepository({
       db: dbConnection.db,
     });
 

@@ -236,8 +236,13 @@ export class ScrapeService extends BaseService {
           facebook: lead.facebook,
           linkedin: lead.linkedin,
           website: lead.website,
-          email: lead.email,
           pictureUrl: lead.pictureUrl,
+        });
+
+        await tx.leadEmail.addMany({
+          leadId: saved.leadId,
+          addresses: lead.email ? [lead.email] : [],
+          source: "skool",
         });
 
         const community = await tx.community.upsertBySkoolUrl(

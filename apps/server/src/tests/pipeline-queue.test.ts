@@ -21,15 +21,22 @@ import {
 import {
   BaseQueueHub,
   type EnrichJob,
+  type WebsiteJob,
   type RegisteredQueue,
 } from "@server/lib/base-queue";
 import { WebSearchError } from "@server/lib/base-web-search";
 import { ScrapeWorker } from "@server/workers/scrape";
 import { EnrichWorker } from "@server/workers/enrich";
+import { WebsiteWorker } from "@server/workers/website";
+import { BaseWebPageFetcher } from "@server/lib/base-web-page-fetcher";
 import { createAdminClient } from "./helpers/api";
 import { createContext } from "./helpers/context";
 import { withTestDatabase } from "./helpers/http";
-import { FakeWebSearch, insertCampaign } from "./helpers/pipeline";
+import {
+  FakeWebSearch,
+  insertCampaign,
+  leadEmailRows,
+} from "./helpers/pipeline";
 import { FakeSkoolScrapper, paidMonthly } from "./helpers/skool";
 
 class RedisPipelineHub extends BaseQueueHub {
@@ -37,6 +44,7 @@ class RedisPipelineHub extends BaseQueueHub {
   public maintenance;
   public scrape;
   public enrich;
+  public website;
   private readonly names;
   private readonly redisUrl;
 
@@ -45,7 +53,8 @@ class RedisPipelineHub extends BaseQueueHub {
     const suffix = randomUUID();
     const scrapeName = `test-pipeline-scrape-${suffix}`;
     const enrichName = `test-pipeline-enrich-${suffix}`;
-    this.names = [scrapeName, enrichName];
+    const websiteName = `test-pipeline-website-${suffix}`;
+    this.names = [scrapeName, enrichName, websiteName];
     this.redisUrl = context.env.REDIS_CONNECTION_STRING;
     this.email = context.queueHub.email;
     this.maintenance = context.queueHub.maintenance;
@@ -64,17 +73,30 @@ class RedisPipelineHub extends BaseQueueHub {
       errorMonitor: context.errorMonitor,
       logger: context.logger,
     });
+    this.website = new BullQueue<WebsiteJob>({
+      name: websiteName,
+      jobName: "run",
+      concurrency: 2,
+      redisUrl: this.redisUrl,
+      errorMonitor: context.errorMonitor,
+      logger: context.logger,
+    });
   }
 
   public override queues(): RegisteredQueue[] {
     return [
       { name: "scrape", queue: this.scrape },
       { name: "enrich", queue: this.enrich },
+      { name: "website", queue: this.website },
     ];
   }
 
   public override async close(): Promise<void> {
-    await Promise.all([this.scrape.close(), this.enrich.close()]);
+    await Promise.all([
+      this.scrape.close(),
+      this.enrich.close(),
+      this.website.close(),
+    ]);
     const connection = new IORedis(this.redisUrl, {
       maxRetriesPerRequest: null,
     });
@@ -99,7 +121,7 @@ type Admin = Awaited<ReturnType<typeof createAdminClient>>;
 const start = async (
   admin: Admin,
   campaignId: number,
-  step: "scrape" | "enrich",
+  step: "scrape" | "enrich" | "website",
 ) => {
   const response = await admin.post(
     `/api/campaigns/${campaignId}/pipeline/${step}`,
@@ -140,6 +162,14 @@ interface Scenario {
   campaignId: number;
 }
 
+class WebsitePages extends BaseWebPageFetcher {
+  public override async fetchHtml(url: string): Promise<string | null> {
+    return url === "https://ann.example.com/contact"
+      ? "Contact hello@ann.example.com"
+      : null;
+  }
+}
+
 const withPipeline = async (
   scrapper: FakeSkoolScrapper,
   webSearch: FakeWebSearch,
@@ -153,10 +183,12 @@ const withPipeline = async (
       queueHub: hub,
       skoolScrapper: scrapper,
       webSearch,
+      webPageFetcher: new WebsitePages(),
     };
     try {
       await new ScrapeWorker({ context }).run();
       await new EnrichWorker({ context }).run();
+      await new WebsiteWorker({ context }).run();
       const admin = await createAdminClient(
         context,
         "pipeline-queue@example.com",
@@ -242,9 +274,12 @@ test("campaign HTTP actions execute through Redis and persist each stage without
         leadId: lead.leadId,
         status: "processed",
         website: "https://ann.example.com",
-        email: "ann@example.com",
         error: null,
       });
+      expect(await leadEmailRows(db, lead.leadId)).toEqual([
+        { address: "ann@example.com", source: "skool" },
+        { address: "ann@ann.example.com", source: "tavily" },
+      ]);
       const [savedLead] = await db
         .select()
         .from(leadsTable)
@@ -280,6 +315,31 @@ test("campaign HTTP actions execute through Redis and persist each stage without
         processed: 1,
         failed: 0,
       });
+
+      const websiteId = await start(admin, campaignId, "website");
+      const website = await waitForRun(db, websiteId, {
+        status: "done",
+        processed: 1,
+        failed: 0,
+      });
+      expect(website).toMatchObject({ total: 1, itemsReady: true });
+      const websiteItems = await db
+        .select()
+        .from(pipelineItemsTable)
+        .where(eq(pipelineItemsTable.runId, websiteId));
+      expect(websiteItems).toMatchObject([
+        {
+          leadId: lead.leadId,
+          status: "processed",
+          website: "https://ann.example.com",
+          error: null,
+        },
+      ]);
+      expect(await leadEmailRows(db, lead.leadId)).toEqual([
+        { address: "ann@example.com", source: "skool" },
+        { address: "ann@ann.example.com", source: "tavily" },
+        { address: "hello@ann.example.com", source: "website" },
+      ]);
     },
   );
 });

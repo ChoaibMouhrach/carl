@@ -1,4 +1,5 @@
 import type { CampaignPipelineStep } from "@repo/constants/pipeline";
+import type { LeadEmailSource } from "@repo/constants/lead-emails";
 import {
   and,
   asc,
@@ -6,11 +7,15 @@ import {
   countDistinct,
   desc,
   eq,
+  exists,
   ilike,
   inArray,
   isNotNull,
+  isNull,
+  not,
   or,
   sql,
+  type AnyColumn,
   type SQL,
 } from "drizzle-orm";
 import {
@@ -18,6 +23,7 @@ import {
   pipelineItemsTable,
   pipelineRunsTable,
   communitiesTable,
+  leadEmailsTable,
   leadsTable,
   type Lead,
   type LeadInsert,
@@ -25,6 +31,11 @@ import {
 } from "@server/infrastructure/database/schemas";
 import { BaseRepository } from "@server/lib/base-repository";
 import { escapeLike } from "@server/lib/utils";
+
+export const fullenrichEmailSources = [
+  "fullenrich-work",
+  "fullenrich-personal",
+] as const satisfies LeadEmailSource[];
 
 export interface LeadListWhere {
   search?: string;
@@ -88,7 +99,7 @@ export class LeadRepository extends BaseRepository {
   public async findWithCommunitiesByLeadId(where: { leadId: number }) {
     const lead = await this.db.query.leadsTable.findFirst({
       where: eq(LeadRepository.table.leadId, where.leadId),
-      with: { communities: true },
+      with: { communities: true, emails: true },
     });
 
     return lead || null;
@@ -99,16 +110,13 @@ export class LeadRepository extends BaseRepository {
 
     const website = this.contactField("website", where);
     const linkedin = this.contactField("linkedin", where);
-    const email = this.contactField("email", where);
     const pattern = where.search ? `%${escapeLike(where.search)}%` : undefined;
     const filters = and(
       pattern
         ? or(
             ilike(table.name, pattern),
             ilike(table.username, pattern),
-            ilike(email, pattern),
-            ilike(table.workEmail, pattern),
-            ilike(table.personalEmail, pattern),
+            this.hasEmailMatching(ilike(leadEmailsTable.address, pattern)),
             ilike(table.skoolUrl, pattern),
           )
         : undefined,
@@ -136,8 +144,8 @@ export class LeadRepository extends BaseRepository {
       where.hasEmail === undefined
         ? undefined
         : where.hasEmail
-          ? isNotNull(email)
-          : sql`${email} is null`,
+          ? this.hasEmailMatching()
+          : not(this.hasEmailMatching()),
       where.campaignId === undefined
         ? undefined
         : inArray(
@@ -156,7 +164,6 @@ export class LeadRepository extends BaseRepository {
         lead: table,
         website,
         linkedin,
-        email,
         communitiesCount: count(communitiesTable.communityId),
       })
       .from(table)
@@ -177,7 +184,6 @@ export class LeadRepository extends BaseRepository {
         ...row.lead,
         website: row.website,
         linkedin: row.linkedin,
-        email: row.email,
         communitiesCount: row.communitiesCount,
       })),
       total: totals.at(0)?.total ?? 0,
@@ -188,6 +194,8 @@ export class LeadRepository extends BaseRepository {
     runId: number;
     campaignId: number;
     contactable?: boolean;
+    withWebsite?: boolean;
+    withoutLinkedin?: boolean;
   }): Promise<number[]> {
     const rows = await this.db
       .selectDistinct({ leadId: pipelineItemsTable.leadId })
@@ -199,17 +207,25 @@ export class LeadRepository extends BaseRepository {
           eq(campaignLeadsTable.campaignId, where.campaignId),
         ),
       )
+      .innerJoin(
+        LeadRepository.table,
+        eq(LeadRepository.table.leadId, pipelineItemsTable.leadId),
+      )
       .where(
         and(
           eq(pipelineItemsTable.runId, where.runId),
           eq(pipelineItemsTable.status, "processed"),
           isNotNull(pipelineItemsTable.leadId),
+          where.withoutLinkedin
+            ? isNull(LeadRepository.table.linkedin)
+            : undefined,
           where.contactable
             ? or(
                 isNotNull(pipelineItemsTable.website),
                 isNotNull(pipelineItemsTable.linkedin),
               )
             : undefined,
+          where.withWebsite ? isNotNull(pipelineItemsTable.website) : undefined,
         ),
       );
     return rows.flatMap((row) => (row.leadId === null ? [] : [row.leadId]));
@@ -245,9 +261,10 @@ export class LeadRepository extends BaseRepository {
     return rows.at(0)?.total ?? 0;
   }
 
-  public async countEmailedByRunId(where: {
+  private async countProcessedByRunId(where: {
     campaignId: number;
     runId: number | null;
+    filter: SQL;
   }): Promise<number> {
     const rows = await this.db
       .select({ total: countDistinct(pipelineItemsTable.leadId) })
@@ -263,18 +280,40 @@ export class LeadRepository extends BaseRepository {
         and(
           eq(pipelineItemsTable.runId, where.runId ?? -1),
           eq(pipelineItemsTable.status, "processed"),
-          or(
-            isNotNull(pipelineItemsTable.workEmail),
-            isNotNull(pipelineItemsTable.personalEmail),
-          ),
+          where.filter,
         ),
       );
     return rows.at(0)?.total ?? 0;
   }
 
+  public async countEmailedByRunId(where: {
+    campaignId: number;
+    runId: number | null;
+    sources: LeadEmailSource[];
+  }): Promise<number> {
+    return await this.countProcessedByRunId({
+      ...where,
+      filter: this.hasEmailMatching(
+        inArray(leadEmailsTable.source, where.sources),
+        pipelineItemsTable.leadId,
+      ),
+    });
+  }
+
+  public async countWithWebsiteByRunId(where: {
+    campaignId: number;
+    runId: number | null;
+  }): Promise<number> {
+    return await this.countProcessedByRunId({
+      ...where,
+      filter: isNotNull(pipelineItemsTable.website),
+    });
+  }
+
   private static runStep = {
     scrape: "scrape",
     tavily: "enrich",
+    website: "website",
     fullenrich: "fullenrich",
   } as const satisfies Record<CampaignPipelineStep, PipelineStep>;
 
@@ -287,10 +326,15 @@ export class LeadRepository extends BaseRepository {
           isNotNull(pipelineItemsTable.website),
           isNotNull(pipelineItemsTable.linkedin),
         );
+      case "website":
+        return this.hasEmailMatching(
+          eq(leadEmailsTable.source, "website"),
+          pipelineItemsTable.leadId,
+        );
       case "fullenrich":
-        return or(
-          isNotNull(pipelineItemsTable.workEmail),
-          isNotNull(pipelineItemsTable.personalEmail),
+        return this.hasEmailMatching(
+          inArray(leadEmailsTable.source, fullenrichEmailSources),
+          pipelineItemsTable.leadId,
         );
     }
   }
@@ -302,15 +346,19 @@ export class LeadRepository extends BaseRepository {
     return sql<number>`(select ${pipelineRunsTable.runId} from ${pipelineRunsTable} where ${pipelineRunsTable.campaignId} = ${campaignId ?? null} and ${pipelineRunsTable.step} = ${step} order by ${pipelineRunsTable.runId} desc limit 1)`;
   }
 
-  private contactField(
-    field: "website" | "linkedin" | "email",
-    where: LeadListWhere,
-  ) {
-    if (where.pipelineStep === "fullenrich" && field === "email") {
-      return sql<
-        string | null
-      >`coalesce(${LeadRepository.table.workEmail}, ${LeadRepository.table.personalEmail})`;
-    }
+  private hasEmailMatching(
+    condition?: SQL,
+    leadId: SQL | AnyColumn = LeadRepository.table.leadId,
+  ): SQL {
+    return exists(
+      this.db
+        .select({ one: sql`1` })
+        .from(leadEmailsTable)
+        .where(and(eq(leadEmailsTable.leadId, leadId), condition)),
+    );
+  }
+
+  private contactField(field: "website" | "linkedin", where: LeadListWhere) {
     if (where.pipelineStep !== "tavily") return LeadRepository.table[field];
     return sql<
       string | null

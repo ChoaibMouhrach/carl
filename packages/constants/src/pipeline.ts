@@ -1,6 +1,7 @@
 export const campaignPipelineSteps = [
   "scrape",
   "tavily",
+  "website",
   "fullenrich",
 ] as const;
 

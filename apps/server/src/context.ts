@@ -23,6 +23,8 @@ import { CustomSkoolScrapper } from "./infrastructure/skool-scrapper/custom";
 import type { BaseWebSearch } from "./lib/base-web-search";
 import { TavilyWebSearch } from "./infrastructure/web-search/tavily";
 import { DisabledWebSearch } from "./infrastructure/web-search/disabled";
+import type { BaseWebPageFetcher } from "./lib/base-web-page-fetcher";
+import { HttpWebPageFetcher } from "./infrastructure/web-page-fetcher/http";
 import type { BaseContactEnrichment } from "./lib/base-contact-enrichment";
 import { FullEnrichContactEnrichment } from "./infrastructure/contact-enrichment/fullenrich";
 import { DisabledContactEnrichment } from "./infrastructure/contact-enrichment/disabled";
@@ -76,6 +78,7 @@ export const initContext = async () => {
     concurrency: env.QUEUE_CONCURRENCY,
     scrapeConcurrency: env.SCRAPE_CONCURRENCY,
     enrichConcurrency: env.ENRICH_CONCURRENCY,
+    websiteConcurrency: env.WEBSITE_CONCURRENCY,
     fullenrichConcurrency: env.FULLENRICH_CONCURRENCY,
     errorMonitor,
     logger,
@@ -99,6 +102,8 @@ export const initContext = async () => {
     ? new TavilyWebSearch({ apiKey: env.TAVILY_API_KEY })
     : new DisabledWebSearch();
 
+  const webPageFetcher: BaseWebPageFetcher = new HttpWebPageFetcher();
+
   const contactEnrichment: BaseContactEnrichment = env.FULLENRICH_API_KEY
     ? new FullEnrichContactEnrichment({ apiKey: env.FULLENRICH_API_KEY })
     : new DisabledContactEnrichment();
@@ -117,6 +122,7 @@ export const initContext = async () => {
     errorMonitor,
     skoolScrapper,
     webSearch,
+    webPageFetcher,
     contactEnrichment,
   };
 };

@@ -1,4 +1,4 @@
-import { insertRun, insertRunResults } from "./helpers/pipeline";
+import { insertRun, insertRunResults, leadEmailRows } from "./helpers/pipeline";
 import { expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import z from "zod";
@@ -24,12 +24,16 @@ const leadSchema = z.object({
   facebook: z.string().nullable(),
   linkedin: z.string().nullable(),
   website: z.string().nullable(),
-  email: z.string().nullable(),
   pictureUrl: z.string().nullable(),
 });
 
 const listSchema = z.object({
-  leads: z.array(leadSchema.extend({ communitiesCount: z.number() })),
+  leads: z.array(
+    leadSchema.extend({
+      communitiesCount: z.number(),
+      emails: z.array(z.object({ address: z.string(), source: z.string() })),
+    }),
+  ),
   meta: z.object({
     page: z.number(),
     perPage: z.number(),
@@ -38,25 +42,32 @@ const listSchema = z.object({
   }),
 });
 
-const emailListSchema = z.object({
-  leads: z.array(
-    leadSchema.extend({
-      workEmail: z.string().nullable(),
-      personalEmail: z.string().nullable(),
-    }),
-  ),
-  meta: listSchema.shape.meta,
-});
-
 const errorSchema = z.object({ code: z.string().optional() });
 
-const newLead = (slug: string, overrides: Partial<LeadInsert> = {}) => ({
+type NewLead = LeadInsert & { emails?: string[] };
+
+const newLead = (slug: string, overrides: Partial<NewLead> = {}): NewLead => ({
   name: `Lead ${slug}`,
   username: slug,
   skoolUrl: `https://www.skool.com/@${slug}`,
-  email: `${slug}@example.com`,
+  emails: [`${slug}@example.com`],
   ...overrides,
 });
+
+const createLead = async (
+  context: ReturnType<typeof createContext>,
+  input: NewLead,
+) => {
+  const { emails = [], ...fields } = input;
+  const lead = await context.repositories.lead.create(fields);
+  await context.repositories.leadEmail.addMany({
+    leadId: lead.leadId,
+    addresses: emails,
+    source: "manual",
+  });
+
+  return lead;
+};
 
 const boot = async (db: DB, pool: Parameters<typeof createContext>[1]) => {
   const context = createContext(db, pool, initENV());
@@ -70,7 +81,7 @@ const leadRows = async (db: DB) => await db.select().from(leadsTable);
 test("every lead route refuses anonymous and non-admin callers and changes nothing", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { context } = await boot(db, pool);
-    const lead = await context.repositories.lead.create(newLead("ann"));
+    const lead = await createLead(context, newLead("ann"));
     const member = await createAuthenticatedApp({
       context,
       email: "leads-member@example.com",
@@ -121,15 +132,21 @@ test("creating a lead stores every field", async () => {
       facebook: "https://facebook.com/ann",
       linkedin: "https://linkedin.com/in/ann",
       website: "https://ann.example.com",
-      email: "ann@example.com",
       pictureUrl: "https://assets.skool.com/f/abc/ann-md.jpg",
     };
 
-    const response = await admin.post("/api/leads", body);
+    const response = await admin.post("/api/leads", {
+      ...body,
+      emails: ["ann@example.com", "ann@work.example.com"],
+    });
 
     expect(response.status).toBe(201);
     const created = leadSchema.parse(await response.json());
     expect(created).toMatchObject(body);
+    expect(await leadEmailRows(db, created.leadId)).toEqual([
+      { address: "ann@example.com", source: "manual" },
+      { address: "ann@work.example.com", source: "manual" },
+    ]);
 
     const rows = await leadRows(db);
     expect(rows).toHaveLength(1);
@@ -137,8 +154,6 @@ test("creating a lead stores every field", async () => {
       ...body,
       leadId: created.leadId,
       enrichedAt: null,
-      workEmail: null,
-      personalEmail: null,
       emailEnrichedAt: null,
       createdAt: expect.any(Date),
       updatedAt: expect.any(Date),
@@ -151,7 +166,7 @@ test("an invalid lead body is rejected and nothing is written", async () => {
     const { admin } = await boot(db, pool);
     const invalid = [
       newLead("a", { name: "" }),
-      newLead("b", { email: "not-an-email" }),
+      newLead("b", { emails: ["not-an-email"] }),
       newLead("c", { skoolUrl: "https://example.com/@c" }),
       newLead("d", { website: "nope" }),
       newLead("e", { pictureUrl: "not-a-url" }),
@@ -170,7 +185,7 @@ test("an invalid lead body is rejected and nothing is written", async () => {
 test("a lead cannot reuse another lead's username or Skool URL", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { context, admin } = await boot(db, pool);
-    await context.repositories.lead.create(newLead("ann"));
+    await createLead(context, newLead("ann"));
     const before = await leadRows(db);
 
     const sameUsername = await admin.post(
@@ -199,7 +214,7 @@ test("the list is paged twenty at a time with a total", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { context, admin } = await boot(db, pool);
     for (let index = 1; index <= 25; index += 1) {
-      await context.repositories.lead.create(newLead(`lead-${index}`));
+      await createLead(context, newLead(`lead-${index}`));
     }
 
     const first = listSchema.parse(
@@ -236,11 +251,9 @@ test("the list is paged twenty at a time with a total", async () => {
 test("the list searches, filters by email and sorts", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { context, admin } = await boot(db, pool);
-    await context.repositories.lead.create(newLead("ann"));
-    await context.repositories.lead.create(
-      newLead("bob", { name: "Bob 100%", email: null }),
-    );
-    await context.repositories.lead.create(newLead("cara", { name: "Cara" }));
+    await createLead(context, newLead("ann"));
+    await createLead(context, newLead("bob", { name: "Bob 100%", emails: [] }));
+    await createLead(context, newLead("cara", { name: "Cara" }));
 
     const names = async (query: string) =>
       listSchema
@@ -273,8 +286,8 @@ test("the list searches, filters by email and sorts", async () => {
 test("the list counts each lead's communities", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { context, admin } = await boot(db, pool);
-    const ann = await context.repositories.lead.create(newLead("ann"));
-    await context.repositories.lead.create(newLead("bob"));
+    const ann = await createLead(context, newLead("ann"));
+    await createLead(context, newLead("bob"));
     for (const slug of ["one", "two"]) {
       await context.repositories.community.create({
         leadId: ann.leadId,
@@ -315,7 +328,7 @@ test("an invalid list query is rejected", async () => {
 test("a lead comes back with its communities and unknown ids are 404", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { context, admin } = await boot(db, pool);
-    const ann = await context.repositories.lead.create(newLead("ann"));
+    const ann = await createLead(context, newLead("ann"));
     await context.repositories.community.create({
       leadId: ann.leadId,
       name: "Alpha",
@@ -344,7 +357,8 @@ test("a lead comes back with its communities and unknown ids are 404", async () 
 test("updating a lead changes only the sent fields and can clear optional ones", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { context, admin } = await boot(db, pool);
-    const ann = await context.repositories.lead.create(
+    const ann = await createLead(
+      context,
       newLead("ann", {
         bio: "Old bio",
         pictureUrl: "https://assets.skool.com/f/abc/ann-md.jpg",
@@ -353,7 +367,6 @@ test("updating a lead changes only the sent fields and can clear optional ones",
 
     const response = await admin.patch(`/api/leads/${ann.leadId}`, {
       name: "Ann Renamed",
-      email: null,
       username: "ann",
       pictureUrl: null,
     });
@@ -361,7 +374,6 @@ test("updating a lead changes only the sent fields and can clear optional ones",
     expect(response.status).toBe(200);
     expect(leadSchema.parse(await response.json())).toMatchObject({
       name: "Ann Renamed",
-      email: null,
     });
 
     const rows = await db
@@ -371,7 +383,6 @@ test("updating a lead changes only the sent fields and can clear optional ones",
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       name: "Ann Renamed",
-      email: null,
       username: "ann",
       skoolUrl: "https://www.skool.com/@ann",
       bio: "Old bio",
@@ -380,11 +391,32 @@ test("updating a lead changes only the sent fields and can clear optional ones",
   });
 });
 
+test("updating a lead only ever adds emails and never removes or duplicates one", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const { context, admin } = await boot(db, pool);
+    const ann = await createLead(context, newLead("ann"));
+
+    const added = await admin.patch(`/api/leads/${ann.leadId}`, {
+      emails: ["extra@example.com", "EXTRA@example.com", "ann@example.com"],
+    });
+    const unrelated = await admin.patch(`/api/leads/${ann.leadId}`, {
+      name: "Ann Renamed",
+    });
+
+    expect(added.status).toBe(200);
+    expect(unrelated.status).toBe(200);
+    expect(await leadEmailRows(db, ann.leadId)).toEqual([
+      { address: "ann@example.com", source: "manual" },
+      { address: "extra@example.com", source: "manual" },
+    ]);
+  });
+});
+
 test("updating a lead to a taken username or URL, or an unknown id, writes nothing", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { context, admin } = await boot(db, pool);
-    const ann = await context.repositories.lead.create(newLead("ann"));
-    await context.repositories.lead.create(newLead("bob"));
+    const ann = await createLead(context, newLead("ann"));
+    await createLead(context, newLead("bob"));
     const before = await leadRows(db);
 
     const username = await admin.patch(`/api/leads/${ann.leadId}`, {
@@ -394,7 +426,7 @@ test("updating a lead to a taken username or URL, or an unknown id, writes nothi
       skoolUrl: "https://www.skool.com/@bob",
     });
     const invalid = await admin.patch(`/api/leads/${ann.leadId}`, {
-      email: "nope",
+      emails: ["nope"],
     });
     const missing = await admin.patch("/api/leads/999999", { name: "Ghost" });
 
@@ -410,8 +442,8 @@ test("updating a lead to a taken username or URL, or an unknown id, writes nothi
 test("deleting a lead removes its communities and leaves other leads alone", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { context, admin } = await boot(db, pool);
-    const ann = await context.repositories.lead.create(newLead("ann"));
-    const bob = await context.repositories.lead.create(newLead("bob"));
+    const ann = await createLead(context, newLead("ann"));
+    const bob = await createLead(context, newLead("bob"));
     for (const [owner, slug] of [
       [ann, "ann-community"],
       [bob, "bob-community"],
@@ -444,7 +476,7 @@ test("the page size is chosen per request and drives the page count", async () =
   await withTestDatabase(async ({ db, pool }) => {
     const { context, admin } = await boot(db, pool);
     for (let index = 1; index <= 25; index += 1) {
-      await context.repositories.lead.create(newLead(`lead-${index}`));
+      await createLead(context, newLead(`lead-${index}`));
     }
     const page = async (query: string) =>
       listSchema.parse(await (await admin.get(`/api/leads?${query}`)).json());
@@ -476,9 +508,9 @@ test("the page size is chosen per request and drives the page count", async () =
 test("bulk deleting leads removes exactly those leads and their communities", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { context, admin } = await boot(db, pool);
-    const ann = await context.repositories.lead.create(newLead("ann"));
-    const bob = await context.repositories.lead.create(newLead("bob"));
-    const cara = await context.repositories.lead.create(newLead("cara"));
+    const ann = await createLead(context, newLead("ann"));
+    const bob = await createLead(context, newLead("bob"));
+    const cara = await createLead(context, newLead("cara"));
     for (const [owner, slug] of [
       [ann, "ann-community"],
       [bob, "bob-community"],
@@ -514,7 +546,7 @@ test("bulk deleting leads removes exactly those leads and their communities", as
 test("a bulk delete with a bad body or from a non-admin deletes nothing", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { context, admin } = await boot(db, pool);
-    const ann = await context.repositories.lead.create(newLead("ann"));
+    const ann = await createLead(context, newLead("ann"));
     const member = await createAuthenticatedApp({
       context,
       email: "leads-bulk-member@example.com",
@@ -567,7 +599,7 @@ test("a page past the end is empty but still reports the real page count and tot
   await withTestDatabase(async ({ db, pool }) => {
     const { context, admin } = await boot(db, pool);
     for (let index = 1; index <= 25; index += 1) {
-      await context.repositories.lead.create(newLead(`lead-${index}`));
+      await createLead(context, newLead(`lead-${index}`));
     }
 
     const response = await admin.get("/api/leads?perPage=10&page=5");
@@ -582,7 +614,7 @@ test("a page past the end is empty but still reports the real page count and tot
 test("a lead's picture can be set and an invalid picture link changes nothing", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { context, admin } = await boot(db, pool);
-    const ann = await context.repositories.lead.create(newLead("ann"));
+    const ann = await createLead(context, newLead("ann"));
     const path = `/api/leads/${ann.leadId}`;
 
     const set = await admin.patch(path, {
@@ -667,30 +699,34 @@ test("pipeline steps filter campaign leads before search, sorting, pagination an
     });
     const contactableIds: number[] = [];
     for (let index = 0; index < 13; index += 1) {
-      const lead = await context.repositories.lead.create(
+      const lead = await createLead(
+        context,
         newLead(`contact-${String(index).padStart(2, "0")}`, {
           name: `Result ${String(index).padStart(2, "0")}`,
           enrichedAt: new Date(),
           website: index % 2 === 0 ? "https://contact.example.com" : null,
           linkedin: index % 2 === 1 ? "https://linkedin.com/in/contact" : null,
-          email: index === 0 ? null : `contact-${index}@example.com`,
+          emails: index === 0 ? [] : [`contact-${index}@example.com`],
         }),
       );
       contactableIds.push(lead.leadId);
     }
-    const pending = await context.repositories.lead.create(
+    const pending = await createLead(
+      context,
       newLead("pending-contact", {
         name: "A pending contact",
         website: "https://pending.example.com",
       }),
     );
-    const noContact = await context.repositories.lead.create(
+    const noContact = await createLead(
+      context,
       newLead("mail-only", {
         name: "A mail only",
         enrichedAt: new Date(),
       }),
     );
-    const outsider = await context.repositories.lead.create(
+    const outsider = await createLead(
+      context,
       newLead("outsider", {
         name: "Result outsider",
         enrichedAt: new Date(),
@@ -808,33 +844,42 @@ test("the email step lists only the leads its latest run found an email for, and
       keyword: "other",
     });
     const make = async (slug: string) =>
-      await context.repositories.lead.create({
-        ...newLead(slug),
-        email: null,
-        workEmail: null,
-        personalEmail: null,
-      });
+      await createLead(context, newLead(slug, { emails: [] }));
     const work = await make("work");
     const personal = await make("personal");
     const both = await make("both");
     const none = await make("none");
     const failed = await make("failed");
+    const stale = await make("stale");
     await context.repositories.campaign.addLeads({
       campaignId: campaign.campaignId,
-      leadIds: [work, personal, both, none, failed].map((lead) => lead.leadId),
+      leadIds: [work, personal, both, none, failed, stale].map(
+        (lead) => lead.leadId,
+      ),
     });
-    await context.repositories.lead.update(
-      { leadId: work.leadId },
-      { workEmail: "work@acme.com" },
-    );
-    await context.repositories.lead.update(
-      { leadId: personal.leadId },
-      { personalEmail: "personal@home.com" },
-    );
-    await context.repositories.lead.update(
-      { leadId: both.leadId },
-      { workEmail: "both@acme.com", personalEmail: "both@home.com" },
-    );
+    const addEmails = async (
+      lead: { leadId: number },
+      found: { work?: string; personal?: string },
+    ) => {
+      await context.repositories.leadEmail.addMany({
+        leadId: lead.leadId,
+        addresses: found.work ? [found.work] : [],
+        source: "fullenrich-work",
+      });
+      await context.repositories.leadEmail.addMany({
+        leadId: lead.leadId,
+        addresses: found.personal ? [found.personal] : [],
+        source: "fullenrich-personal",
+      });
+    };
+    await addEmails(work, { work: "work@acme.com" });
+    await addEmails(personal, { personal: "personal@home.com" });
+    await addEmails(both, {
+      work: "both@acme.com",
+      personal: "both@home.com",
+    });
+    await addEmails(failed, { work: "failed@acme.com" });
+    await addEmails(stale, { work: "stale@acme.com" });
     const older = await insertRun(db, {
       campaignId: campaign.campaignId,
       step: "fullenrich",
@@ -842,60 +887,36 @@ test("the email step lists only the leads its latest run found an email for, and
     });
     await db.insert(pipelineItemsTable).values({
       runId: older.runId,
-      itemKey: `lead:${none.leadId}`,
-      leadId: none.leadId,
+      itemKey: `lead:${stale.leadId}`,
+      leadId: stale.leadId,
       status: "processed",
-      workEmail: "stale@acme.com",
     });
     const run = await insertRun(db, {
       campaignId: campaign.campaignId,
       step: "fullenrich",
       status: "done",
     });
-    await db.insert(pipelineItemsTable).values([
-      {
+    await db.insert(pipelineItemsTable).values(
+      [
+        { lead: work, status: "processed" },
+        { lead: personal, status: "processed" },
+        { lead: both, status: "processed" },
+        { lead: none, status: "processed" },
+        { lead: failed, status: "failed" },
+      ].map(({ lead, status }) => ({
         runId: run.runId,
-        itemKey: `lead:${work.leadId}`,
-        leadId: work.leadId,
-        status: "processed",
-        workEmail: "work@acme.com",
-      },
-      {
-        runId: run.runId,
-        itemKey: `lead:${personal.leadId}`,
-        leadId: personal.leadId,
-        status: "processed",
-        personalEmail: "personal@home.com",
-      },
-      {
-        runId: run.runId,
-        itemKey: `lead:${both.leadId}`,
-        leadId: both.leadId,
-        status: "processed",
-        workEmail: "both@acme.com",
-        personalEmail: "both@home.com",
-      },
-      {
-        runId: run.runId,
-        itemKey: `lead:${none.leadId}`,
-        leadId: none.leadId,
-        status: "processed",
-      },
-      {
-        runId: run.runId,
-        itemKey: `lead:${failed.leadId}`,
-        leadId: failed.leadId,
-        status: "failed",
-        workEmail: "failed@acme.com",
-      },
-    ]);
+        itemKey: `lead:${lead.leadId}`,
+        leadId: lead.leadId,
+        status,
+      })),
+    );
     const list = async (campaignId: number, query = "") => {
       const response = await admin.get(
         `/api/leads?campaignId=${campaignId}&pipelineStep=fullenrich&sort=name&order=asc${query}`,
       );
       expect(response.status).toBe(200);
       const json: unknown = await response.json();
-      return emailListSchema.parse(json);
+      return listSchema.parse(json);
     };
 
     const listed = await list(campaign.campaignId);
@@ -906,22 +927,13 @@ test("the email step lists only the leads its latest run found an email for, and
       personal.leadId,
       work.leadId,
     ]);
-    expect(listed.leads).toMatchObject([
-      {
-        workEmail: "both@acme.com",
-        personalEmail: "both@home.com",
-        email: "both@acme.com",
-      },
-      {
-        workEmail: null,
-        personalEmail: "personal@home.com",
-        email: "personal@home.com",
-      },
-      {
-        workEmail: "work@acme.com",
-        personalEmail: null,
-        email: "work@acme.com",
-      },
+    expect(listed.leads.map((lead) => lead.emails)).toEqual([
+      [
+        { address: "both@acme.com", source: "fullenrich-work" },
+        { address: "both@home.com", source: "fullenrich-personal" },
+      ],
+      [{ address: "personal@home.com", source: "fullenrich-personal" }],
+      [{ address: "work@acme.com", source: "fullenrich-work" }],
     ]);
     const searched = await list(campaign.campaignId, "&search=home.com");
     expect(searched.leads.map((lead) => lead.leadId)).toEqual([
@@ -945,13 +957,14 @@ test("pipeline lists use the latest run's own contacts and never borrow another 
       name: "Second",
       keyword: "second",
     });
-    const shared = await context.repositories.lead.create(
+    const shared = await createLead(
+      context,
       newLead("shared", {
         enrichedAt: new Date(),
         website: "https://global.example.com",
       }),
     );
-    const manual = await context.repositories.lead.create(newLead("manual"));
+    const manual = await createLead(context, newLead("manual"));
     await context.repositories.campaign.addLeads({
       campaignId: first.campaignId,
       leadIds: [shared.leadId, manual.leadId],
@@ -972,12 +985,13 @@ test("pipeline lists use the latest run's own contacts and never borrow another 
       status: "done",
     });
     await insertRunResults(db, enrich.runId, [
-      {
-        ...shared,
-        website: "https://first.example.com",
-        email: "first@example.com",
-      },
+      { ...shared, website: "https://first.example.com" },
     ]);
+    await context.repositories.leadEmail.addMany({
+      leadId: shared.leadId,
+      addresses: ["first@example.com"],
+      source: "tavily",
+    });
     const list = async (campaignId: number, step: string, extra = "") => {
       const response = await admin.get(
         `/api/leads?campaignId=${campaignId}&pipelineStep=${step}${extra}`,
@@ -995,7 +1009,10 @@ test("pipeline lists use the latest run's own contacts and never borrow another 
     expect(firstResult.leads[0]).toMatchObject({
       leadId: shared.leadId,
       website: "https://first.example.com",
-      email: "first@example.com",
+      emails: [
+        { address: "shared@example.com", source: "manual" },
+        { address: "first@example.com", source: "tavily" },
+      ],
     });
     expect((await list(second.campaignId, "tavily")).leads).toEqual([]);
     expect(
@@ -1009,17 +1026,22 @@ test("pipeline lists use the latest run's own contacts and never borrow another 
     });
     expect((await list(first.campaignId, "tavily")).leads).toEqual([]);
     await insertRunResults(db, newer.runId, [
-      {
-        ...shared,
-        website: "https://new.example.com",
-        email: "new@example.com",
-      },
+      { ...shared, website: "https://new.example.com" },
     ]);
+    await context.repositories.leadEmail.addMany({
+      leadId: shared.leadId,
+      addresses: ["new@example.com"],
+      source: "tavily",
+    });
     const latest = await list(first.campaignId, "tavily");
     expect(latest.meta.total).toBe(1);
     expect(latest.leads[0]).toMatchObject({
       website: "https://new.example.com",
-      email: "new@example.com",
+      emails: [
+        { address: "shared@example.com", source: "manual" },
+        { address: "first@example.com", source: "tavily" },
+        { address: "new@example.com", source: "tavily" },
+      ],
     });
     const stored = await context.repositories.lead.findByLeadId({
       leadId: shared.leadId,

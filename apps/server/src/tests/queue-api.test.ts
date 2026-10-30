@@ -106,6 +106,7 @@ test("the overview lists every queue with its live counts", async () => {
       "fullenrich",
       "maintenance",
       "scrape",
+      "website",
     ]);
     const failed = Object.fromEntries(
       overview.queues.map((queue) => [queue.name, queue.counts.failed]),
@@ -116,6 +117,7 @@ test("the overview lists every queue with its live counts", async () => {
       fullenrich: 0,
       maintenance: 0,
       scrape: 0,
+      website: 0,
     });
   });
 });

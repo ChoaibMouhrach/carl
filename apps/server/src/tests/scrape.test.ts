@@ -17,6 +17,7 @@ import {
 } from "./helpers/skool";
 import { createContext, TestMailer } from "./helpers/context";
 import { withTestDatabase } from "./helpers/http";
+import { leadEmailRows } from "./helpers/pipeline";
 
 const boot = async (
   db: Parameters<typeof createContext>[0],
@@ -86,11 +87,8 @@ test("a scrape discovers communities, then stores them and their leads in the da
       facebook: "https://facebook.com/ann",
       linkedin: "https://linkedin.com/in/ann",
       website: "https://ann.example.com",
-      email: "ann@example.com",
       pictureUrl: "https://assets.skool.com/ann-md.jpg",
       enrichedAt: null,
-      workEmail: null,
-      personalEmail: null,
       emailEnrichedAt: null,
       ...timestamps,
     });
@@ -104,14 +102,18 @@ test("a scrape discovers communities, then stores them and their leads in the da
       facebook: null,
       linkedin: null,
       website: null,
-      email: "bob@example.com",
       pictureUrl: "https://assets.skool.com/bob-md.jpg",
       enrichedAt: null,
-      workEmail: null,
-      personalEmail: null,
       emailEnrichedAt: null,
       ...timestamps,
     });
+
+    expect(await leadEmailRows(db, leadByName("ann").leadId)).toEqual([
+      { address: "ann@example.com", source: "skool" },
+    ]);
+    expect(await leadEmailRows(db, leadByName("bob").leadId)).toEqual([
+      { address: "bob@example.com", source: "skool" },
+    ]);
 
     expect(rows.communities).toHaveLength(3);
     expect(communityByUrl("alpha")).toEqual({
@@ -336,8 +338,13 @@ test("scraping a stored community again updates its rows instead of adding new o
     expect(after.leads[0]).toMatchObject({
       leadId: before.leads[0]?.leadId,
       bio: "A new bio",
-      email: "new@example.com",
     });
+    const lead = after.leads[0];
+    if (!lead) throw new Error("Missing scraped lead");
+    expect(await leadEmailRows(db, lead.leadId)).toEqual([
+      { address: "ann@example.com", source: "skool" },
+      { address: "new@example.com", source: "skool" },
+    ]);
     expect(after.communities[0]).toMatchObject({
       communityId: before.communities[0]?.communityId,
       leadId: before.leads[0]?.leadId,
