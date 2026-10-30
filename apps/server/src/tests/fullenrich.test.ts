@@ -30,6 +30,7 @@ import {
   insertCampaign,
   insertRun,
   leadEmailRows,
+  runRows,
 } from "./helpers/pipeline";
 
 type Pool = Parameters<typeof createContext>[1];
@@ -278,64 +279,31 @@ for (const scenario of inputCases) {
   });
 }
 
-const rerunCases: {
-  name: string;
-  found: ContactEnrichmentResult;
-  expectedEmails: { address: string; source: string }[];
-}[] = [
-  {
-    name: "a re-run that finds nothing keeps the emails the lead already has",
-    found: noEmails,
-    expectedEmails: [
-      { address: "old@work.com", source: "fullenrich-work" },
-      { address: "old@home.com", source: "fullenrich-personal" },
-    ],
-  },
-  {
-    name: "a new work email is added beside the old one, never replacing it",
-    found: { workEmail: email("new@work.com"), personalEmail: null },
-    expectedEmails: [
-      { address: "old@work.com", source: "fullenrich-work" },
-      { address: "old@home.com", source: "fullenrich-personal" },
-      { address: "new@work.com", source: "fullenrich-work" },
-    ],
-  },
-  {
-    name: "finding an email the lead already has adds no duplicate",
-    found: { workEmail: email("old@work.com"), personalEmail: null },
-    expectedEmails: [
-      { address: "old@work.com", source: "fullenrich-work" },
-      { address: "old@home.com", source: "fullenrich-personal" },
-    ],
-  },
-];
-
-for (const scenario of rerunCases) {
-  test(`re-run: ${scenario.name}`, async () => {
-    await withTestDatabase(async ({ db, pool }) => {
-      const { context, queue } = await boot(db, pool, () => scenario.found);
-      const { lead, job } = await seedLead(context, db);
-      await context.repositories.leadEmail.addMany({
-        leadId: lead.leadId,
-        addresses: ["old@work.com"],
-        source: "fullenrich-work",
-      });
-      await context.repositories.leadEmail.addMany({
-        leadId: lead.leadId,
-        addresses: ["old@home.com"],
-        source: "fullenrich-personal",
-      });
-
-      await queue.deliver(job);
-
-      expect(await leadEmailRows(db, lead.leadId)).toEqual(
-        scenario.expectedEmails,
-      );
-      const stored = await leadRow(db, lead.leadId);
-      expect(stored.emailEnrichedAt).toBeInstanceOf(Date);
+test("a lead that already has emails is finished without calling the paid provider and keeps them", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const { context, queue, fake } = await boot(db, pool, () => ({
+      workEmail: email("new@work.com"),
+      personalEmail: null,
+    }));
+    const { lead, run, job } = await seedLead(context, db);
+    await context.repositories.leadEmail.addMany({
+      leadId: lead.leadId,
+      addresses: ["old@work.com"],
+      source: "fullenrich-work",
     });
+
+    await queue.deliver(job);
+
+    expect(fake.inputs).toEqual([]);
+    expect(await leadEmailRows(db, lead.leadId)).toEqual([
+      { address: "old@work.com", source: "fullenrich-work" },
+    ]);
+    expect((await leadRow(db, lead.leadId)).emailEnrichedAt).toBeNull();
+    expect(await runRows(db)).toMatchObject([
+      { runId: run.runId, status: "done", processed: 1, failed: 0 },
+    ]);
   });
-}
+});
 
 test("a lead FullEnrich cannot look up is failed at once with the reason, and stays untouched", async () => {
   await withTestDatabase(async ({ db, pool }) => {

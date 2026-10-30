@@ -1,8 +1,9 @@
-export const campaignPipelineSteps = [
-  "scrape",
-  "tavily",
-  "website",
-  "fullenrich",
+export const leadStages = [
+  "unresearched",
+  "researched",
+  "contactable",
+  "withEmail",
+  "needsEmail",
 ] as const;
 
-export type CampaignPipelineStep = (typeof campaignPipelineSteps)[number];
+export type LeadStage = (typeof leadStages)[number];

@@ -19,6 +19,7 @@ export const leadsTable = pgTable("leads", {
   pictureUrl: text(),
   enrichedAt: timestamp(),
   emailEnrichedAt: timestamp(),
+  websiteScrapedAt: timestamp(),
 
   // -- timestamps
   ...timestamps(),

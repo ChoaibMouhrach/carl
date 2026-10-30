@@ -11,6 +11,7 @@ import {
   campaignLeadsSchema,
   campaignListQuerySchema,
   campaignParamSchema,
+  pipelineRunSchema,
   campaignUpdateSchema,
 } from "../validations/campaigns";
 
@@ -233,12 +234,14 @@ export const campaignController = new Hono<AppContext>()
     "/:campaignId/pipeline/enrich",
     describeRoute({ tags: ["campaigns"] }),
     validator("param", campaignParamSchema),
+    validator("json", pipelineRunSchema),
     async (context) => {
       const { campaignId } = context.req.valid("param");
+      const { includeProcessed } = context.req.valid("json");
 
       const run = await context
         .get("services")
-        .pipeline.startEnrich({ campaignId });
+        .pipeline.startEnrich({ campaignId }, { includeProcessed });
 
       return context.json(run, 202);
     },
@@ -248,12 +251,14 @@ export const campaignController = new Hono<AppContext>()
     "/:campaignId/pipeline/website",
     describeRoute({ tags: ["campaigns"] }),
     validator("param", campaignParamSchema),
+    validator("json", pipelineRunSchema),
     async (context) => {
       const { campaignId } = context.req.valid("param");
+      const { includeProcessed } = context.req.valid("json");
 
       const run = await context
         .get("services")
-        .pipeline.startWebsite({ campaignId });
+        .pipeline.startWebsite({ campaignId }, { includeProcessed });
 
       return context.json(run, 202);
     },
@@ -263,12 +268,14 @@ export const campaignController = new Hono<AppContext>()
     "/:campaignId/pipeline/fullenrich",
     describeRoute({ tags: ["campaigns"] }),
     validator("param", campaignParamSchema),
+    validator("json", pipelineRunSchema),
     async (context) => {
       const { campaignId } = context.req.valid("param");
+      const { includeProcessed } = context.req.valid("json");
 
       const run = await context
         .get("services")
-        .pipeline.startFullEnrich({ campaignId });
+        .pipeline.startFullEnrich({ campaignId }, { includeProcessed });
 
       return context.json(run, 202);
     },

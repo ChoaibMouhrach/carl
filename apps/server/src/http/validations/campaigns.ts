@@ -37,3 +37,7 @@ export const campaignUpdateSchema = z
 export const campaignLeadsSchema = z.object({ leadIds: idList });
 
 export const campaignCommunitiesSchema = z.object({ communityIds: idList });
+
+export const pipelineRunSchema = z.object({
+  includeProcessed: z.boolean().default(false),
+});

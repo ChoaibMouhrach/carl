@@ -29,6 +29,19 @@ export class FullEnrichService extends BaseService {
       return;
     }
 
+    const stored = await repositories.leadEmail.findAllByLeadIds({
+      leadIds: [lead.leadId],
+    });
+
+    if (stored.length > 0) {
+      await progress.complete({
+        runId: input.runId,
+        itemKey,
+        status: "processed",
+      });
+      return;
+    }
+
     const emails = await contactEnrichment.enrich(this.toInput(lead));
 
     await progress.complete(

@@ -208,6 +208,10 @@ test("pages that cannot be fetched leave the lead finished with no new emails", 
 
     expect(fetcher.requested).toHaveLength(3);
     expect(await leadEmailRows(db, lead.leadId)).toEqual([]);
+    const stored = await context.repositories.lead.findByLeadId({
+      leadId: lead.leadId,
+    });
+    expect(stored?.websiteScrapedAt).toBeInstanceOf(Date);
     expect(await runRows(db)).toMatchObject([
       { runId: run.runId, status: "done", processed: 1, failed: 0 },
     ]);

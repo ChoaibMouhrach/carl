@@ -4,9 +4,6 @@ import {
   campaignsTable,
   leadEmailsTable,
   pipelineRunsTable,
-  pipelineItemsTable,
-  type PipelineItemInsert,
-  type Lead,
   type CampaignInsert,
   type PipelineRunInsert,
 } from "@server/infrastructure/database/schemas";
@@ -136,26 +133,6 @@ export const insertRun = async (db: DB, values: PipelineRunInsert) => {
 
 export const runRows = async (db: DB) =>
   await db.select().from(pipelineRunsTable);
-
-export const insertRunResults = async (
-  db: DB,
-  runId: number,
-  leads: Pick<Lead, "leadId" | "website" | "linkedin">[],
-) => {
-  if (leads.length === 0) return;
-  await db.insert(pipelineItemsTable).values(
-    leads.map(
-      (lead): PipelineItemInsert => ({
-        runId,
-        itemKey: `lead:${lead.leadId}`,
-        leadId: lead.leadId,
-        status: "processed",
-        website: lead.website,
-        linkedin: lead.linkedin,
-      }),
-    ),
-  );
-};
 
 export const leadEmailRows = async (db: DB, leadId: number) =>
   await db

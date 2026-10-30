@@ -2,25 +2,17 @@ import { api } from "@/api";
 import { usePipelineEvents } from "@/hooks/use-pipeline-events";
 import { onError } from "@/lib/base-api";
 import { adminCampaignRoute } from "@/routes/admin/campaign";
-import {
-  Alert,
-  AlertTitle,
-  AlertDescription,
-} from "@repo/ui/components/ui/alert";
+import type { LeadStage } from "@repo/constants/pipeline";
+import { Label } from "@repo/ui/components/ui/label";
+import { Switch } from "@repo/ui/components/ui/switch";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { GlobeIcon, MailSearchIcon, ScanSearchIcon } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TableSkeleton } from "@/components/table-skeleton";
-import { runStatus } from "./pipeline-step";
-import { PipelineStepper } from "./pipeline-stepper";
 import { CampaignLeads } from "../campaign-leads";
-import { FullEnrichStep } from "./fullenrich-step";
-import { ScrapeStep } from "./scrape-step";
-import { WebsiteStep } from "./website-step";
-import { StepPlaceholder } from "./step-placeholder";
-import { TavilyStep } from "./tavily-step";
+import { Funnel } from "./funnel";
+import { StepCard } from "./step-card";
 
 type CampaignDetails = Awaited<ReturnType<typeof api.campaign.show>>;
 
@@ -33,7 +25,8 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
   const searchParams = adminCampaignRoute.useSearch();
   const routeNavigate = adminCampaignRoute.useNavigate();
   const queryClient = useQueryClient();
-  const { step } = searchParams;
+  const { stage } = searchParams;
+  const [includeProcessed, setIncludeProcessed] = useState(false);
 
   const pipeline = useQuery({
     queryKey: ["admin", "campaigns", campaignId, "pipeline"],
@@ -43,11 +36,6 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
   });
 
   usePipelineEvents(campaignId);
-
-  const scrapeStatus = runStatus(pipeline.data?.scrape ?? null);
-  const enrichStatus = runStatus(pipeline.data?.enrich ?? null);
-  const websiteStatus = runStatus(pipeline.data?.website ?? null);
-  const fullenrichStatus = runStatus(pipeline.data?.fullenrich ?? null);
 
   const revision = JSON.stringify([
     campaignId,
@@ -83,37 +71,45 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
   });
 
   const startEnrich = useMutation({
-    mutationFn: () => api.campaign.startEnrich({ campaignId }),
+    mutationFn: () =>
+      api.campaign.startEnrich({ campaignId }, { includeProcessed }),
     onError,
     onSuccess: refreshPipeline,
   });
 
   const startWebsite = useMutation({
-    mutationFn: () => api.campaign.startWebsite({ campaignId }),
+    mutationFn: () =>
+      api.campaign.startWebsite({ campaignId }, { includeProcessed }),
     onError,
     onSuccess: refreshPipeline,
   });
 
   const startFullEnrich = useMutation({
-    mutationFn: () => api.campaign.startFullEnrich({ campaignId }),
+    mutationFn: () =>
+      api.campaign.startFullEnrich({ campaignId }, { includeProcessed }),
     onError,
     onSuccess: refreshPipeline,
   });
 
-  const selectStep = (next: typeof step) =>
+  const selectStage = (next: LeadStage | undefined) =>
     routeNavigate({
-      search: (current) => ({ ...current, step: next, page: 1 }),
+      search: (current) => ({ ...current, stage: next, page: 1 }),
     });
 
   if (pipeline.isPending) {
     return (
       <section className="space-y-6">
-        <div className="grid gap-3 sm:grid-cols-4">
-          {Array.from({ length: 4 }, (_, index) => (
-            <Skeleton className="h-16" key={index} />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {Array.from({ length: 5 }, (_, index) => (
+            <Skeleton className="h-24" key={index} />
           ))}
         </div>
-        <Skeleton className="h-9 w-full" />
+        <Skeleton className="h-6 w-64" />
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => (
+            <Skeleton className="h-36" key={index} />
+          ))}
+        </div>
         <Card>
           <CardContent>
             <div className="space-y-4">
@@ -137,122 +133,93 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
   }
 
   const state = pipeline.data;
-  const isScrapeDone =
-    state.scrape?.status === "done" && state.scrape.itemsReady;
-  const isTavilyDone =
-    state.enrich?.status === "done" && state.enrich.itemsReady;
-  const selectedRun =
-    step === "scrape"
-      ? state.scrape
-      : step === "tavily"
-        ? state.enrich
-        : step === "website"
-          ? state.website
-          : state.fullenrich;
+  const eligible = includeProcessed
+    ? state.funnel.eligibleWithProcessed
+    : state.funnel.eligible;
 
   return (
     <section className="space-y-6">
-      <PipelineStepper
-        fullenrichCount={
-          state.fullenrich?.status === "done" ? state.emailedCount : null
-        }
-        fullenrichStatus={fullenrichStatus}
-        isScrapeDone={isScrapeDone}
-        isTavilyDone={isTavilyDone}
-        onSelect={selectStep}
-        scrapeCount={isScrapeDone ? state.scrapedCount : null}
-        scrapeStatus={scrapeStatus}
-        selected={step}
-        tavilyCount={
-          state.enrich?.status === "done" ? state.contactableCount : null
-        }
-        tavilyStatus={enrichStatus}
-        websiteCount={
-          state.website?.status === "done" ? state.websiteEmailedCount : null
-        }
-        websiteStatus={websiteStatus}
-      />
-      {step === "scrape" && (
-        <ScrapeStep
-          campaign={campaign}
+      <Funnel funnel={state.funnel} onSelect={selectStage} selected={stage} />
+      <div className="flex items-center gap-2">
+        <Switch
+          checked={includeProcessed}
+          id="include-processed"
+          onCheckedChange={setIncludeProcessed}
+        />
+        <Label htmlFor="include-processed">
+          Include leads a step already tried
+        </Label>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <StepCard
+          actionLabel={state.scrape ? "Run again" : "Run scrape"}
+          badge="Adds leads"
+          blockedReason={
+            campaign.isActive
+              ? undefined
+              : "Activate the campaign to run its pipeline"
+          }
           isStarting={startScrape.isPending}
           onRun={() => startScrape.mutate()}
+          rule={`Searches Skool for “${campaign.keyword}”. Existing leads are kept.`}
           run={state.scrape}
+          runningLabel="Searching Skool…"
+          title="1. Scrape"
+          unit="communities"
         />
-      )}
-      {step === "tavily" &&
-        (isScrapeDone ? (
-          <TavilyStep
-            isAvailable={state.enrichmentAvailable}
-            isStarting={startEnrich.isPending}
-            leadsCount={campaign.leadsCount}
-            onRun={() => startEnrich.mutate()}
-            run={state.enrich}
-          />
-        ) : (
-          <StepPlaceholder
-            action={{
-              label: "Go to Scrape",
-              tip: "Open the scrape step",
-              onClick: () => selectStep("scrape"),
-            }}
-            description="Tavily researches the leads the scrape found, so finish a scrape first."
-            icon={<ScanSearchIcon />}
-            title="Waiting for the scrape"
-          />
-        ))}
-      {step === "website" &&
-        (isTavilyDone ? (
-          <WebsiteStep
-            isStarting={startWebsite.isPending}
-            onRun={() => startWebsite.mutate()}
-            run={state.website}
-            websiteCount={state.websiteCount}
-          />
-        ) : (
-          <StepPlaceholder
-            action={{
-              label: "Go to Tavily",
-              tip: "Open the Tavily step",
-              onClick: () => selectStep("tavily"),
-            }}
-            description="The website step scrapes the sites Tavily found for emails, so finish a Tavily enrichment first."
-            icon={<GlobeIcon />}
-            title="Waiting for Tavily"
-          />
-        ))}
-      {step === "fullenrich" &&
-        (isTavilyDone ? (
-          <FullEnrichStep
-            contactableCount={state.contactableCount}
-            isAvailable={state.emailEnrichmentAvailable}
-            isStarting={startFullEnrich.isPending}
-            onRun={() => startFullEnrich.mutate()}
-            run={state.fullenrich}
-          />
-        ) : (
-          <StepPlaceholder
-            action={{
-              label: "Go to Tavily",
-              tip: "Open the Tavily step",
-              onClick: () => selectStep("tavily"),
-            }}
-            description="FullEnrich looks up emails for the leads Tavily found a website or LinkedIn profile for, so finish a Tavily enrichment first."
-            icon={<MailSearchIcon />}
-            title="Waiting for Tavily"
-          />
-        ))}
-      {selectedRun &&
-        !selectedRun.itemsReady &&
-        selectedRun.status !== "running" && (
-          <Alert>
-            <AlertTitle>Run this step again</AlertTitle>
-            <AlertDescription>
-              This run predates saved pipeline results. Run it again to populate
-              this list.
-            </AlertDescription>
-          </Alert>
-        )}
+        <StepCard
+          actionLabel={`Run on ${eligible.enrich}`}
+          badge={`${eligible.enrich} to research`}
+          blockedReason={
+            !state.enrichmentAvailable
+              ? "Set TAVILY_API_KEY on the server to enable enrichment"
+              : eligible.enrich === 0
+                ? "Every lead has already been researched"
+                : undefined
+          }
+          isStarting={startEnrich.isPending}
+          onRun={() => startEnrich.mutate()}
+          rule="Researches leads that have no LinkedIn and were not researched yet."
+          run={state.enrich}
+          runningLabel="Starting…"
+          title="2. Tavily"
+          unit="leads"
+        />
+        <StepCard
+          actionLabel={`Run on ${eligible.website}`}
+          badge={`${eligible.website} eligible`}
+          blockedReason={
+            eligible.website === 0
+              ? "No lead with a website is missing an email"
+              : undefined
+          }
+          isStarting={startWebsite.isPending}
+          onRun={() => startWebsite.mutate()}
+          rule="Free. Scrapes the website of leads that have one and no email."
+          run={state.website}
+          runningLabel="Starting…"
+          title="3. Website"
+          unit="leads"
+        />
+        <StepCard
+          actionLabel={`Run on ${eligible.fullenrich}`}
+          badge={`${eligible.fullenrich} eligible`}
+          blockedReason={
+            !state.emailEnrichmentAvailable
+              ? "Set FULLENRICH_API_KEY on the server to enable email lookup"
+              : eligible.fullenrich === 0
+                ? "No contactable lead is missing an email"
+                : undefined
+          }
+          isStarting={startFullEnrich.isPending}
+          onRun={() => startFullEnrich.mutate()}
+          rule="Paid. Looks up emails only for contactable leads that still have none."
+          run={state.fullenrich}
+          runningLabel="Starting…"
+          title="4. FullEnrich"
+          unit="leads"
+        />
+      </div>
       <CampaignLeads />
     </section>
   );

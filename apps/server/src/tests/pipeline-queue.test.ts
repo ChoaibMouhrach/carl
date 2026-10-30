@@ -125,6 +125,7 @@ const start = async (
 ) => {
   const response = await admin.post(
     `/api/campaigns/${campaignId}/pipeline/${step}`,
+    { includeProcessed: false },
   );
   expect(response.status).toBe(202);
   const body: unknown = await response.json();
@@ -319,26 +320,13 @@ test("campaign HTTP actions execute through Redis and persist each stage without
       const websiteId = await start(admin, campaignId, "website");
       const website = await waitForRun(db, websiteId, {
         status: "done",
-        processed: 1,
+        processed: 0,
         failed: 0,
       });
-      expect(website).toMatchObject({ total: 1, itemsReady: true });
-      const websiteItems = await db
-        .select()
-        .from(pipelineItemsTable)
-        .where(eq(pipelineItemsTable.runId, websiteId));
-      expect(websiteItems).toMatchObject([
-        {
-          leadId: lead.leadId,
-          status: "processed",
-          website: "https://ann.example.com",
-          error: null,
-        },
-      ]);
+      expect(website).toMatchObject({ total: 0, itemsReady: true });
       expect(await leadEmailRows(db, lead.leadId)).toEqual([
         { address: "ann@example.com", source: "skool" },
         { address: "ann@ann.example.com", source: "tavily" },
-        { address: "hello@ann.example.com", source: "website" },
       ]);
     },
   );

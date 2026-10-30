@@ -401,6 +401,8 @@ export interface SeedLeadInput {
   website?: string | null;
   linkedin?: string | null;
   enrichedAt?: Date | null;
+  emailEnrichedAt?: Date | null;
+  websiteScrapedAt?: Date | null;
 }
 
 export const createLead = async (config: SeedConfig, input: SeedLeadInput) =>
@@ -416,6 +418,8 @@ export const createLead = async (config: SeedConfig, input: SeedLeadInput) =>
         website: input.website ?? null,
         linkedin: input.linkedin ?? null,
         enrichedAt: input.enrichedAt ?? null,
+        emailEnrichedAt: input.emailEnrichedAt ?? null,
+        websiteScrapedAt: input.websiteScrapedAt ?? null,
       })
       .returning();
 
@@ -435,6 +439,21 @@ export const createLead = async (config: SeedConfig, input: SeedLeadInput) =>
     }
 
     return lead;
+  });
+
+export const addLeadEmails = async (
+  config: SeedConfig,
+  input: {
+    leadId: number;
+    emails: { address: string; source: LeadEmailSource }[];
+  },
+) =>
+  withDb(config, async (db) => {
+    await db
+      .insert(leadEmailsTable)
+      .values(
+        input.emails.map((email) => ({ ...email, leadId: input.leadId })),
+      );
   });
 
 export interface SeedCommunityInput {

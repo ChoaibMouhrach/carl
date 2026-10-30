@@ -61,7 +61,7 @@ export const CampaignTable = ({
               navigate({
                 to: "/admin/campaigns/$campaignId",
                 params: { campaignId: campaign.campaignId },
-                search: { step: "scrape", page: 1 },
+                search: { page: 1 },
               })
             }
           >
@@ -71,7 +71,7 @@ export const CampaignTable = ({
                   className="block truncate font-medium hover:underline"
                   onClick={(event) => event.stopPropagation()}
                   params={{ campaignId: campaign.campaignId }}
-                  search={{ step: "scrape", page: 1 }}
+                  search={{ page: 1 }}
                   to="/admin/campaigns/$campaignId"
                 >
                   {campaign.name}

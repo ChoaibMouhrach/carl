@@ -1,10 +1,8 @@
-import type { CampaignPipelineStep } from "@repo/constants/pipeline";
-import type { LeadEmailSource } from "@repo/constants/lead-emails";
+import type { LeadStage } from "@repo/constants/pipeline";
 import {
   and,
   asc,
   count,
-  countDistinct,
   desc,
   eq,
   exists,
@@ -20,28 +18,32 @@ import {
 } from "drizzle-orm";
 import {
   campaignLeadsTable,
-  pipelineItemsTable,
-  pipelineRunsTable,
   communitiesTable,
   leadEmailsTable,
   leadsTable,
   type Lead,
   type LeadInsert,
-  type PipelineStep,
 } from "@server/infrastructure/database/schemas";
 import { BaseRepository } from "@server/lib/base-repository";
 import { escapeLike } from "@server/lib/utils";
 
-export const fullenrichEmailSources = [
-  "fullenrich-work",
-  "fullenrich-personal",
-] as const satisfies LeadEmailSource[];
+export type EligibleStep = "enrich" | "website" | "fullenrich";
+
+export interface LeadFunnel {
+  scraped: number;
+  researched: number;
+  contactable: number;
+  withEmail: number;
+  needsEmail: number;
+  eligible: Record<EligibleStep, number>;
+  eligibleWithProcessed: Record<EligibleStep, number>;
+}
 
 export interface LeadListWhere {
   search?: string;
   hasEmail?: boolean;
   campaignId?: number;
-  pipelineStep?: CampaignPipelineStep;
+  stage?: LeadStage;
   sort: "name" | "username" | "createdAt";
   order: "asc" | "desc";
   limit: number;
@@ -99,7 +101,10 @@ export class LeadRepository extends BaseRepository {
   public async findWithCommunitiesByLeadId(where: { leadId: number }) {
     const lead = await this.db.query.leadsTable.findFirst({
       where: eq(LeadRepository.table.leadId, where.leadId),
-      with: { communities: true, emails: true },
+      with: {
+        communities: true,
+        emails: { orderBy: (email, { asc }) => [asc(email.emailId)] },
+      },
     });
 
     return lead || null;
@@ -108,8 +113,6 @@ export class LeadRepository extends BaseRepository {
   public async list(where: LeadListWhere) {
     const table = LeadRepository.table;
 
-    const website = this.contactField("website", where);
-    const linkedin = this.contactField("linkedin", where);
     const pattern = where.search ? `%${escapeLike(where.search)}%` : undefined;
     const filters = and(
       pattern
@@ -120,27 +123,7 @@ export class LeadRepository extends BaseRepository {
             ilike(table.skoolUrl, pattern),
           )
         : undefined,
-      where.pipelineStep === undefined
-        ? undefined
-        : inArray(
-            table.leadId,
-            this.db
-              .select({ leadId: pipelineItemsTable.leadId })
-              .from(pipelineItemsTable)
-              .where(
-                and(
-                  eq(
-                    pipelineItemsTable.runId,
-                    this.latestRunId(
-                      where.campaignId,
-                      LeadRepository.runStep[where.pipelineStep],
-                    ),
-                  ),
-                  eq(pipelineItemsTable.status, "processed"),
-                  this.stepResultFilter(where.pipelineStep),
-                ),
-              ),
-          ),
+      where.stage === undefined ? undefined : this.stageFilter(where.stage),
       where.hasEmail === undefined
         ? undefined
         : where.hasEmail
@@ -162,8 +145,6 @@ export class LeadRepository extends BaseRepository {
     const rows = await this.db
       .select({
         lead: table,
-        website,
-        linkedin,
         communitiesCount: count(communitiesTable.communityId),
       })
       .from(table)
@@ -182,168 +163,128 @@ export class LeadRepository extends BaseRepository {
     return {
       leads: rows.map((row) => ({
         ...row.lead,
-        website: row.website,
-        linkedin: row.linkedin,
         communitiesCount: row.communitiesCount,
       })),
       total: totals.at(0)?.total ?? 0,
     };
   }
 
-  public async findLeadIdsByRunId(where: {
-    runId: number;
+  public async findFunnel(where: { campaignId: number }): Promise<LeadFunnel> {
+    const matching = (filter: SQL) =>
+      sql<number>`count(*) filter (where ${filter})`.mapWith(Number);
+    const eligible = (step: EligibleStep, includeProcessed: boolean) =>
+      matching(this.eligibleFilter(step, includeProcessed));
+
+    const rows = await this.db
+      .select({
+        scraped: count(),
+        researched: matching(this.stageFilter("researched")),
+        contactable: matching(this.stageFilter("contactable")),
+        withEmail: matching(this.stageFilter("withEmail")),
+        needsEmail: matching(this.stageFilter("needsEmail")),
+        enrich: eligible("enrich", false),
+        website: eligible("website", false),
+        fullenrich: eligible("fullenrich", false),
+        enrichWithProcessed: eligible("enrich", true),
+        websiteWithProcessed: eligible("website", true),
+        fullenrichWithProcessed: eligible("fullenrich", true),
+      })
+      .from(LeadRepository.table)
+      .innerJoin(
+        campaignLeadsTable,
+        and(
+          eq(campaignLeadsTable.leadId, LeadRepository.table.leadId),
+          eq(campaignLeadsTable.campaignId, where.campaignId),
+        ),
+      );
+
+    const row = rows.at(0);
+
+    return {
+      scraped: row?.scraped ?? 0,
+      researched: row?.researched ?? 0,
+      contactable: row?.contactable ?? 0,
+      withEmail: row?.withEmail ?? 0,
+      needsEmail: row?.needsEmail ?? 0,
+      eligible: {
+        enrich: row?.enrich ?? 0,
+        website: row?.website ?? 0,
+        fullenrich: row?.fullenrich ?? 0,
+      },
+      eligibleWithProcessed: {
+        enrich: row?.enrichWithProcessed ?? 0,
+        website: row?.websiteWithProcessed ?? 0,
+        fullenrich: row?.fullenrichWithProcessed ?? 0,
+      },
+    };
+  }
+
+  public async findEligibleLeadIds(where: {
     campaignId: number;
-    contactable?: boolean;
-    withWebsite?: boolean;
-    withoutLinkedin?: boolean;
+    step: EligibleStep;
+    includeProcessed: boolean;
   }): Promise<number[]> {
     const rows = await this.db
-      .selectDistinct({ leadId: pipelineItemsTable.leadId })
-      .from(pipelineItemsTable)
+      .select({ leadId: LeadRepository.table.leadId })
+      .from(LeadRepository.table)
       .innerJoin(
         campaignLeadsTable,
         and(
-          eq(campaignLeadsTable.leadId, pipelineItemsTable.leadId),
+          eq(campaignLeadsTable.leadId, LeadRepository.table.leadId),
           eq(campaignLeadsTable.campaignId, where.campaignId),
         ),
       )
-      .innerJoin(
-        LeadRepository.table,
-        eq(LeadRepository.table.leadId, pipelineItemsTable.leadId),
-      )
-      .where(
-        and(
-          eq(pipelineItemsTable.runId, where.runId),
-          eq(pipelineItemsTable.status, "processed"),
-          isNotNull(pipelineItemsTable.leadId),
-          where.withoutLinkedin
-            ? isNull(LeadRepository.table.linkedin)
-            : undefined,
-          where.contactable
-            ? or(
-                isNotNull(pipelineItemsTable.website),
-                isNotNull(pipelineItemsTable.linkedin),
-              )
-            : undefined,
-          where.withWebsite ? isNotNull(pipelineItemsTable.website) : undefined,
-        ),
-      );
-    return rows.flatMap((row) => (row.leadId === null ? [] : [row.leadId]));
+      .where(this.eligibleFilter(where.step, where.includeProcessed));
+
+    return rows.map((row) => row.leadId);
   }
 
-  public async countResultsByRunId(where: {
-    campaignId: number;
-    runId: number | null;
-    contactable: boolean;
-  }): Promise<number> {
-    const rows = await this.db
-      .select({ total: countDistinct(pipelineItemsTable.leadId) })
-      .from(pipelineItemsTable)
-      .innerJoin(
-        campaignLeadsTable,
-        and(
-          eq(campaignLeadsTable.leadId, pipelineItemsTable.leadId),
-          eq(campaignLeadsTable.campaignId, where.campaignId),
-        ),
-      )
-      .where(
-        and(
-          eq(pipelineItemsTable.runId, where.runId ?? -1),
-          eq(pipelineItemsTable.status, "processed"),
-          where.contactable
-            ? or(
-                isNotNull(pipelineItemsTable.website),
-                isNotNull(pipelineItemsTable.linkedin),
-              )
-            : undefined,
-        ),
-      );
-    return rows.at(0)?.total ?? 0;
+  private static researched(): SQL {
+    const table = LeadRepository.table;
+    return or(isNotNull(table.enrichedAt), isNotNull(table.linkedin))!;
   }
 
-  private async countProcessedByRunId(where: {
-    campaignId: number;
-    runId: number | null;
-    filter: SQL;
-  }): Promise<number> {
-    const rows = await this.db
-      .select({ total: countDistinct(pipelineItemsTable.leadId) })
-      .from(pipelineItemsTable)
-      .innerJoin(
-        campaignLeadsTable,
-        and(
-          eq(campaignLeadsTable.leadId, pipelineItemsTable.leadId),
-          eq(campaignLeadsTable.campaignId, where.campaignId),
-        ),
-      )
-      .where(
-        and(
-          eq(pipelineItemsTable.runId, where.runId ?? -1),
-          eq(pipelineItemsTable.status, "processed"),
-          where.filter,
-        ),
-      );
-    return rows.at(0)?.total ?? 0;
+  private static contactable(): SQL {
+    const table = LeadRepository.table;
+    return or(isNotNull(table.website), isNotNull(table.linkedin))!;
   }
 
-  public async countEmailedByRunId(where: {
-    campaignId: number;
-    runId: number | null;
-    sources: LeadEmailSource[];
-  }): Promise<number> {
-    return await this.countProcessedByRunId({
-      ...where,
-      filter: this.hasEmailMatching(
-        inArray(leadEmailsTable.source, where.sources),
-        pipelineItemsTable.leadId,
-      ),
-    });
-  }
-
-  public async countWithWebsiteByRunId(where: {
-    campaignId: number;
-    runId: number | null;
-  }): Promise<number> {
-    return await this.countProcessedByRunId({
-      ...where,
-      filter: isNotNull(pipelineItemsTable.website),
-    });
-  }
-
-  private static runStep = {
-    scrape: "scrape",
-    tavily: "enrich",
-    website: "website",
-    fullenrich: "fullenrich",
-  } as const satisfies Record<CampaignPipelineStep, PipelineStep>;
-
-  private stepResultFilter(step: CampaignPipelineStep): SQL | undefined {
-    switch (step) {
-      case "scrape":
-        return undefined;
-      case "tavily":
-        return or(
-          isNotNull(pipelineItemsTable.website),
-          isNotNull(pipelineItemsTable.linkedin),
-        );
-      case "website":
-        return this.hasEmailMatching(
-          eq(leadEmailsTable.source, "website"),
-          pipelineItemsTable.leadId,
-        );
-      case "fullenrich":
-        return this.hasEmailMatching(
-          inArray(leadEmailsTable.source, fullenrichEmailSources),
-          pipelineItemsTable.leadId,
-        );
+  private stageFilter(stage: LeadStage): SQL {
+    switch (stage) {
+      case "unresearched":
+        return not(LeadRepository.researched());
+      case "researched":
+        return LeadRepository.researched();
+      case "contactable":
+        return LeadRepository.contactable();
+      case "withEmail":
+        return this.hasEmailMatching();
+      case "needsEmail":
+        return and(LeadRepository.contactable(), not(this.hasEmailMatching()))!;
     }
   }
 
-  private latestRunId(
-    campaignId: number | undefined,
-    step: PipelineStep,
-  ): SQL<number> {
-    return sql<number>`(select ${pipelineRunsTable.runId} from ${pipelineRunsTable} where ${pipelineRunsTable.campaignId} = ${campaignId ?? null} and ${pipelineRunsTable.step} = ${step} order by ${pipelineRunsTable.runId} desc limit 1)`;
+  private eligibleFilter(step: EligibleStep, includeProcessed: boolean): SQL {
+    const table = LeadRepository.table;
+    const unprocessed = (column: AnyColumn) =>
+      includeProcessed ? undefined : isNull(column);
+
+    switch (step) {
+      case "enrich":
+        return and(isNull(table.linkedin), unprocessed(table.enrichedAt))!;
+      case "website":
+        return and(
+          isNotNull(table.website),
+          not(this.hasEmailMatching()),
+          unprocessed(table.websiteScrapedAt),
+        )!;
+      case "fullenrich":
+        return and(
+          LeadRepository.contactable(),
+          not(this.hasEmailMatching()),
+          unprocessed(table.emailEnrichedAt),
+        )!;
+    }
   }
 
   private hasEmailMatching(
@@ -356,13 +297,6 @@ export class LeadRepository extends BaseRepository {
         .from(leadEmailsTable)
         .where(and(eq(leadEmailsTable.leadId, leadId), condition)),
     );
-  }
-
-  private contactField(field: "website" | "linkedin", where: LeadListWhere) {
-    if (where.pipelineStep !== "tavily") return LeadRepository.table[field];
-    return sql<
-      string | null
-    >`(select ${pipelineItemsTable[field]} from ${pipelineItemsTable} where ${pipelineItemsTable.runId} = ${this.latestRunId(where.campaignId, "enrich")} and ${pipelineItemsTable.leadId} = ${LeadRepository.table.leadId} and ${pipelineItemsTable.status} = 'processed' limit 1)`;
   }
 
   public async create(input: LeadInsert): Promise<Lead> {

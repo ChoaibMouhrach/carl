@@ -65,26 +65,38 @@ export class CampaignApi extends BaseApi {
     );
   }
 
-  public startEnrich(where: { campaignId: number }) {
+  public startEnrich(
+    where: { campaignId: number },
+    input: { includeProcessed: boolean },
+  ) {
     return this.call(() =>
       http.api.campaigns[":campaignId"].pipeline.enrich.$post({
         param: { campaignId: where.campaignId.toString() },
+        json: input,
       }),
     );
   }
 
-  public startWebsite(where: { campaignId: number }) {
+  public startWebsite(
+    where: { campaignId: number },
+    input: { includeProcessed: boolean },
+  ) {
     return this.call(() =>
       http.api.campaigns[":campaignId"].pipeline.website.$post({
         param: { campaignId: where.campaignId.toString() },
+        json: input,
       }),
     );
   }
 
-  public startFullEnrich(where: { campaignId: number }) {
+  public startFullEnrich(
+    where: { campaignId: number },
+    input: { includeProcessed: boolean },
+  ) {
     return this.call(() =>
       http.api.campaigns[":campaignId"].pipeline.fullenrich.$post({
         param: { campaignId: where.campaignId.toString() },
+        json: input,
       }),
     );
   }

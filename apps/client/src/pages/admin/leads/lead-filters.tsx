@@ -2,7 +2,9 @@ import { CampaignFilter } from "@/components/campaign-filter";
 import type { CampaignOption } from "@/hooks/use-campaign-options";
 import { FilterSelect } from "@/components/filter-select";
 import { Search } from "@/components/search";
+import { leadStageOptions } from "@/lib/lead-stage";
 import { leadSortOptions } from "@/lib/sort-options";
+import type { LeadStage } from "@repo/constants/pipeline";
 
 type EmailFilter = "any" | "with" | "without";
 
@@ -17,6 +19,8 @@ interface LeadFiltersProps {
   campaigns?: CampaignOption[];
   onCampaignChange?: (campaignId: number | undefined) => void;
   createAction?: React.ReactNode;
+  stage?: LeadStage;
+  onStageChange: (stage: LeadStage | undefined) => void;
   hasEmail?: boolean;
   onHasEmailChange: (hasEmail: boolean | undefined) => void;
   onSearch: (search: string | undefined) => void;
@@ -31,6 +35,8 @@ export const LeadFilters = ({
   campaigns,
   onCampaignChange,
   createAction,
+  stage,
+  onStageChange,
   hasEmail,
   onHasEmailChange,
   onSearch,
@@ -57,6 +63,12 @@ export const LeadFilters = ({
         }
         options={emailOptions}
         value={emailValue}
+      />
+      <FilterSelect
+        label="Stage"
+        onChange={(value) => onStageChange(value === "any" ? undefined : value)}
+        options={leadStageOptions}
+        value={stage ?? "any"}
       />
       {campaigns && onCampaignChange && (
         <CampaignFilter

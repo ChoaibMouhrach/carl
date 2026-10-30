@@ -1,5 +1,6 @@
 import { test as base, type BrowserContext } from "@playwright/test";
 import { faker } from "@faker-js/faker";
+import type { LeadEmailSource } from "@repo/constants/lead-emails";
 import {
   addCommunitiesToCampaign,
   addLeadsToCampaign,
@@ -9,6 +10,7 @@ import {
   createCampaign,
   createCommunity,
   createEmailChangeUrl,
+  addLeadEmails,
   createLead,
   createLeads,
   createPipelineRun,
@@ -43,6 +45,10 @@ import {
 import { CLIENT_URL, seedConfig } from "./config";
 
 interface Seed {
+  addLeadEmails: (input: {
+    leadId: number;
+    emails: { address: string; source: LeadEmailSource }[];
+  }) => Promise<void>;
   addCommunitiesToCampaign: (input: {
     campaignId: number;
     communityIds: number[];
@@ -153,6 +159,7 @@ export const test = base.extend<{ seed: Seed; resetRateLimits: void }>({
         countCommunitiesWithPrefix(config, prefix),
       countLeadsWithPrefix: (prefix) => countLeadsWithPrefix(config, prefix),
       createCommunity: (input) => createCommunity(config, input),
+      addLeadEmails: (input) => addLeadEmails(config, input),
       createLead: (input) => createLead(config, input),
       createLeads: (input) => createLeads(config, input),
       findCommunityBySlug: (slug) => findCommunityBySlug(config, slug),

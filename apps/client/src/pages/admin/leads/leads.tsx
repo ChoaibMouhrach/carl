@@ -1,4 +1,4 @@
-import type { CampaignPipelineStep } from "@repo/constants/pipeline";
+import type { LeadStage } from "@repo/constants/pipeline";
 import { api } from "@/api";
 import { AddToCampaignButton } from "@/components/add-to-campaign-button";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
@@ -14,6 +14,7 @@ import { onError } from "@/lib/base-api";
 import { reportBulkDelete } from "@/lib/bulk-delete";
 import { invalidateCampaignData, invalidateLeadData } from "@/lib/invalidate";
 import { perPageForUrl, resolvePageSize } from "@/lib/page-size";
+import { leadStageLabels } from "@/lib/lead-stage";
 import { leadSortOptions, sortValue } from "@/lib/sort-options";
 import { useSelection } from "@/lib/use-selection";
 import { useView } from "@/lib/view";
@@ -51,7 +52,6 @@ interface LeadListProps {
     search: (current: LeadSearch) => LeadSearch;
   }) => unknown;
   campaignId?: number;
-  pipelineStep?: CampaignPipelineStep;
   emptyDescription?: string;
 }
 
@@ -59,7 +59,6 @@ export const LeadList = ({
   searchParams,
   navigate,
   campaignId,
-  pipelineStep,
   emptyDescription,
 }: LeadListProps) => {
   const { view, setView } = useView();
@@ -69,20 +68,17 @@ export const LeadList = ({
     queryKey: [
       "admin",
       "leads",
-      pipelineStep ?? "all",
       campaignId ?? searchParams.campaignId ?? null,
       { ...searchParams, campaignId: campaignId ?? searchParams.campaignId },
     ],
     queryFn: () =>
       api.lead.list({
         ...searchParams,
-        pipelineStep,
         campaignId: campaignId ?? searchParams.campaignId,
       }),
     placeholderData: (previousData, previousQuery) =>
-      previousQuery?.queryKey[2] === (pipelineStep ?? "all") &&
-      previousQuery?.queryKey[3] ===
-        (campaignId ?? searchParams.campaignId ?? null)
+      previousQuery?.queryKey[2] ===
+      (campaignId ?? searchParams.campaignId ?? null)
         ? previousData
         : undefined,
   });
@@ -139,6 +135,7 @@ export const LeadList = ({
         page: 1,
         search: undefined,
         hasEmail: undefined,
+        stage: undefined,
         campaignId: undefined,
       }),
     });
@@ -171,6 +168,7 @@ export const LeadList = ({
   }
 
   const { meta } = leads.data;
+  const { stage }: { stage?: LeadStage } = searchParams;
 
   const chips: FilterChip[] = [
     ...(searchParams.search
@@ -201,6 +199,22 @@ export const LeadList = ({
                   ...current,
                   page: 1,
                   hasEmail: undefined,
+                }),
+              }),
+          },
+        ]),
+    ...(stage === undefined
+      ? []
+      : [
+          {
+            key: "stage",
+            label: `Stage: ${leadStageLabels[stage]}`,
+            onRemove: () =>
+              navigate({
+                search: (current) => ({
+                  ...current,
+                  page: 1,
+                  stage: undefined,
                 }),
               }),
           },
@@ -256,6 +270,12 @@ export const LeadList = ({
             onCampaignChange={(campaignId) =>
               navigate({
                 search: (current) => ({ ...current, page: 1, campaignId }),
+              })
+            }
+            stage={searchParams.stage}
+            onStageChange={(stage) =>
+              navigate({
+                search: (current) => ({ ...current, page: 1, stage }),
               })
             }
             hasEmail={searchParams.hasEmail}

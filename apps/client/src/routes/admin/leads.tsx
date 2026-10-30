@@ -1,6 +1,7 @@
 import { AdminLeadsPage } from "@/pages/admin/leads/page";
 import { createRoute } from "@tanstack/react-router";
 import { perPageSearchSchema } from "@/lib/page-size";
+import { leadStages } from "@repo/constants/pipeline";
 import z from "zod";
 import { adminLayoutRoute } from "./layout";
 
@@ -13,6 +14,7 @@ export const adminLeadsRoute = createRoute({
     perPage: perPageSearchSchema,
     search: z.string().trim().min(1).optional().catch(undefined),
     hasEmail: z.boolean().optional().catch(undefined),
+    stage: z.enum(leadStages).optional().catch(undefined),
     campaignId: z.coerce.number().int().positive().optional().catch(undefined),
     sort: z.enum(["name", "username", "createdAt"]).optional().catch(undefined),
     order: z.enum(["asc", "desc"]).optional().catch(undefined),

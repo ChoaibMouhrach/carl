@@ -416,7 +416,7 @@ test("filters leads and communities by campaign and the chip clears it", async (
   ).toBeVisible();
 });
 
-test("the campaign page walks through the pipeline steps and remembers the one you were on", async ({
+test("the campaign page shows its funnel and every pipeline step at once, with no step to select", async ({
   page,
   seed,
   id,
@@ -429,31 +429,26 @@ test("the campaign page walks through the pipeline steps and remembers the one y
   });
 
   await page.goto(`/admin/campaigns/${campaign.campaignId}`);
+
   await expect(
     page.getByRole("heading", { name: campaignName(id) }),
   ).toBeVisible();
   await expect(page.getByRole("tab")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Run scrape" })).toBeVisible();
-
-  await page.getByRole("button", { name: /Tavily/ }).click();
-  await expect(page.getByText("Waiting for the scrape")).toBeVisible();
-
-  await page.reload();
-  await expect(page.getByText("Waiting for the scrape")).toBeVisible();
-
-  await page
-    .getByRole("button", { name: /Scrape/ })
-    .first()
-    .click();
-  await expect(page.getByRole("button", { name: "Run scrape" })).toBeVisible();
-
-  await page.getByRole("button", { name: /FullEnrich/ }).click();
-  await expect(page).toHaveURL(/step=fullenrich/);
-  await expect(page.getByText("Waiting for Tavily")).toBeVisible();
-  await page
-    .getByRole("button", { name: /Scrape/ })
-    .first()
-    .click();
+  for (const title of ["Scraped", "Researched", "Contactable", "Has email"]) {
+    await expect(
+      page.getByRole("button", { name: new RegExp(`^\\d+\\s+${title}\\b`) }),
+    ).toBeVisible();
+  }
+  for (const title of [
+    "1. Scrape",
+    "2. Tavily",
+    "3. Website",
+    "4. FullEnrich",
+  ]) {
+    await expect(
+      page.locator('[data-slot="card"]').filter({ hasText: title }),
+    ).toBeVisible();
+  }
   await expect(page.getByRole("button", { name: "Run scrape" })).toBeVisible();
 });
 

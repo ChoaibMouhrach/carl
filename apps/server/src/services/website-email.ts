@@ -49,6 +49,10 @@ export class WebsiteEmailService extends BaseService {
     await progress.complete(
       { runId: input.runId, itemKey, status: "processed" },
       async (tx) => {
+        await tx.lead.update(
+          { leadId: lead.leadId },
+          { websiteScrapedAt: new Date() },
+        );
         await tx.leadEmail.addMany({
           leadId: lead.leadId,
           addresses: found,

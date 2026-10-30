@@ -1,4 +1,3 @@
-import { fullenrichEmailSources } from "@server/repositories/lead";
 import { BaseService } from "@server/lib/base-service";
 import {
   BadRequestError,
@@ -7,6 +6,7 @@ import {
 } from "@server/lib/errors";
 import { pipelineTopic } from "@server/lib/base-pubsub";
 import { describeError } from "@server/lib/utils";
+import type { EligibleStep } from "@server/repositories/lead";
 import { publishPipelineChanged } from "./pipeline-events";
 import type {
   PipelineRun,
@@ -32,57 +32,22 @@ export class PipelineService extends BaseService {
 
     const { pipelineRun, lead } = this.context.repositories;
 
-    const [scrape, enrich, website, fullenrich] = await Promise.all([
+    const [scrape, enrich, website, fullenrich, funnel] = await Promise.all([
       pipelineRun.findLatest({ ...where, step: "scrape" }),
       pipelineRun.findLatest({ ...where, step: "enrich" }),
       pipelineRun.findLatest({ ...where, step: "website" }),
       pipelineRun.findLatest({ ...where, step: "fullenrich" }),
+      lead.findFunnel(where),
     ]);
 
-    const [
-      scrapedCount,
-      contactableCount,
-      websiteCount,
-      websiteEmailedCount,
-      emailedCount,
-    ] = await Promise.all([
-      lead.countResultsByRunId({
-        ...where,
-        runId: scrape?.runId ?? null,
-        contactable: false,
-      }),
-      lead.countResultsByRunId({
-        ...where,
-        runId: enrich?.runId ?? null,
-        contactable: true,
-      }),
-      lead.countWithWebsiteByRunId({
-        ...where,
-        runId: enrich?.runId ?? null,
-      }),
-      lead.countEmailedByRunId({
-        ...where,
-        runId: website?.runId ?? null,
-        sources: ["website"],
-      }),
-      lead.countEmailedByRunId({
-        ...where,
-        runId: fullenrich?.runId ?? null,
-        sources: fullenrichEmailSources,
-      }),
-    ]);
     return {
       scrape,
       enrich,
       website,
       fullenrich,
-      scrapedCount,
+      funnel,
       enrichmentAvailable: this.context.webSearch.isAvailable,
-      contactableCount,
-      websiteCount,
-      websiteEmailedCount,
       emailEnrichmentAvailable: this.context.contactEnrichment.isAvailable,
-      emailedCount,
     };
   }
 
@@ -163,12 +128,11 @@ export class PipelineService extends BaseService {
     return run;
   }
 
-  public async startEnrich(where: {
-    campaignId: number;
-  }): Promise<PipelineRun> {
+  public async startEnrich(
+    where: { campaignId: number },
+    options: { includeProcessed: boolean },
+  ): Promise<PipelineRun> {
     await this.requireCampaign(where);
-
-    const { pipelineRun, lead } = this.context.repositories;
 
     if (!this.context.webSearch.isAvailable) {
       throw new BadRequestError({
@@ -177,28 +141,10 @@ export class PipelineService extends BaseService {
       });
     }
 
-    const [runningScrape, finishedScrape] = await Promise.all([
-      pipelineRun.findRunning({ ...where, step: "scrape" }),
-      pipelineRun.findLatestDone({ ...where, step: "scrape" }),
-    ]);
-
-    if (runningScrape || !finishedScrape || !finishedScrape.itemsReady) {
-      throw new BadRequestError({
-        message:
-          "Run a scrape to collect tracked results before enriching its leads.",
-        code: "scrapeRequired",
-      });
-    }
-
     return await this.startLeadRun({
       ...where,
       step: "enrich",
-      findLeadIds: async () =>
-        await lead.findLeadIdsByRunId({
-          runId: finishedScrape.runId,
-          campaignId: where.campaignId,
-          withoutLinkedin: true,
-        }),
+      includeProcessed: options.includeProcessed,
       enqueue: async ({ runId, leadId }) =>
         await this.context.queueHub.enrich.add(
           { type: "enrich-lead", runId, leadId },
@@ -207,35 +153,16 @@ export class PipelineService extends BaseService {
     });
   }
 
-  public async startWebsite(where: {
-    campaignId: number;
-  }): Promise<PipelineRun> {
+  public async startWebsite(
+    where: { campaignId: number },
+    options: { includeProcessed: boolean },
+  ): Promise<PipelineRun> {
     await this.requireCampaign(where);
-
-    const { pipelineRun, lead } = this.context.repositories;
-
-    const [runningEnrich, finishedEnrich] = await Promise.all([
-      pipelineRun.findRunning({ ...where, step: "enrich" }),
-      pipelineRun.findLatestDone({ ...where, step: "enrich" }),
-    ]);
-
-    if (runningEnrich || !finishedEnrich || !finishedEnrich.itemsReady) {
-      throw new BadRequestError({
-        message:
-          "Run a lead enrichment to find websites before scraping them for emails.",
-        code: "enrichRequired",
-      });
-    }
 
     return await this.startLeadRun({
       ...where,
       step: "website",
-      findLeadIds: async () =>
-        await lead.findLeadIdsByRunId({
-          runId: finishedEnrich.runId,
-          campaignId: where.campaignId,
-          withWebsite: true,
-        }),
+      includeProcessed: options.includeProcessed,
       enqueue: async ({ runId, leadId }) =>
         await this.context.queueHub.website.add(
           { type: "website-lead", runId, leadId },
@@ -244,12 +171,11 @@ export class PipelineService extends BaseService {
     });
   }
 
-  public async startFullEnrich(where: {
-    campaignId: number;
-  }): Promise<PipelineRun> {
+  public async startFullEnrich(
+    where: { campaignId: number },
+    options: { includeProcessed: boolean },
+  ): Promise<PipelineRun> {
     await this.requireCampaign(where);
-
-    const { pipelineRun, lead } = this.context.repositories;
 
     if (!this.context.contactEnrichment.isAvailable) {
       throw new BadRequestError({
@@ -258,28 +184,10 @@ export class PipelineService extends BaseService {
       });
     }
 
-    const [runningEnrich, finishedEnrich] = await Promise.all([
-      pipelineRun.findRunning({ ...where, step: "enrich" }),
-      pipelineRun.findLatestDone({ ...where, step: "enrich" }),
-    ]);
-
-    if (runningEnrich || !finishedEnrich || !finishedEnrich.itemsReady) {
-      throw new BadRequestError({
-        message:
-          "Run a lead enrichment to find websites and LinkedIn profiles before looking up emails.",
-        code: "enrichRequired",
-      });
-    }
-
     return await this.startLeadRun({
       ...where,
       step: "fullenrich",
-      findLeadIds: async () =>
-        await lead.findLeadIdsByRunId({
-          runId: finishedEnrich.runId,
-          campaignId: where.campaignId,
-          contactable: true,
-        }),
+      includeProcessed: options.includeProcessed,
       enqueue: async ({ runId, leadId }) =>
         await this.context.queueHub.fullenrich.add(
           { type: "fullenrich-lead", runId, leadId },
@@ -290,15 +198,19 @@ export class PipelineService extends BaseService {
 
   private async startLeadRun(input: {
     campaignId: number;
-    step: "enrich" | "website" | "fullenrich";
-    findLeadIds: () => Promise<number[]>;
+    step: EligibleStep;
+    includeProcessed: boolean;
     enqueue: (job: { runId: number; leadId: number }) => Promise<void>;
   }): Promise<PipelineRun> {
     const { campaignId, step } = input;
     const run = await this.createRun({ campaignId, step });
 
     try {
-      const leadIds = await input.findLeadIds();
+      const leadIds = await this.context.repositories.lead.findEligibleLeadIds({
+        campaignId,
+        step,
+        includeProcessed: input.includeProcessed,
+      });
 
       await this.context.repositories.transaction(async ({ tx }) => {
         await tx.pipelineRun.lockByRunId({ runId: run.runId });

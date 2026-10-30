@@ -1,4 +1,4 @@
-import type { CampaignPipelineStep } from "@repo/constants/pipeline";
+import type { LeadStage } from "@repo/constants/pipeline";
 import { BaseService } from "@server/lib/base-service";
 import { ConflictError, NotFoundError } from "@server/lib/errors";
 import type { LeadInsert } from "@server/infrastructure/database/schemas";
@@ -9,7 +9,7 @@ interface ListLeadsInput {
   search?: string;
   hasEmail?: boolean;
   campaignId?: number;
-  pipelineStep?: CampaignPipelineStep;
+  stage?: LeadStage;
   sort: "name" | "username" | "createdAt";
   order: "asc" | "desc";
 }
@@ -27,7 +27,7 @@ export class LeadService extends BaseService {
       search: input.search,
       hasEmail: input.hasEmail,
       campaignId: input.campaignId,
-      pipelineStep: input.pipelineStep,
+      stage: input.stage,
       sort: input.sort,
       order: input.order,
       limit: input.perPage,
