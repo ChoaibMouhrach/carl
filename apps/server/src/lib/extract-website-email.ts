@@ -13,6 +13,7 @@ const WEBMAIL_DOMAINS = [
 ];
 
 const ASSET_EXTENSION = /\.(png|jpe?g|gif|webp|svg|avif|ico|css|js|woff2?)$/i;
+const PLAIN_LOCAL_PART = /^[a-z0-9][a-z0-9._%+-]*@/i;
 const NOT_A_CONTACT =
   /^(noreply|no-reply|donotreply|privacy|abuse|postmaster)@|@(sentry\.io|sentry-next\.wixpress\.com|example\.com)$/i;
 
@@ -67,7 +68,9 @@ export const extractWebsiteEmails = (
     .map((candidate) => candidate.toLowerCase())
     .filter(
       (candidate) =>
-        !ASSET_EXTENSION.test(candidate) && !NOT_A_CONTACT.test(candidate),
+        PLAIN_LOCAL_PART.test(candidate) &&
+        !ASSET_EXTENSION.test(candidate) &&
+        !NOT_A_CONTACT.test(candidate),
     )
     .filter((candidate) => belongsToSite(candidate, host));
 
