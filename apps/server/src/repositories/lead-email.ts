@@ -1,4 +1,4 @@
-import { asc, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, notInArray } from "drizzle-orm";
 import type { LeadEmailSource } from "@repo/constants/lead-emails";
 import {
   leadEmailsTable,
@@ -33,6 +33,23 @@ export class LeadEmailRepository extends BaseRepository {
         })),
       )
       .onConflictDoNothing();
+  }
+
+  public async removeExcept(input: {
+    leadId: number;
+    addresses: string[];
+  }): Promise<void> {
+    const table = LeadEmailRepository.table;
+    const kept = input.addresses.map((address) => address.trim().toLowerCase());
+
+    await this.db
+      .delete(table)
+      .where(
+        and(
+          eq(table.leadId, input.leadId),
+          kept.length > 0 ? notInArray(table.address, kept) : undefined,
+        ),
+      );
   }
 
   public async findAllByLeadIds(where: {

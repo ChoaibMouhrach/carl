@@ -391,24 +391,111 @@ test("updating a lead changes only the sent fields and can clear optional ones",
   });
 });
 
-test("updating a lead only ever adds emails and never removes or duplicates one", async () => {
+test("updating a lead's emails replaces the list, keeping the source of the ones it keeps, and leaves them alone when omitted", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { context, admin } = await boot(db, pool);
-    const ann = await createLead(context, newLead("ann"));
-
-    const added = await admin.patch(`/api/leads/${ann.leadId}`, {
-      emails: ["extra@example.com", "EXTRA@example.com", "ann@example.com"],
+    const ann = await createLead(context, newLead("ann", { emails: [] }));
+    await context.repositories.leadEmail.addMany({
+      leadId: ann.leadId,
+      addresses: ["keep@example.com", "//www.tiktok.com/@linktr.ee"],
+      source: "website",
     });
+
     const unrelated = await admin.patch(`/api/leads/${ann.leadId}`, {
       name: "Ann Renamed",
     });
-
-    expect(added.status).toBe(200);
     expect(unrelated.status).toBe(200);
     expect(await leadEmailRows(db, ann.leadId)).toEqual([
-      { address: "ann@example.com", source: "manual" },
-      { address: "extra@example.com", source: "manual" },
+      { address: "keep@example.com", source: "website" },
+      { address: "//www.tiktok.com/@linktr.ee", source: "website" },
     ]);
+
+    const replaced = await admin.patch(`/api/leads/${ann.leadId}`, {
+      emails: ["Keep@Example.com", "NEW@example.com", "new@example.com"],
+    });
+    expect(replaced.status).toBe(200);
+    expect(await leadEmailRows(db, ann.leadId)).toEqual([
+      { address: "keep@example.com", source: "website" },
+      { address: "new@example.com", source: "manual" },
+    ]);
+
+    const cleared = await admin.patch(`/api/leads/${ann.leadId}`, {
+      emails: [],
+    });
+    expect(cleared.status).toBe(200);
+    expect(await leadEmailRows(db, ann.leadId)).toEqual([]);
+  });
+});
+
+test("replacing a lead's emails never touches another lead's emails", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const { context, admin } = await boot(db, pool);
+    const ann = await createLead(context, newLead("ann"));
+    const bob = await createLead(context, newLead("bob"));
+
+    const response = await admin.patch(`/api/leads/${ann.leadId}`, {
+      emails: [],
+    });
+
+    expect(response.status).toBe(200);
+    expect(await leadEmailRows(db, ann.leadId)).toEqual([]);
+    expect(await leadEmailRows(db, bob.leadId)).toEqual([
+      { address: "bob@example.com", source: "manual" },
+    ]);
+  });
+});
+
+const tooManyEmails = Array.from(
+  { length: 21 },
+  (_, index) => `extra-${index}@example.com`,
+);
+
+const refusedEmailUpdates: { name: string; emails: string[] }[] = [
+  {
+    name: "an invalid address among valid ones",
+    emails: ["fixed@example.com", "//tiktok.com/@x"],
+  },
+  { name: "more than twenty addresses", emails: tooManyEmails },
+];
+
+for (const { name, emails } of refusedEmailUpdates) {
+  test(`replacing a lead's emails with ${name} is refused and leaves the stored emails as they were`, async () => {
+    await withTestDatabase(async ({ db, pool }) => {
+      const { context, admin } = await boot(db, pool);
+      const ann = await createLead(context, newLead("ann"));
+      await context.repositories.leadEmail.addMany({
+        leadId: ann.leadId,
+        addresses: ["//www.tiktok.com/@linktr.ee"],
+        source: "website",
+      });
+      const before = await leadEmailRows(db, ann.leadId);
+
+      const response = await admin.patch(`/api/leads/${ann.leadId}`, {
+        emails,
+      });
+
+      // Schema validation rejects before the service runs, so nothing can have been written
+      expect(response.status).toBe(400);
+      expect(await leadEmailRows(db, ann.leadId)).toEqual(before);
+    });
+  });
+}
+
+test("a conflicting update removes none of the lead's emails", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const { context, admin } = await boot(db, pool);
+    const ann = await createLead(context, newLead("ann"));
+    await createLead(context, newLead("bob"));
+    const before = await leadEmailRows(db, ann.leadId);
+
+    const response = await admin.patch(`/api/leads/${ann.leadId}`, {
+      username: "bob",
+      emails: [],
+    });
+
+    expect(response.status).toBe(409);
+    expect(await leadEmailRows(db, ann.leadId)).toEqual(before);
+    expect(before).toHaveLength(1);
   });
 });
 

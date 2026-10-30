@@ -92,17 +92,23 @@ export class LeadService extends BaseService {
 
     await this.assertUnique(input, where.leadId);
 
-    const { emails = [], ...fields } = input;
+    const { emails, ...fields } = input;
 
     await this.context.repositories.transaction(async ({ tx }) => {
       if (Object.keys(fields).length > 0) {
         await tx.lead.update(where, fields);
       }
-      await tx.leadEmail.addMany({
-        leadId: where.leadId,
-        addresses: emails,
-        source: "manual",
-      });
+      if (emails !== undefined) {
+        await tx.leadEmail.removeExcept({
+          leadId: where.leadId,
+          addresses: emails,
+        });
+        await tx.leadEmail.addMany({
+          leadId: where.leadId,
+          addresses: emails,
+          source: "manual",
+        });
+      }
     });
 
     const updated = await this.context.repositories.lead.findByLeadId(where);

@@ -2,6 +2,10 @@ import { TextField } from "@/components/text-field";
 import { Tip } from "@/components/tip";
 import { skoolProfileUrl, socialFields, socialLabels } from "@/lib/lead";
 import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  leadEmailSources,
+  type LeadEmailSource,
+} from "@repo/constants/lead-emails";
 import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
 import {
@@ -13,6 +17,7 @@ import { Spinner } from "@repo/ui/components/ui/spinner";
 import { useEffect } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import z from "zod";
+import { LeadFormEmails } from "./lead-form-emails";
 
 export interface LeadFormValues {
   name: string;
@@ -29,7 +34,9 @@ export interface LeadFormValues {
 interface LeadFormProps {
   cancelAction: React.ReactNode;
   isPending: boolean;
-  lead?: Omit<LeadFormValues, "emails">;
+  lead?: Omit<LeadFormValues, "emails"> & {
+    emails: { address: string; source: LeadEmailSource }[];
+  };
   onSubmit: (values: LeadFormValues) => Promise<unknown>;
 }
 
@@ -59,14 +66,21 @@ const schema = z.object({
         return false;
       }
     }, "Enter a skool.com link, e.g. https://www.skool.com/@jane"),
-  email: z
-    .string()
-    .trim()
-    .max(255)
-    .refine(
-      (value) => value === "" || z.email().safeParse(value).success,
-      "Enter a valid email address",
-    ),
+  emails: z
+    .array(
+      z.object({
+        address: z
+          .string()
+          .trim()
+          .max(255)
+          .refine(
+            (value) => value === "" || z.email().safeParse(value).success,
+            "Enter a valid email address",
+          ),
+        source: z.enum(leadEmailSources).nullable(),
+      }),
+    )
+    .max(20, "A lead can have at most 20 emails"),
   bio: z.string().trim().max(5000),
   instagram: optionalUrl,
   facebook: optionalUrl,
@@ -74,7 +88,7 @@ const schema = z.object({
   website: optionalUrl,
 });
 
-type FormInput = z.input<typeof schema>;
+export type LeadFormInput = z.input<typeof schema>;
 
 const emptyToNull = (value: string) => value.trim() || null;
 
@@ -91,12 +105,12 @@ export const LeadForm = ({
   lead,
   onSubmit,
 }: LeadFormProps) => {
-  const form = useForm<FormInput>({
+  const form = useForm<LeadFormInput>({
     defaultValues: {
       name: lead?.name ?? "",
       username: lead?.username ?? "",
       skoolUrl: lead?.skoolUrl ?? "",
-      email: "",
+      emails: lead?.emails ?? [],
       bio: lead?.bio ?? "",
       instagram: lead?.instagram ?? "",
       facebook: lead?.facebook ?? "",
@@ -123,7 +137,9 @@ export const LeadForm = ({
         name: input.name,
         username: input.username,
         skoolUrl: input.skoolUrl,
-        emails: input.email.trim() ? [input.email.trim()] : [],
+        emails: input.emails
+          .map(({ address }) => address.trim())
+          .filter((address) => address !== ""),
         bio: emptyToNull(input.bio),
         instagram: emptyToNull(input.instagram),
         facebook: emptyToNull(input.facebook),
@@ -184,12 +200,9 @@ export const LeadForm = ({
                 Where to reach them. Everything here is optional.
               </FieldDescription>
               <div className="grid gap-4 sm:grid-cols-2">
-                <TextField
+                <LeadFormEmails
                   control={form.control}
-                  label="Add email"
-                  name="email"
-                  placeholder="jane@example.com"
-                  wrapperClassName="sm:col-span-2"
+                  errors={form.formState.errors}
                 />
                 {socialFields.map((field) => (
                   <TextField

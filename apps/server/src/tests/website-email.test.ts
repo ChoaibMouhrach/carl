@@ -136,6 +136,33 @@ test("a lead's home, support and contact pages are fetched and every email on th
   });
 });
 
+test("a link-in-bio page stores its real address and none of its social profile links", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const { context, queue } = await boot(db, pool, {
+      "https://linktr.ee/": [
+        '<a href="https://www.tiktok.com/@linktr.ee">TikTok</a>',
+        '<a href="//www.threads.net/@linktr.ee">Threads</a>',
+        '<a href="//tiktok.com/@linktr.ee">TikTok</a>',
+        '<a href="mailto:press@linktr.ee">Press</a>',
+      ].join(""),
+    });
+    const { lead, run, job } = await seedLead(context, db, {
+      username: "jaymakeplay",
+      skoolUrl: `${SKOOL}/@jaymakeplay`,
+      website: "https://linktr.ee/jaymakeplay",
+    });
+
+    await queue.deliver(job);
+
+    expect(await leadEmailRows(db, lead.leadId)).toEqual([
+      { address: "press@linktr.ee", source: "website" },
+    ]);
+    expect(await runRows(db)).toMatchObject([
+      { runId: run.runId, status: "done", processed: 1, failed: 0 },
+    ]);
+  });
+});
+
 test("scraping the same site again adds no duplicate email", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { context, queue } = await boot(db, pool, {
@@ -283,6 +310,14 @@ const extractionCases: {
     pages: ["Hello@AnnCoach.com", "hello@anncoach.com"],
     website: "anncoach.com",
     expected: ["hello@anncoach.com"],
+  },
+  {
+    name: "social profile URLs such as tiktok.com/@linktr.ee are not mistaken for addresses",
+    pages: [
+      '<a href="https://www.tiktok.com/@linktr.ee"></a> <a href="//www.threads.net/@linktr.ee"></a> press@linktr.ee',
+    ],
+    website: "https://linktr.ee/jaymakeplay",
+    expected: ["press@linktr.ee"],
   },
   {
     name: "an unparseable website yields nothing",

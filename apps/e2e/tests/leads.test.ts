@@ -3,6 +3,8 @@ import { faker } from "@faker-js/faker";
 import { API_URL } from "../config";
 import { expectRequired, field, rowActions, token } from "./support";
 
+type Seed = Parameters<Parameters<typeof test>[2]>[0]["seed"];
+
 test("creates a lead from the form and stores every field", async ({
   page,
   seed,
@@ -29,7 +31,8 @@ test("creates a lead from the form and stores every field", async ({
     `https://www.skool.com/@${username}`,
   );
   await page.getByLabel("Bio").fill("Coach for new founders");
-  await page.getByLabel("Add email").fill(`${id}@example.com`);
+  await page.getByRole("button", { name: "Add email" }).click();
+  await page.getByLabel("Email 1").fill(`${id}@example.com`);
   await page.getByLabel("Instagram").fill(`https://instagram.com/${id}`);
   await page.getByLabel("Facebook").fill(`https://facebook.com/${id}`);
   await page.getByLabel("LinkedIn").fill(`https://linkedin.com/in/${id}`);
@@ -80,12 +83,13 @@ test("refuses invalid input and creates no lead", async ({ page, seed }) => {
   await page.goto("/admin/leads/new");
   await field(page, "Name").fill(`Lead ${id}`);
   await page.getByLabel("Username").fill(`lead-${id}`);
-  await page.getByLabel("Add email").fill("not-an-email");
+  await page.getByRole("button", { name: "Add email" }).click();
+  await page.getByLabel("Email 1").fill("not-an-email");
   await page.getByLabel("Website").fill("not a link");
   await page.getByRole("button", { name: "Save lead" }).click();
 
   await expect(page).toHaveURL(/\/admin\/leads\/new$/);
-  await expect(page.getByLabel("Add email")).toHaveAttribute(
+  await expect(page.getByLabel("Email 1")).toHaveAttribute(
     "aria-invalid",
     "true",
   );
@@ -200,7 +204,7 @@ test("a search with no matches offers to clear the filters", async ({
   await expect(page.getByText("No leads match")).toHaveCount(0);
 });
 
-test("edits a lead, keeps what was not changed and only adds emails", async ({
+test("edits a lead, keeps what was not changed and lets its emails be fixed, added and removed", async ({
   page,
   seed,
 }) => {
@@ -225,7 +229,11 @@ test("edits a lead, keeps what was not changed and only adds emails", async ({
   );
   await expect(field(page, "Name")).toHaveValue(`Before ${id}`);
   await field(page, "Name").fill(`After ${id}`);
-  await page.getByLabel("Add email").fill(extraEmail);
+  await expect(page.getByLabel("Email 1")).toHaveValue(
+    `edit-${id}@example.com`,
+  );
+  await page.getByRole("button", { name: "Add email" }).click();
+  await page.getByLabel("Email 2").fill(extraEmail);
   await page.getByRole("button", { name: "Save lead" }).click();
 
   await expect(page).toHaveURL(/\/admin\/leads(\?|$)/);
@@ -239,21 +247,118 @@ test("edits a lead, keeps what was not changed and only adds emails", async ({
     skoolUrl: `https://www.skool.com/@edit-${id}`,
   });
 
+  const fixedEmail = `fixed-${id}@example.com`;
   await page.goto(`/admin/leads/${lead.leadId}/edit`);
-  await page.getByLabel("Add email").fill(extraEmail.toUpperCase());
+  await page.getByLabel("Email 1").fill(fixedEmail);
+  await page.getByRole("button", { name: "Remove address 2" }).click();
   await page.getByRole("button", { name: "Save lead" }).click();
 
   await expect(page).toHaveURL(/\/admin\/leads(\?|$)/);
   expect(await seed.findLeadByUsername(lead.username)).toMatchObject({
-    emails: [
-      { address: `edit-${id}@example.com`, source: "unknown" },
-      { address: extraEmail, source: "manual" },
-    ],
+    emails: [{ address: fixedEmail, source: "manual" }],
   });
   await page.goto(`/admin/leads?search=${id}`);
   await expect(
-    page.getByRole("link", { name: extraEmail, exact: true }),
-  ).toHaveAttribute("href", `mailto:${extraEmail}`);
+    page.getByRole("link", { name: fixedEmail, exact: true }),
+  ).toHaveAttribute("href", `mailto:${fixedEmail}`);
+});
+
+test.describe("cleaning up scraped emails in the edit form", () => {
+  const seedScrapedLead = async (seed: Seed) => {
+    const id = token();
+    const junk = "//www.tiktok.com/@linktr.ee";
+    const good = `work-${id}@example.com`;
+    const lead = await seed.createLead({
+      name: `Scraped ${id}`,
+      username: `scraped-${id}`,
+      emails: [
+        { address: junk, source: "website" },
+        { address: good, source: "fullenrich-work" },
+      ],
+    });
+
+    return { id, junk, good, lead };
+  };
+
+  test("lists every stored email with its source and refuses to save while one is invalid", async ({
+    page,
+    seed,
+  }) => {
+    const admin = await seed.createVerifiedAdmin();
+    await seed.authenticate(page.context(), admin.email);
+    const { junk, good, lead } = await seedScrapedLead(seed);
+
+    await page.goto(`/admin/leads/${lead.leadId}/edit`);
+
+    await expect(page.getByLabel("Email 1")).toHaveValue(junk);
+    await expect(page.getByLabel("Email 1")).toHaveAttribute(
+      "placeholder",
+      "jane@example.com",
+    );
+    await expect(page.getByLabel("Email 2")).toHaveValue(good);
+    await expect(
+      page.getByLabel("Email 1").locator("..").getByText("Website"),
+    ).toBeVisible();
+    await expect(
+      page.getByLabel("Email 2").locator("..").getByText("Work"),
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "Save lead" }).click();
+
+    await expect(page).toHaveURL(/\/edit$/);
+    await expect(page.getByLabel("Email 1")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(
+      (await seed.findLeadByUsername(lead.username))?.emails,
+    ).toMatchObject([
+      { address: junk, source: "website" },
+      { address: good, source: "fullenrich-work" },
+    ]);
+  });
+
+  test("removing the bad email saves the rest with their original source", async ({
+    page,
+    seed,
+  }) => {
+    const admin = await seed.createVerifiedAdmin();
+    await seed.authenticate(page.context(), admin.email);
+    const { good, lead } = await seedScrapedLead(seed);
+
+    await page.goto(`/admin/leads/${lead.leadId}/edit`);
+    await page.getByRole("button", { name: "Remove address 1" }).click();
+    await page.getByRole("button", { name: "Save lead" }).click();
+
+    await expect(page).toHaveURL(/\/admin\/leads(\?|$)/);
+    expect((await seed.findLeadByUsername(lead.username))?.emails).toEqual([
+      expect.objectContaining({ address: good, source: "fullenrich-work" }),
+    ]);
+  });
+
+  test("typing the real address over the bad one saves it as added and drops the bad one", async ({
+    page,
+    seed,
+  }) => {
+    const admin = await seed.createVerifiedAdmin();
+    await seed.authenticate(page.context(), admin.email);
+    const { id, good, lead } = await seedScrapedLead(seed);
+    const fixed = `fixed-${id}@example.com`;
+
+    await page.goto(`/admin/leads/${lead.leadId}/edit`);
+    await page.getByLabel("Email 1").fill(fixed);
+    await page.getByRole("button", { name: "Save lead" }).click();
+
+    await expect(page).toHaveURL(/\/admin\/leads(\?|$)/);
+    const saved = (await seed.findLeadByUsername(lead.username))?.emails ?? [];
+    expect(saved).toHaveLength(2);
+    expect(saved).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ address: fixed, source: "manual" }),
+        expect.objectContaining({ address: good, source: "fullenrich-work" }),
+      ]),
+    );
+  });
 });
 
 test("deleting a lead from its row removes the lead and its communities", async ({
