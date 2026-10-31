@@ -6,6 +6,7 @@ import {
   BaseQueue,
   BaseQueueHub,
   type AddJobOptions,
+  type DiscoverJob,
   type EmailJob,
   type EnrichJob,
   type FullEnrichJob,
@@ -27,6 +28,11 @@ const emailJobName = "send";
 const maintenanceQueueName = "maintenance";
 const maintenanceJobName = "run";
 const maintenanceConcurrency = 1;
+
+const discoverQueueName = "discover";
+const discoverJobName = "run";
+// Skool rate limits and bot challenges need longer to clear than the default 1s
+const discoverBackoffDelayMs = 10_000;
 
 const scrapeQueueName = "scrape";
 const scrapeJobName = "run";
@@ -311,6 +317,26 @@ export class MaintenanceQueue extends BullQueue<MaintenanceJob> {
   }
 }
 
+interface DiscoverQueueInit {
+  concurrency: number;
+  /** Only tests set this, to keep their jobs out of the real queue */
+  name?: string;
+  errorMonitor: BaseErrorMonitor;
+  logger: BaseLogger;
+  redisUrl: string;
+}
+
+export class DiscoverQueue extends BullQueue<DiscoverJob> {
+  public constructor(init: DiscoverQueueInit) {
+    super({
+      ...init,
+      backoffDelayMs: discoverBackoffDelayMs,
+      jobName: discoverJobName,
+      name: init.name ?? discoverQueueName,
+    });
+  }
+}
+
 interface ScrapeQueueInit {
   concurrency: number;
   /** Only tests set this, to keep their jobs out of the real queue */
@@ -376,6 +402,7 @@ export class FullEnrichQueue extends BullQueue<FullEnrichJob> {
 }
 
 interface QueueHubInit extends EmailQueueInit {
+  discoverConcurrency: number;
   scrapeConcurrency: number;
   enrichConcurrency: number;
   websiteConcurrency: number;
@@ -385,6 +412,7 @@ interface QueueHubInit extends EmailQueueInit {
 export class QueueHub extends BaseQueueHub {
   public email: EmailQueue;
   public maintenance: MaintenanceQueue;
+  public discover: DiscoverQueue;
   public scrape: ScrapeQueue;
   public enrich: EnrichQueue;
   public website: WebsiteQueue;
@@ -393,6 +421,12 @@ export class QueueHub extends BaseQueueHub {
   public constructor(init: QueueHubInit) {
     super();
     this.email = new EmailQueue(init);
+    this.discover = new DiscoverQueue({
+      concurrency: init.discoverConcurrency,
+      errorMonitor: init.errorMonitor,
+      logger: init.logger,
+      redisUrl: init.redisUrl,
+    });
     this.scrape = new ScrapeQueue({
       concurrency: init.scrapeConcurrency,
       errorMonitor: init.errorMonitor,
@@ -428,6 +462,7 @@ export class QueueHub extends BaseQueueHub {
     return [
       { name: emailQueueName, queue: this.email },
       { name: maintenanceQueueName, queue: this.maintenance },
+      { name: discoverQueueName, queue: this.discover },
       { name: scrapeQueueName, queue: this.scrape },
       { name: enrichQueueName, queue: this.enrich },
       { name: websiteQueueName, queue: this.website },
@@ -438,6 +473,7 @@ export class QueueHub extends BaseQueueHub {
   public override async close(): Promise<void> {
     await this.email.close();
     await this.maintenance.close();
+    await this.discover.close();
     await this.scrape.close();
     await this.enrich.close();
     await this.website.close();

@@ -2,6 +2,7 @@ import type { Context } from "@server/context";
 import type { BaseWorker } from "@server/lib/base-worker";
 import { EmailWorker } from "./email";
 import { MaintenanceWorker } from "./maintenance";
+import { DiscoverWorker } from "./discover";
 import { ScrapeWorker } from "./scrape";
 import { EnrichWorker } from "./enrich";
 import { FullEnrichWorker } from "./fullenrich";
@@ -14,6 +15,7 @@ export class Workers {
     this.workers = [
       new EmailWorker({ context: init.context }),
       new MaintenanceWorker({ context: init.context }),
+      new DiscoverWorker({ context: init.context }),
       new ScrapeWorker({ context: init.context }),
       new EnrichWorker({ context: init.context }),
       new WebsiteWorker({ context: init.context }),

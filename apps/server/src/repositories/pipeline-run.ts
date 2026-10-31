@@ -2,6 +2,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import {
   pipelineRunsTable,
   pipelineItemsTable,
+  pipelineRunKeywordsTable,
   type PipelineItemInsert,
   type PipelineRun,
   type PipelineStep,
@@ -119,14 +120,76 @@ export class PipelineRunRepository extends BaseRepository {
     return rows.at(0) ?? null;
   }
 
-  public async createItems(input: { runId: number; itemKeys: string[] }) {
-    if (input.itemKeys.length === 0) return;
-    await this.db
+  public async createItems(input: {
+    runId: number;
+    itemKeys: string[];
+  }): Promise<string[]> {
+    if (input.itemKeys.length === 0) return [];
+    const rows = await this.db
       .insert(pipelineItemsTable)
       .values(
         input.itemKeys.map((itemKey) => ({ runId: input.runId, itemKey })),
       )
+      .onConflictDoNothing()
+      .returning({ itemKey: pipelineItemsTable.itemKey });
+    return rows.map((row) => row.itemKey);
+  }
+
+  public async createKeywords(input: { runId: number; keywords: string[] }) {
+    if (input.keywords.length === 0) return;
+    await this.db
+      .insert(pipelineRunKeywordsTable)
+      .values(
+        input.keywords.map((keyword) => ({ runId: input.runId, keyword })),
+      )
       .onConflictDoNothing();
+  }
+
+  public async findKeywords(where: { runId: number }) {
+    return await this.db
+      .select()
+      .from(pipelineRunKeywordsTable)
+      .where(eq(pipelineRunKeywordsTable.runId, where.runId));
+  }
+
+  public async findKeyword(where: { runId: number; keyword: string }) {
+    const rows = await this.db
+      .select()
+      .from(pipelineRunKeywordsTable)
+      .where(
+        and(
+          eq(pipelineRunKeywordsTable.runId, where.runId),
+          eq(pipelineRunKeywordsTable.keyword, where.keyword),
+        ),
+      )
+      .limit(1);
+    return rows.at(0) ?? null;
+  }
+
+  public async markKeyword(input: {
+    runId: number;
+    keyword: string;
+    status: "done" | "failed";
+    error?: string;
+  }) {
+    await this.db
+      .update(pipelineRunKeywordsTable)
+      .set({ status: input.status, error: input.error ?? null })
+      .where(
+        and(
+          eq(pipelineRunKeywordsTable.runId, input.runId),
+          eq(pipelineRunKeywordsTable.keyword, input.keyword),
+        ),
+      );
+  }
+
+  public async syncTotal(where: { runId: number }) {
+    await this.db
+      .update(pipelineRunsTable)
+      .set({
+        total: sql`(select count(*)::int from ${pipelineItemsTable} where ${pipelineItemsTable.runId} = ${where.runId})`,
+      })
+      .where(eq(pipelineRunsTable.runId, where.runId));
   }
 
   public async saveItem(input: PipelineItemInsert) {
@@ -139,13 +202,17 @@ export class PipelineRunRepository extends BaseRepository {
       });
   }
 
-  public async initializeItems(where: { runId: number; total: number }) {
+  public async initializeItems(where: {
+    runId: number;
+    total: number;
+    error?: string;
+  }) {
     await this.db
       .update(pipelineRunsTable)
       .set({
         itemsReady: true,
         total: where.total,
-        error: null,
+        error: where.error ?? null,
         status: where.total === 0 ? "done" : "running",
       })
       .where(eq(pipelineRunsTable.runId, where.runId));
@@ -155,12 +222,13 @@ export class PipelineRunRepository extends BaseRepository {
     const table = pipelineRunsTable;
     const processed = sql<number>`(select count(*)::int from ${pipelineItemsTable} where ${pipelineItemsTable.runId} = ${where.runId} and ${pipelineItemsTable.status} = 'processed')`;
     const failed = sql<number>`(select count(*)::int from ${pipelineItemsTable} where ${pipelineItemsTable.runId} = ${where.runId} and ${pipelineItemsTable.status} = 'failed')`;
+    const discovering = sql<boolean>`exists (select 1 from ${pipelineRunKeywordsTable} where ${pipelineRunKeywordsTable.runId} = ${where.runId} and ${pipelineRunKeywordsTable.status} = 'pending')`;
     await this.db
       .update(table)
       .set({
         processed,
         failed,
-        status: sql`case when ${table.status} = 'failed' and ${table.error} is not null then 'failed' when (${table.itemsReady} or ${table.total} > 0) and ${processed} + ${failed} >= ${table.total} then 'done' else 'running' end`,
+        status: sql`case when ${table.status} = 'failed' and ${table.error} is not null then 'failed' when (${table.itemsReady} or ${table.total} > 0) and not ${discovering} and ${processed} + ${failed} >= ${table.total} then 'done' else 'running' end`,
       })
       .where(eq(table.runId, where.runId));
   }

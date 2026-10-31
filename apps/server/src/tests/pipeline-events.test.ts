@@ -210,10 +210,10 @@ test("a run that fails to start pushes the failed state and persists the error",
   await withTestDatabase(async ({ db, pool }) => {
     const context = createContext(db, pool, initENV());
     const queue = new ManualQueue<
-      (typeof context.queueHub.scrape.added)[number]
+      (typeof context.queueHub.discover.added)[number]
     >();
     queue.failAddWith = new Error("queue is down");
-    context.queueHub.scrape = queue;
+    context.queueHub.discover = queue;
     const admin = await createAdminClient(context, "sse-failed@example.com");
     const campaign = await insertCampaign(db);
     const reader = await openStream(admin, campaign.campaignId);
@@ -245,8 +245,11 @@ test("a stream only receives the run of its own campaign", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const context = createContext(db, pool, initENV());
     const admin = await createAdminClient(context, "sse-scope@example.com");
-    const own = await insertCampaign(db, { name: "Own", keyword: "own" });
-    const other = await insertCampaign(db, { name: "Other", keyword: "other" });
+    const own = await insertCampaign(db, { name: "Own", keywords: ["own"] });
+    const other = await insertCampaign(db, {
+      name: "Other",
+      keywords: ["other"],
+    });
     const reader = await openStream(admin, own.campaignId);
     await readState(reader);
 
@@ -274,7 +277,7 @@ test("a pub/sub outage does not stop a scrape from starting", async () => {
     const runs = await runRows(db);
     expect(runs).toHaveLength(1);
     expect(runs[0]?.status).toBe("running");
-    expect(context.queueHub.scrape.added).toHaveLength(1);
+    expect(context.queueHub.discover.added).toHaveLength(1);
   });
 });
 

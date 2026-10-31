@@ -1,11 +1,27 @@
 import z from "zod";
 import { maxBulkIds } from "@repo/constants/pagination";
+import { maxCampaignKeywords } from "@repo/constants/campaigns";
 import { orderSchema, pageSchema, perPageSchema, searchSchema } from "./skool";
+
+const uniqueKeywords = (keywords: string[]) => {
+  const seen = new Set<string>();
+
+  return keywords.filter((keyword) => {
+    const key = keyword.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
 
 const campaignFields = {
   name: z.string().trim().min(1).max(255),
   description: z.string().trim().max(500).nullish(),
-  keyword: z.string().trim().min(1).max(255),
+  keywords: z
+    .array(z.string().trim().min(1).max(255))
+    .min(1)
+    .max(maxCampaignKeywords)
+    .transform(uniqueKeywords),
   minPriceCents: z.number().int().nonnegative().nullish(),
   minMembers: z.number().int().nonnegative().nullish(),
 };

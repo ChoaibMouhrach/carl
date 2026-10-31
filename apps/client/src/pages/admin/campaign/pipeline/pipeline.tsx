@@ -161,7 +161,7 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
           }
           isStarting={startScrape.isPending}
           onRun={() => startScrape.mutate()}
-          rule={`Searches Skool for “${campaign.keyword}”. Existing leads are kept.`}
+          rule={`Searches Skool for ${campaign.keywords.map((keyword) => `“${keyword}”`).join(", ")}. Existing leads are kept.`}
           run={state.scrape}
           runningLabel="Searching Skool…"
           title="1. Scrape"

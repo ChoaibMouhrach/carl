@@ -18,7 +18,7 @@ const campaignSchema = z.object({
   campaignId: z.number(),
   name: z.string(),
   description: z.string().nullable(),
-  keyword: z.string(),
+  keywords: z.array(z.string()),
   minPriceCents: z.number().nullable(),
   minMembers: z.number().nullable(),
   leadsCount: z.number(),
@@ -48,7 +48,7 @@ const communityListSchema = z.object({
 const body = {
   name: "Fitness coaches",
   description: "Paid fitness communities with a real audience",
-  keyword: "fitness coaching",
+  keywords: ["fitness coaching", "fitness coach"],
   minPriceCents: 4900,
   minMembers: 100,
 };
@@ -146,11 +146,15 @@ test("creating, editing and deleting a campaign is stored in the database", asyn
 
     const patchResponse = await admin.patch(
       `/api/campaigns/${created.campaignId}`,
-      { minMembers: 500, keyword: "yoga" },
+      { minMembers: 500, keywords: ["yoga", "Pilates"] },
     );
     expect(patchResponse.status).toBe(200);
     const [edited] = await campaignRows(db);
-    expect(edited).toMatchObject({ ...body, minMembers: 500, keyword: "yoga" });
+    expect(edited).toMatchObject({
+      ...body,
+      minMembers: 500,
+      keywords: ["yoga", "Pilates"],
+    });
 
     const deleteResponse = await admin.delete(
       `/api/campaigns/${created.campaignId}`,
@@ -160,13 +164,29 @@ test("creating, editing and deleting a campaign is stored in the database", asyn
   });
 });
 
-test("only the name and keyword are required, the rest is stored as empty", async () => {
+test("keywords are trimmed and de-duplicated ignoring case, keeping their order", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const { admin } = await boot(db, pool);
+
+    const response = await admin.post("/api/campaigns", {
+      name: "Dedupe",
+      keywords: [" Yoga ", "yoga", "Pilates", "YOGA", "pilates "],
+    });
+
+    expect(response.status).toBe(201);
+    expect(await campaignRows(db)).toMatchObject([
+      { keywords: ["Yoga", "Pilates"] },
+    ]);
+  });
+});
+
+test("only the name and keywords are required, the rest is stored as empty", async () => {
   await withTestDatabase(async ({ db, pool }) => {
     const { admin } = await boot(db, pool);
 
     const response = await admin.post("/api/campaigns", {
       name: "Bare",
-      keyword: "yoga",
+      keywords: ["yoga"],
     });
 
     expect(response.status).toBe(201);
@@ -174,7 +194,7 @@ test("only the name and keyword are required, the rest is stored as empty", asyn
       {
         campaignId: campaignSchema.parse(await response.json()).campaignId,
         name: "Bare",
-        keyword: "yoga",
+        keywords: ["yoga"],
         description: null,
         minPriceCents: null,
         minMembers: null,
@@ -207,7 +227,11 @@ test("an invalid campaign body or unknown campaign writes nothing", async () => 
     const invalid = [
       { ...body, name: "" },
       { ...body, description: "x".repeat(501) },
-      { ...body, keyword: " " },
+      { ...body, keywords: [] },
+      { ...body, keywords: [" "] },
+      { ...body, keywords: ["a", ""] },
+      { ...body, keywords: Array.from({ length: 11 }, (_, i) => `k${i}`) },
+      { ...body, keywords: "fitness" },
       { ...body, name: undefined },
       { ...body, minPriceCents: -1 },
       { ...body, minMembers: 1.5 },
@@ -236,7 +260,7 @@ test("listing campaigns searches, paginates and counts members", async () => {
     await admin.post("/api/campaigns", {
       ...body,
       name: "Chess clubs",
-      keyword: "chess",
+      keywords: ["chess"],
     });
     await admin.post(`/api/campaigns/${first.campaignId}/leads`, {
       leadIds: [ann.leadId],
@@ -247,6 +271,13 @@ test("listing campaigns searches, paginates and counts members", async () => {
     );
     expect(searched.campaigns.map((item) => item.name)).toEqual([
       "Chess clubs",
+    ]);
+
+    const bySecondKeyword = listSchema.parse(
+      await (await admin.get("/api/campaigns?search=fitness%20coach")).json(),
+    );
+    expect(bySecondKeyword.campaigns.map((item) => item.name)).toEqual([
+      "Fitness coaches",
     ]);
 
     const all = listSchema.parse(
@@ -385,7 +416,7 @@ test("adding an unknown lead or community changes nothing, and deleting a campai
 const seedCampaign = async (
   context: Awaited<ReturnType<typeof boot>>["context"],
   name: string,
-) => await context.repositories.campaign.create({ name, keyword: name });
+) => await context.repositories.campaign.create({ name, keywords: [name] });
 
 test("membership and bulk routes refuse anonymous and non-admin callers and change nothing", async () => {
   await withTestDatabase(async ({ db, pool }) => {

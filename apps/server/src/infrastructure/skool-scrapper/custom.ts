@@ -10,12 +10,15 @@ import {
   type Pricing,
 } from "@server/lib/base-skool-scrapper";
 import type { BaseLogger } from "@server/lib/base-logger";
+import { mapPool } from "@server/lib/utils";
 
 const BASE_URL = "https://www.skool.com";
 const REQUEST_TIMEOUT_MS = 15_000;
 
 // Skool stops listing at 1000 results (34 pages of 30) and wraps back to page 1 past that
 const MAX_DISCOVERY_PAGES = 34;
+
+const DEFAULT_PAGE_CONCURRENCY = 5;
 
 // Skool serves a bot-challenge page (HTTP 202) when the request carries an `accept` header
 const USER_AGENT =
@@ -125,14 +128,24 @@ const leadSchema = z.object({
 
 type Group = z.output<typeof groupSchema>;
 
+type Settled<T> =
+  | { status: "fulfilled"; value: T }
+  | { status: "rejected"; reason: unknown };
+
 type Fetcher = (url: string, init?: RequestInit) => Promise<Response>;
 
 export class CustomSkoolScrapper extends BaseSkoolScrapper {
   private readonly logger: BaseLogger;
   private readonly fetcher: Fetcher;
+  private readonly pageConcurrency: number;
 
-  public constructor(input: { logger: BaseLogger; fetcher?: Fetcher }) {
+  public constructor(input: {
+    logger: BaseLogger;
+    fetcher?: Fetcher;
+    pageConcurrency?: number;
+  }) {
     super();
+    this.pageConcurrency = input.pageConcurrency ?? DEFAULT_PAGE_CONCURRENCY;
     this.fetcher = input.fetcher ?? fetch;
     this.logger = input.logger.child({ scope: "skool-scrapper" });
   }
@@ -151,10 +164,11 @@ export class CustomSkoolScrapper extends BaseSkoolScrapper {
       (_, index) => index + 2,
     );
 
-    const settled = await Promise.allSettled(
-      remainingPages.map(
-        async (page) => await this.fetchDiscoveryPage(query.search, page),
-      ),
+    const settled = await mapPool(
+      remainingPages,
+      this.pageConcurrency,
+      async (page) =>
+        await this.settle(this.fetchDiscoveryPage(query.search, page)),
     );
 
     const remaining = settled.flatMap((result) =>
@@ -198,6 +212,14 @@ export class CustomSkoolScrapper extends BaseSkoolScrapper {
         communities.map((community) => [community.communityURL, community]),
       ).values(),
     ];
+  }
+
+  private async settle<T>(promise: Promise<T>): Promise<Settled<T>> {
+    try {
+      return { status: "fulfilled", value: await promise };
+    } catch (reason) {
+      return { status: "rejected", reason };
+    }
   }
 
   private async fetchDiscoveryPage(search: string, page: number) {

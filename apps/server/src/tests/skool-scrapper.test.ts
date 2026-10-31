@@ -367,6 +367,29 @@ describe("discover on a real discovery page", () => {
     expect(communities).toHaveLength(30);
   });
 
+  test("never has more discovery pages in flight than the page concurrency", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    const scrapper = new CustomSkoolScrapper({
+      logger: new TestLogger(),
+      pageConcurrency: 3,
+      fetcher: async (url) => {
+        inFlight += 1;
+        peak = Math.max(peak, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 2));
+        const response = await fixtureFetcher(FIXTURES)(
+          "https://www.skool.com/discovery",
+        );
+        inFlight -= 1;
+        return respond(url, await response.text());
+      },
+    });
+
+    await scrapper.discover({ search: "coaching" });
+
+    expect(peak).toBe(3);
+  });
+
   test("asks for no more pages than the results fill", async () => {
     const requested: string[] = [];
     const page = (numGroups: number, names: string[]) =>

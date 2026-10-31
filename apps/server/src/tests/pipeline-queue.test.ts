@@ -8,7 +8,11 @@ import z from "zod";
 import { initENV } from "@server/config/env";
 import type { Context } from "@server/context";
 import type { DB } from "@server/infrastructure/database/client";
-import { BullQueue, ScrapeQueue } from "@server/infrastructure/queue/bullmq";
+import {
+  BullQueue,
+  DiscoverQueue,
+  ScrapeQueue,
+} from "@server/infrastructure/queue/bullmq";
 import {
   campaignsTable,
   campaignLeadsTable,
@@ -25,6 +29,7 @@ import {
   type RegisteredQueue,
 } from "@server/lib/base-queue";
 import { WebSearchError } from "@server/lib/base-web-search";
+import { DiscoverWorker } from "@server/workers/discover";
 import { ScrapeWorker } from "@server/workers/scrape";
 import { EnrichWorker } from "@server/workers/enrich";
 import { WebsiteWorker } from "@server/workers/website";
@@ -42,6 +47,7 @@ import { FakeSkoolScrapper, paidMonthly } from "./helpers/skool";
 class RedisPipelineHub extends BaseQueueHub {
   public email;
   public maintenance;
+  public discover;
   public scrape;
   public enrich;
   public website;
@@ -51,13 +57,21 @@ class RedisPipelineHub extends BaseQueueHub {
   public constructor(context: Context) {
     super();
     const suffix = randomUUID();
+    const discoverName = `test-pipeline-discover-${suffix}`;
     const scrapeName = `test-pipeline-scrape-${suffix}`;
     const enrichName = `test-pipeline-enrich-${suffix}`;
     const websiteName = `test-pipeline-website-${suffix}`;
-    this.names = [scrapeName, enrichName, websiteName];
+    this.names = [discoverName, scrapeName, enrichName, websiteName];
     this.redisUrl = context.env.REDIS_CONNECTION_STRING;
     this.email = context.queueHub.email;
     this.maintenance = context.queueHub.maintenance;
+    this.discover = new DiscoverQueue({
+      name: discoverName,
+      concurrency: 2,
+      redisUrl: this.redisUrl,
+      errorMonitor: context.errorMonitor,
+      logger: context.logger,
+    });
     this.scrape = new ScrapeQueue({
       name: scrapeName,
       concurrency: 2,
@@ -85,6 +99,7 @@ class RedisPipelineHub extends BaseQueueHub {
 
   public override queues(): RegisteredQueue[] {
     return [
+      { name: "discover", queue: this.discover },
       { name: "scrape", queue: this.scrape },
       { name: "enrich", queue: this.enrich },
       { name: "website", queue: this.website },
@@ -93,6 +108,7 @@ class RedisPipelineHub extends BaseQueueHub {
 
   public override async close(): Promise<void> {
     await Promise.all([
+      this.discover.close(),
       this.scrape.close(),
       this.enrich.close(),
       this.website.close(),
@@ -187,6 +203,7 @@ const withPipeline = async (
       webPageFetcher: new WebsitePages(),
     };
     try {
+      await new DiscoverWorker({ context }).run();
       await new ScrapeWorker({ context }).run();
       await new EnrichWorker({ context }).run();
       await new WebsiteWorker({ context }).run();

@@ -4,54 +4,28 @@ import { BaseService } from "@server/lib/base-service";
 import type { Community as ScrapedCommunity } from "@server/lib/base-skool-scrapper";
 import type { CommunityInsert } from "@server/infrastructure/database/schemas";
 import type {
+  DiscoverJob,
   ScrapeFilters,
   ScrapeJob,
   ScrapeRun,
 } from "@server/lib/base-queue";
+import type { Repositories } from "@server/repositories";
 import { describeError } from "@server/lib/utils";
 
 interface StartScrapeInput extends ScrapeFilters {
   search: string;
 }
 
-type DiscoverInput = StartScrapeInput & ScrapeRun;
-
 export class ScrapeService extends BaseService {
   public async start(input: StartScrapeInput): Promise<void> {
-    await this.context.queueHub.scrape.add({ type: "discover", ...input });
+    await this.context.queueHub.discover.add(input);
   }
 
-  public async discover(input: DiscoverInput): Promise<void> {
-    if (input.runId !== undefined) {
-      const run = await this.context.repositories.pipelineRun.findByRunId({
-        runId: input.runId,
-      });
-      if (!run) return;
-      if (run.itemsReady) {
-        const items = await this.context.repositories.pipelineRun.findItems({
-          runId: input.runId,
-        });
-        if (
-          run.status === "done" &&
-          items.every((item) => item.status === "processed")
-        )
-          return;
-        const runId = input.runId;
-        await this.context.repositories.transaction(async ({ tx }) => {
-          await tx.pipelineRun.lockByRunId({ runId });
-          await tx.pipelineRun.initializeItems({ runId, total: items.length });
-          await tx.pipelineRun.refreshProgress({ runId });
-        });
-        await publishPipelineChanged(this.context, run.campaignId);
-        await this.queueCommunities(
-          input,
-          items
-            .filter((item) => item.status !== "processed")
-            .map((item) => item.itemKey),
-        );
-        return;
-      }
-    }
+  public async discover(input: DiscoverJob): Promise<void> {
+    const { runId } = input;
+
+    if (runId !== undefined && (await this.resume(input, runId))) return;
+
     const communities = await this.context.skoolScrapper.discover({
       search: input.search,
     });
@@ -68,9 +42,9 @@ export class ScrapeService extends BaseService {
       { skoolUrls: matching.map((community) => community.communityURL) },
     );
     const storedUrls = new Set(stored.map((community) => community.skoolUrl));
-    const fresh = matching.filter(
-      (community) => !storedUrls.has(community.communityURL),
-    );
+    const fresh = matching
+      .filter((community) => !storedUrls.has(community.communityURL))
+      .map((community) => community.communityURL);
 
     if (input.campaignId !== undefined) {
       await this.linkToCampaign({
@@ -80,49 +54,140 @@ export class ScrapeService extends BaseService {
       });
     }
 
-    const runId = input.runId;
-    if (runId !== undefined) {
-      const initializedCampaignId = await this.context.repositories.transaction(
-        async ({ tx }) => {
-          const run = await tx.pipelineRun.lockByRunId({ runId });
-          if (!run || run.itemsReady) return null;
-          await tx.pipelineRun.createItems({
-            runId,
-            itemKeys: matching.map((community) => community.communityURL),
-          });
-          await tx.pipelineRun.initializeItems({
-            runId,
-            total: matching.length,
-          });
-          return run.campaignId;
-        },
-      );
-      if (initializedCampaignId !== null) {
-        await publishPipelineChanged(this.context, initializedCampaignId);
-      }
-      for (const community of stored) {
-        await new PipelineProgressService({ context: this.context }).complete(
-          {
-            runId: input.runId,
-            itemKey: community.skoolUrl,
-            status: "processed",
-          },
-          async () => ({ leadId: community.leadId }),
-        );
-      }
+    if (runId === undefined) {
+      await this.queueCommunities(input, fresh);
+      return;
     }
-    const pendingItems =
-      runId === undefined
-        ? null
-        : await this.context.repositories.pipelineRun.findItems({ runId });
+
+    const settled = await this.context.repositories.transaction(
+      async ({ tx }) => {
+        const run = await tx.pipelineRun.lockByRunId({ runId });
+        if (!run || run.itemsReady || run.status === "failed") return null;
+        const keyword = await tx.pipelineRun.findKeyword({
+          runId,
+          keyword: input.search,
+        });
+        if (keyword?.status === "done") return null;
+
+        const created = await tx.pipelineRun.createItems({
+          runId,
+          itemKeys: matching.map((community) => community.communityURL),
+        });
+        await tx.pipelineRun.markKeyword({
+          runId,
+          keyword: input.search,
+          status: "done",
+        });
+        await this.settleRun(tx, runId);
+
+        return { campaignId: run.campaignId, created: new Set(created) };
+      },
+    );
+
+    if (settled === null) return;
+
+    await publishPipelineChanged(this.context, settled.campaignId);
+
+    const progress = new PipelineProgressService({ context: this.context });
+    for (const community of stored) {
+      await progress.complete(
+        { runId, itemKey: community.skoolUrl, status: "processed" },
+        async () => ({ leadId: community.leadId }),
+      );
+    }
+
     await this.queueCommunities(
       input,
-      pendingItems === null
-        ? fresh.map((community) => community.communityURL)
-        : pendingItems
-            .filter((item) => item.status !== "processed")
-            .map((item) => item.itemKey),
+      fresh.filter((communityURL) => settled.created.has(communityURL)),
     );
+  }
+
+  // A retried job for a finished keyword only re-queues its unfinished items
+  private async resume(input: DiscoverJob, runId: number): Promise<boolean> {
+    const { pipelineRun } = this.context.repositories;
+    const run = await pipelineRun.findByRunId({ runId });
+    if (!run || run.status === "failed") return true;
+
+    const keyword = await pipelineRun.findKeyword({
+      runId,
+      keyword: input.search,
+    });
+    if (!run.itemsReady && keyword?.status !== "done") return false;
+
+    const items = await pipelineRun.findItems({ runId });
+    await this.queueCommunities(
+      input,
+      items
+        .filter((item) => item.status !== "processed")
+        .map((item) => item.itemKey),
+    );
+
+    return true;
+  }
+
+  private async settleRun(tx: Repositories, runId: number): Promise<void> {
+    const keywords = await tx.pipelineRun.findKeywords({ runId });
+
+    if (keywords.some((keyword) => keyword.status === "pending")) {
+      await tx.pipelineRun.syncTotal({ runId });
+      return;
+    }
+
+    const failed = keywords.filter((keyword) => keyword.status === "failed");
+    const reasons = failed.map((keyword) =>
+      keywords.length === 1
+        ? (keyword.error ?? "")
+        : `${keyword.keyword}: ${keyword.error ?? ""}`,
+    );
+
+    if (failed.length === keywords.length) {
+      await tx.pipelineRun.markFailed({ runId, error: reasons.join("; ") });
+      return;
+    }
+
+    const items = await tx.pipelineRun.findItems({ runId });
+    await tx.pipelineRun.initializeItems({
+      runId,
+      total: items.length,
+      error:
+        failed.length > 0
+          ? `Search failed for ${reasons.join("; ")}`
+          : undefined,
+    });
+    await tx.pipelineRun.refreshProgress({ runId });
+  }
+
+  public async recordDiscoverFailure(
+    job: DiscoverJob,
+    error: unknown,
+  ): Promise<void> {
+    const { runId } = job;
+    if (runId === undefined) return;
+
+    const campaignId = await this.context.repositories.transaction(
+      async ({ tx }) => {
+        const run = await tx.pipelineRun.lockByRunId({ runId });
+        if (!run || run.itemsReady || run.status === "failed") return null;
+        const keyword = await tx.pipelineRun.findKeyword({
+          runId,
+          keyword: job.search,
+        });
+        if (keyword?.status !== "pending") return null;
+
+        await tx.pipelineRun.markKeyword({
+          runId,
+          keyword: job.search,
+          status: "failed",
+          error: describeError(error),
+        });
+        await this.settleRun(tx, runId);
+
+        return run.campaignId;
+      },
+    );
+
+    if (campaignId !== null)
+      await publishPipelineChanged(this.context, campaignId);
   }
 
   private async queueCommunities(input: ScrapeRun, urls: string[]) {
@@ -147,18 +212,6 @@ export class ScrapeService extends BaseService {
 
   public async recordFailure(job: ScrapeJob, error: unknown): Promise<void> {
     if (job.runId === undefined) {
-      return;
-    }
-
-    const { pipelineRun } = this.context.repositories;
-
-    if (job.type === "discover") {
-      await pipelineRun.markFailed({
-        runId: job.runId,
-        error: describeError(error),
-      });
-      const run = await pipelineRun.findByRunId({ runId: job.runId });
-      if (run) await publishPipelineChanged(this.context, run.campaignId);
       return;
     }
 

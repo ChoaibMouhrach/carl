@@ -7,7 +7,10 @@ import z from "zod";
 import { initENV } from "@server/config/env";
 import type { Context } from "@server/context";
 import type { DB } from "@server/infrastructure/database/client";
-import { ScrapeQueue } from "@server/infrastructure/queue/bullmq";
+import {
+  DiscoverQueue,
+  ScrapeQueue,
+} from "@server/infrastructure/queue/bullmq";
 import {
   BaseErrorMonitor,
   type ErrorMonitorScope,
@@ -15,6 +18,7 @@ import {
 import { BaseQueueHub, type RegisteredQueue } from "@server/lib/base-queue";
 import { SkoolScrapeError } from "@server/lib/base-skool-scrapper";
 import { ScrapeService } from "@server/services/scrape";
+import { DiscoverWorker } from "@server/workers/discover";
 import { ScrapeWorker } from "@server/workers/scrape";
 import { createAdminClient } from "./helpers/api";
 import { createContext, TestLogger, TestMailer } from "./helpers/context";
@@ -56,6 +60,7 @@ const waitUntil = async (condition: () => Promise<boolean> | boolean) => {
 class RealScrapeHub extends BaseQueueHub {
   public email;
   public maintenance;
+  public discover: DiscoverQueue;
   public scrape: ScrapeQueue;
 
   public constructor(init: {
@@ -67,6 +72,13 @@ class RealScrapeHub extends BaseQueueHub {
     super();
     this.email = init.base.email;
     this.maintenance = init.base.maintenance;
+    this.discover = new DiscoverQueue({
+      concurrency: 2,
+      errorMonitor: init.errorMonitor,
+      logger: init.logger,
+      name: `${init.name}-discover`,
+      redisUrl,
+    });
     this.scrape = new ScrapeQueue({
       concurrency: 2,
       errorMonitor: init.errorMonitor,
@@ -77,10 +89,14 @@ class RealScrapeHub extends BaseQueueHub {
   }
 
   public override queues(): RegisteredQueue[] {
-    return [{ name: "scrape", queue: this.scrape }];
+    return [
+      { name: "discover", queue: this.discover },
+      { name: "scrape", queue: this.scrape },
+    ];
   }
 
   public override async close(): Promise<void> {
+    await this.discover.close();
     await this.scrape.close();
   }
 }
@@ -111,12 +127,15 @@ const boot = async (
   cleanups.push(async () => {
     await hub.close();
     const connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
-    const leftover = new Queue(name, { connection });
-    await leftover.obliterate({ force: true });
-    await leftover.close();
+    for (const leftoverName of [name, `${name}-discover`]) {
+      const leftover = new Queue(leftoverName, { connection });
+      await leftover.obliterate({ force: true });
+      await leftover.close();
+    }
     await connection.quit();
   });
 
+  await new DiscoverWorker({ context }).run();
   await new ScrapeWorker({ context }).run();
 
   return { context, hub, errorMonitor, logger };
@@ -145,11 +164,15 @@ test("a scrape started over HTTP runs through Redis and ends up in the database"
     const response = await admin.post("/api/scrape", { search: "coaching" });
 
     expect(response.status).toBe(202);
-    await waitUntil(async () => (await hub.scrape.getCounts()).completed === 5);
+    await waitUntil(async () => (await hub.scrape.getCounts()).completed === 4);
 
     // One discover job, then a community job and a lead job for each community
+    expect(await hub.discover.getCounts()).toMatchObject({
+      completed: 1,
+      failed: 0,
+    });
     expect(await hub.scrape.getCounts()).toMatchObject({
-      completed: 5,
+      completed: 4,
       failed: 0,
     });
     expect(errorMonitor.captured).toEqual([]);
@@ -233,7 +256,7 @@ test("a transient failure is retried by the queue and then stored, without alert
     );
 
     await new ScrapeService({ context }).start({ search: "coaching" });
-    await waitUntil(async () => (await hub.scrape.getCounts()).completed === 3);
+    await waitUntil(async () => (await hub.scrape.getCounts()).completed === 2);
 
     expect(scrapper.leadCalls).toHaveLength(2);
     expect(await hub.scrape.getCounts()).toMatchObject({ failed: 0 });
@@ -266,7 +289,7 @@ test("one community failing for good does not stop the others or leave a half-wr
     await waitUntil(async () => await idle(hub));
 
     expect(await hub.scrape.getCounts()).toMatchObject({
-      completed: 4,
+      completed: 3,
       failed: 1,
     });
     const rows = await tableRows(db);

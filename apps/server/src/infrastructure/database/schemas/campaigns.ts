@@ -16,7 +16,7 @@ export const campaignsTable = pgTable("campaigns", {
   // -- fields
   name: text().notNull(),
   description: text(),
-  keyword: text().notNull(),
+  keywords: text().array().notNull(),
   minPriceCents: integer(),
   minMembers: integer(),
   isActive: boolean().notNull().default(true),

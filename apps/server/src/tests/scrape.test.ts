@@ -7,6 +7,7 @@ import {
 import { ScrapeService } from "@server/services/scrape";
 import { NonRetryableJobError } from "@server/lib/base-queue";
 import z from "zod";
+import { DiscoverWorker } from "@server/workers/discover";
 import { ScrapeWorker } from "@server/workers/scrape";
 import { createAdminClient } from "./helpers/api";
 import {
@@ -26,6 +27,7 @@ const boot = async (
 ) => {
   const context = createContext(db, pool, initENV(), new TestMailer());
   context.skoolScrapper = scrapper;
+  await new DiscoverWorker({ context }).run();
   await new ScrapeWorker({ context }).run();
 
   return context;
@@ -380,7 +382,7 @@ test("only admins can start a scrape and the body is validated", async () => {
     }
     expect(scrapper.discoverCalls).toHaveLength(0);
     // Validation runs before the service, so a 400 can neither queue a job nor write a row
-    expect(context.queueHub.scrape.added).toHaveLength(0);
+    expect(context.queueHub.discover.added).toHaveLength(0);
     expect(await tableRows(db)).toEqual({ leads: [], communities: [] });
 
     const anonymous = await admin.app.request("/api/scrape", {
@@ -391,7 +393,7 @@ test("only admins can start a scrape and the body is validated", async () => {
     expect(anonymous.status).toBe(401);
     // The auth middleware rejects before the service is reached, so nothing can be written
     expect(scrapper.discoverCalls).toHaveLength(0);
-    expect(context.queueHub.scrape.added).toHaveLength(0);
+    expect(context.queueHub.discover.added).toHaveLength(0);
     expect(await tableRows(db)).toEqual({ leads: [], communities: [] });
   });
 });

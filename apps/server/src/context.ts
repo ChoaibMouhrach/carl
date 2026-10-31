@@ -76,6 +76,7 @@ export const initContext = async () => {
 
   const queueHub: BaseQueueHub = new QueueHub({
     concurrency: env.QUEUE_CONCURRENCY,
+    discoverConcurrency: env.DISCOVER_CONCURRENCY,
     scrapeConcurrency: env.SCRAPE_CONCURRENCY,
     enrichConcurrency: env.ENRICH_CONCURRENCY,
     websiteConcurrency: env.WEBSITE_CONCURRENCY,
@@ -96,7 +97,10 @@ export const initContext = async () => {
         redisUrl: env.REDIS_CONNECTION_STRING,
       });
 
-  const skoolScrapper: BaseSkoolScrapper = new CustomSkoolScrapper({ logger });
+  const skoolScrapper: BaseSkoolScrapper = new CustomSkoolScrapper({
+    logger,
+    pageConcurrency: env.DISCOVERY_PAGE_CONCURRENCY,
+  });
 
   const webSearch: BaseWebSearch = env.TAVILY_API_KEY
     ? new TavilyWebSearch({ apiKey: env.TAVILY_API_KEY })

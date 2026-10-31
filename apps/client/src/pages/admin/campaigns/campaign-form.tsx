@@ -1,3 +1,4 @@
+import { TagsField } from "@/components/tags-field";
 import { TextField } from "@/components/text-field";
 import { Tip } from "@/components/tip";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,13 +10,15 @@ import {
   FieldSet,
 } from "@repo/ui/components/ui/field";
 import { Spinner } from "@repo/ui/components/ui/spinner";
+import { maxCampaignKeywords } from "@repo/constants/campaigns";
+import { useRef } from "react";
 import { useForm } from "react-hook-form";
 import z from "zod";
 
 export interface CampaignFormValues {
   name: string;
   description: string | null;
-  keyword: string;
+  keywords: string[];
   minPriceCents: number | null;
   minMembers: number | null;
 }
@@ -31,7 +34,10 @@ interface CampaignFormProps {
 const schema = z.object({
   name: z.string().trim().min(1, "This field is required").max(255),
   description: z.string().trim().max(500, "Keep it under 500 characters"),
-  keyword: z.string().trim().min(1, "This field is required").max(255),
+  keywords: z
+    .array(z.string().trim().min(1).max(255))
+    .min(1, "Add at least one keyword")
+    .max(maxCampaignKeywords, `Use at most ${maxCampaignKeywords} keywords`),
   minPrice: z
     .string()
     .trim()
@@ -59,7 +65,7 @@ export const CampaignForm = ({
     defaultValues: {
       name: campaign?.name ?? "",
       description: campaign?.description ?? "",
-      keyword: campaign?.keyword ?? "",
+      keywords: campaign?.keywords ?? [],
       minPrice:
         campaign?.minPriceCents == null
           ? ""
@@ -69,12 +75,17 @@ export const CampaignForm = ({
     resolver: zodResolver(schema),
   });
 
+  // A fast double click starts two submits before isPending has rendered
+  const inFlight = useRef(false);
+
   const submit = form.handleSubmit(async (input) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     try {
       await onSubmit({
         name: input.name,
         description: input.description || null,
-        keyword: input.keyword,
+        keywords: input.keywords,
         minPriceCents:
           input.minPrice === ""
             ? null
@@ -83,6 +94,8 @@ export const CampaignForm = ({
       });
     } catch {
       return;
+    } finally {
+      inFlight.current = false;
     }
   });
 
@@ -132,11 +145,12 @@ export const CampaignForm = ({
                 The search and the floor a community must clear to be a fit.
               </FieldDescription>
               <div className="grid gap-4 sm:grid-cols-2">
-                <TextField
+                <TagsField
                   control={form.control}
-                  description="What Skool is searched for."
-                  label="Search keyword"
-                  name="keyword"
+                  description={`What Skool is searched for, one search per keyword. Press Enter or comma to add, up to ${maxCampaignKeywords}.`}
+                  label="Search keywords"
+                  max={maxCampaignKeywords}
+                  name="keywords"
                   placeholder="fitness coaching"
                   required
                   wrapperClassName="sm:col-span-2"

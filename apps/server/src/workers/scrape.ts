@@ -27,9 +27,6 @@ export class ScrapeWorker extends BaseWorker {
 
   private async handle(scrape: ScrapeService, job: ScrapeJob): Promise<void> {
     switch (job.type) {
-      case "discover":
-        await scrape.discover(job);
-        return;
       case "scrape-community":
         await scrape.scrapeCommunity(job);
         return;

@@ -27,7 +27,7 @@ const openCampaign = async (page: Page, seed: Seed, id: string, query = "") => {
   await seed.authenticate(page.context(), admin.email);
   const campaign = await seed.createCampaign({
     name: campaignName(id),
-    keyword: "pipeline",
+    keywords: ["pipeline"],
   });
 
   return {
@@ -339,7 +339,7 @@ test("a page only follows the runs of its own campaign", async ({
   const { campaign, open } = await openCampaign(page, seed, id);
   const other = await seed.createCampaign({
     name: `1-${id}`,
-    keyword: "other",
+    keywords: ["other"],
   });
   await open();
   await expect(page.getByRole("button", { name: "Run scrape" })).toBeEnabled();
@@ -374,7 +374,7 @@ test("a member cannot start FullEnrich or change its campaign's leads", async ({
   await seed.authenticate(page.context(), member.email);
   const campaign = await seed.createCampaign({
     name: campaignName(id),
-    keyword: "protected",
+    keywords: ["protected"],
   });
   const lead = await seed.createLead({
     name: `Protected ${id}`,

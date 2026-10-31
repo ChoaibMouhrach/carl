@@ -584,7 +584,7 @@ export const countCommunitiesWithPrefix = async (
 
 export interface SeedCampaignInput {
   name: string;
-  keyword: string;
+  keywords: string[];
   description?: string | null;
   minPriceCents?: number | null;
   minMembers?: number | null;
@@ -599,7 +599,7 @@ export const createCampaign = async (
       .insert(campaignsTable)
       .values({
         name: input.name,
-        keyword: input.keyword,
+        keywords: input.keywords,
         description: input.description ?? null,
         minPriceCents: input.minPriceCents ?? null,
         minMembers: input.minMembers ?? null,

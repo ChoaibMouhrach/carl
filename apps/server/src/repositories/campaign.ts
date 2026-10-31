@@ -68,7 +68,7 @@ export class CampaignRepository extends BaseRepository {
         ? or(
             ilike(table.name, pattern),
             ilike(table.description, pattern),
-            ilike(table.keyword, pattern),
+            sql`array_to_string(${table.keywords}, ' ') ilike ${pattern}`,
           )
         : undefined,
     );

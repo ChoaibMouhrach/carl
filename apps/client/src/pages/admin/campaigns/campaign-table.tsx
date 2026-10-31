@@ -1,5 +1,6 @@
 import { api } from "@/api";
 import { RowActions } from "@/components/row-actions";
+import { Tip } from "@/components/tip";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { DropdownMenuItem } from "@repo/ui/components/ui/dropdown-menu";
@@ -13,6 +14,8 @@ import {
 } from "@repo/ui/components/ui/table";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { PauseIcon, PlayIcon } from "lucide-react";
+
+const VISIBLE_KEYWORDS = 3;
 
 type Campaign = Awaited<
   ReturnType<typeof api.campaign.list>
@@ -41,7 +44,7 @@ export const CampaignTable = ({
         <TableRow>
           <TableHead>Campaign</TableHead>
           <TableHead>Status</TableHead>
-          <TableHead>Keyword</TableHead>
+          <TableHead>Keywords</TableHead>
           <TableHead>Min price</TableHead>
           <TableHead>Min members</TableHead>
           <TableHead>Leads</TableHead>
@@ -87,7 +90,21 @@ export const CampaignTable = ({
               </Badge>
             </TableCell>
             <TableCell>
-              <Badge variant="outline">{campaign.keyword}</Badge>
+              <div className="flex flex-wrap gap-1">
+                {campaign.keywords.slice(0, VISIBLE_KEYWORDS).map((keyword) => (
+                  <Badge key={keyword} variant="outline">
+                    {keyword}
+                  </Badge>
+                ))}
+                {campaign.keywords.length > VISIBLE_KEYWORDS && (
+                  <Tip
+                    label={campaign.keywords.join(", ")}
+                    render={<Badge variant="secondary" />}
+                  >
+                    {`+${campaign.keywords.length - VISIBLE_KEYWORDS}`}
+                  </Tip>
+                )}
+              </div>
             </TableCell>
             <TableCell>
               {!campaign.minPriceCents

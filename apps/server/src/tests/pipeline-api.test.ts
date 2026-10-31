@@ -12,6 +12,7 @@ import {
   pipelineItemsTable,
 } from "@server/infrastructure/database/schemas";
 import { ScrapeService } from "@server/services/scrape";
+import { DiscoverWorker } from "@server/workers/discover";
 import { ScrapeWorker } from "@server/workers/scrape";
 import { createAdminClient } from "./helpers/api";
 import { createContext } from "./helpers/context";
@@ -49,6 +50,7 @@ const boot = async (
 
   if (options.scrapper) {
     context.skoolScrapper = options.scrapper;
+    await new DiscoverWorker({ context }).run();
     await new ScrapeWorker({ context }).run();
   }
 
@@ -98,7 +100,7 @@ test("every pipeline route refuses anonymous and non-admin callers and starts no
     }
 
     expect(await runRows(db)).toHaveLength(0);
-    expect(context.queueHub.scrape.added).toHaveLength(0);
+    expect(context.queueHub.discover.added).toHaveLength(0);
     expect(context.queueHub.enrich.added).toHaveLength(0);
   });
 });
@@ -133,7 +135,7 @@ test("an unknown campaign is a 404 and an invalid id is a 400, and no run or job
     ).toBe(400);
 
     expect(await runRows(db)).toHaveLength(0);
-    expect(context.queueHub.scrape.added).toHaveLength(0);
+    expect(context.queueHub.discover.added).toHaveLength(0);
     expect(context.queueHub.enrich.added).toHaveLength(0);
   });
 });
@@ -142,7 +144,7 @@ test("starting a scrape stores a running run and queues one discover job built f
   await withTestDatabase(async ({ db, pool }) => {
     const { context, admin } = await boot(db, pool);
     const campaign = await insertCampaign(db, {
-      keyword: "fitness coaching",
+      keywords: ["fitness coaching"],
       minPriceCents: 4900,
       minMembers: 100,
     });
@@ -163,9 +165,8 @@ test("starting a scrape stores a running run and queues one discover job built f
       failed: 0,
       error: null,
     });
-    expect(context.queueHub.scrape.added).toEqual([
+    expect(context.queueHub.discover.added).toEqual([
       {
-        type: "discover",
         search: "fitness coaching",
         minPrice: 49,
         minMembers: 100,
@@ -189,9 +190,8 @@ test("a campaign without price and member limits queues a discover job without f
     await admin.post(scrapePath(unfiltered.campaignId));
     await admin.post(scrapePath(zeroPrice.campaignId));
 
-    const [first, second] = context.queueHub.scrape.added;
+    const [first, second] = context.queueHub.discover.added;
     expect(first).toEqual({
-      type: "discover",
       search: "fitness",
       campaignId: unfiltered.campaignId,
       runId: expect.any(Number),
@@ -216,7 +216,7 @@ test("an inactive campaign cannot start a scrape and nothing is stored or queued
       "campaignInactive",
     );
     expect(await runRows(db)).toHaveLength(0);
-    expect(context.queueHub.scrape.added).toHaveLength(0);
+    expect(context.queueHub.discover.added).toHaveLength(0);
   });
 });
 
@@ -247,7 +247,7 @@ test("a second start of a running step is a 409 that keeps the single run and qu
       (run) => run.step === "scrape" && run.status === "running",
     );
     expect(running).toHaveLength(1);
-    expect(context.queueHub.scrape.added).toHaveLength(1);
+    expect(context.queueHub.discover.added).toHaveLength(1);
   });
 });
 
@@ -265,7 +265,7 @@ test("two simultaneous starts produce exactly one running run and one 409", asyn
       202, 409,
     ]);
     expect(await runRows(db)).toHaveLength(1);
-    expect(context.queueHub.scrape.added).toHaveLength(1);
+    expect(context.queueHub.discover.added).toHaveLength(1);
   });
 });
 
@@ -350,7 +350,7 @@ test("a scrape stores new communities and leads, links the stored ones, and fini
     await new ScrapeService({ context }).discover({
       runId: run.runId,
       campaignId: campaign.campaignId,
-      search: campaign.keyword,
+      search: campaign.keywords[0] ?? "",
     });
     expect(await runRows(db)).toEqual(runs);
     expect(scrapper.discoverCalls).toHaveLength(1);
@@ -384,9 +384,8 @@ test("a scrape whose hits are all filtered out or already stored finishes at onc
     expect(await runRows(db)).toMatchObject([
       { status: "done", total: 1, processed: 1, failed: 0 },
     ]);
-    expect(context.queueHub.scrape.added.map((job) => job.type)).toEqual([
-      "discover",
-    ]);
+    expect(context.queueHub.discover.added).toHaveLength(1);
+    expect(context.queueHub.scrape.added).toHaveLength(0);
     expect(await db.select().from(leadsTable)).toHaveLength(1);
     const linkedLeads = await db.select().from(campaignLeadsTable);
     expect(linkedLeads).toEqual([
@@ -444,9 +443,9 @@ test("a queue that refuses the scrape job fails the run with the reason and lets
   await withTestDatabase(async ({ db, pool }) => {
     const { context, admin } = await boot(db, pool);
     const queue = new ManualQueue<
-      Parameters<typeof context.queueHub.scrape.add>[0]
+      Parameters<typeof context.queueHub.discover.add>[0]
     >();
-    context.queueHub.scrape = queue;
+    context.queueHub.discover = queue;
     const campaign = await insertCampaign(db);
     queue.failAddWith = new Error("redis is down");
 
@@ -525,9 +524,12 @@ test("a permanently failed scrape job is accounted on its run by job type", asyn
       { status: "running", processed: 0, failed: 1, error: null },
     ]);
 
-    await scrape.recordFailure(
+    await context.repositories.pipelineRun.createKeywords({
+      runId: itemRun.runId,
+      keywords: ["fitness"],
+    });
+    await scrape.recordDiscoverFailure(
       {
-        type: "discover",
         search: "fitness",
         runId: itemRun.runId,
         campaignId: campaign.campaignId,
@@ -552,8 +554,8 @@ test("a failed scrape job that is not part of a run changes no run", async () =>
     });
     const before = await runRows(db);
 
-    await new ScrapeService({ context }).recordFailure(
-      { type: "discover", search: "fitness" },
+    await new ScrapeService({ context }).recordDiscoverFailure(
+      { search: "fitness" },
       new Error("boom"),
     );
 

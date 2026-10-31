@@ -21,8 +21,9 @@ export interface ScrapeRun {
   campaignId?: number;
 }
 
+export type DiscoverJob = { search: string } & ScrapeFilters & ScrapeRun;
+
 export type ScrapeJob =
-  | ({ type: "discover"; search: string } & ScrapeFilters & ScrapeRun)
   | ({ type: "scrape-community"; communityURL: string } & ScrapeRun)
   | ({
       type: "scrape-lead";
@@ -133,6 +134,7 @@ export interface RegisteredQueue {
 export abstract class BaseQueueHub {
   public abstract email: BaseQueue<EmailJob>;
   public abstract maintenance: BaseQueue<MaintenanceJob>;
+  public abstract discover: BaseQueue<DiscoverJob>;
   public abstract scrape: BaseQueue<ScrapeJob>;
   public abstract enrich: BaseQueue<EnrichJob>;
   public abstract website: BaseQueue<WebsiteJob>;

@@ -124,6 +124,52 @@ export class FakeSkoolScrapper extends BaseSkoolScrapper {
   }
 }
 
+export class KeywordScrapper extends FakeSkoolScrapper {
+  public discoverFailures: Record<string, { error: Error; remaining: number }> =
+    {};
+  private readonly byKeyword: Record<string, Community[]>;
+
+  public constructor(byKeyword: Record<string, Community[] | Error>) {
+    const communities = Object.values(byKeyword).flatMap((result) =>
+      result instanceof Error ? [] : result,
+    );
+    super({
+      pages: { 1: communities },
+      owners: Object.fromEntries(
+        communities.map((community) => [
+          community.communityURL,
+          `owner-${community.communityURL.replace("https://www.skool.com/", "")}`,
+        ]),
+      ),
+    });
+    this.byKeyword = {};
+    for (const [keyword, result] of Object.entries(byKeyword)) {
+      if (result instanceof Error) {
+        this.discoverFailures[keyword] = {
+          error: result,
+          remaining: Number.POSITIVE_INFINITY,
+        };
+      } else {
+        this.byKeyword[keyword] = result;
+      }
+    }
+  }
+
+  public override async discover(query: {
+    search: string;
+  }): Promise<Community[]> {
+    this.discoverCalls.push(query);
+    const failure = this.discoverFailures[query.search];
+
+    if (failure && failure.remaining > 0) {
+      failure.remaining -= 1;
+      throw failure.error;
+    }
+
+    return this.byKeyword[query.search] ?? [];
+  }
+}
+
 export const tableRows = async (db: DB) => ({
   leads: await db.select().from(leadsTable),
   communities: await db.select().from(communitiesTable),

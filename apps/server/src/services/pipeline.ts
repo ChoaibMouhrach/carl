@@ -105,17 +105,30 @@ export class PipelineService extends BaseService {
     const run = await this.createRun({ ...where, step: "scrape" });
 
     try {
-      await this.context.queueHub.scrape.add({
-        type: "discover",
-        search: campaign.keyword,
-        minPrice:
-          campaign.minPriceCents === null
-            ? undefined
-            : campaign.minPriceCents / 100,
-        minMembers: campaign.minMembers ?? undefined,
+      await this.context.repositories.pipelineRun.createKeywords({
         runId: run.runId,
-        campaignId: campaign.campaignId,
+        keywords: campaign.keywords,
       });
+      await Promise.all(
+        campaign.keywords.map(
+          async (keyword) =>
+            await this.context.queueHub.discover.add(
+              {
+                search: keyword,
+                minPrice:
+                  campaign.minPriceCents === null
+                    ? undefined
+                    : campaign.minPriceCents / 100,
+                minMembers: campaign.minMembers ?? undefined,
+                runId: run.runId,
+                campaignId: campaign.campaignId,
+              },
+              {
+                idempotencyKey: `discover-${run.runId}-${encodeURIComponent(keyword.toLowerCase())}`,
+              },
+            ),
+        ),
+      );
     } catch (error) {
       await this.context.repositories.pipelineRun.markFailed({
         runId: run.runId,

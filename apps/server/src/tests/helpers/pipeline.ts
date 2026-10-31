@@ -108,7 +108,7 @@ export const insertCampaign = async (
 ) => {
   const [campaign] = await db
     .insert(campaignsTable)
-    .values({ name: "Fitness coaches", keyword: "fitness", ...values })
+    .values({ name: "Fitness coaches", keywords: ["fitness"], ...values })
     .returning();
 
   if (!campaign) {

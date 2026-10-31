@@ -19,6 +19,7 @@ export const pipelineSteps = [
   "fullenrich",
 ] as const;
 export const pipelineRunStatuses = ["running", "done", "failed"] as const;
+export const pipelineKeywordStatuses = ["pending", "done", "failed"] as const;
 
 export const pipelineRunsTable = pgTable(
   "pipeline_runs",
@@ -81,3 +82,21 @@ export const pipelineItemsTable = pgTable(
 
 export type PipelineItem = typeof pipelineItemsTable.$inferSelect;
 export type PipelineItemInsert = typeof pipelineItemsTable.$inferInsert;
+
+export const pipelineRunKeywordsTable = pgTable(
+  "pipeline_run_keywords",
+  {
+    runId: integer()
+      .notNull()
+      .references(() => pipelineRunsTable.runId, { onDelete: "cascade" }),
+    keyword: text().notNull(),
+    status: text({ enum: pipelineKeywordStatuses })
+      .notNull()
+      .default("pending"),
+    error: text(),
+    ...timestamps(),
+  },
+  (table) => [primaryKey({ columns: [table.runId, table.keyword] })],
+);
+
+export type PipelineRunKeyword = typeof pipelineRunKeywordsTable.$inferSelect;

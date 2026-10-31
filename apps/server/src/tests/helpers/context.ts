@@ -7,6 +7,7 @@ import {
   BaseQueue,
   BaseQueueHub,
   type AddJobOptions,
+  type DiscoverJob,
   type EmailJob,
   type EnrichJob,
   type FullEnrichJob,
@@ -260,6 +261,7 @@ export class UnconfiguredSkoolScrapper extends BaseSkoolScrapper {
 export class TestQueueHub extends BaseQueueHub {
   public email: TestQueue<EmailJob>;
   public maintenance: TestQueue<MaintenanceJob>;
+  public discover: TestQueue<DiscoverJob>;
   public scrape: TestQueue<ScrapeJob>;
   public enrich: TestQueue<EnrichJob>;
   public website: TestQueue<WebsiteJob>;
@@ -273,6 +275,9 @@ export class TestQueueHub extends BaseQueueHub {
       },
     });
     this.maintenance = new TestQueue<MaintenanceJob>({
+      process: async () => {},
+    });
+    this.discover = new TestQueue<DiscoverJob>({
       process: async () => {},
     });
     this.scrape = new TestQueue<ScrapeJob>({
@@ -293,6 +298,7 @@ export class TestQueueHub extends BaseQueueHub {
     return [
       { name: "email", queue: this.email },
       { name: "maintenance", queue: this.maintenance },
+      { name: "discover", queue: this.discover },
       { name: "scrape", queue: this.scrape },
       { name: "enrich", queue: this.enrich },
       { name: "website", queue: this.website },

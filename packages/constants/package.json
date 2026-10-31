@@ -4,6 +4,7 @@
   "private": true,
   "exports": {
     "./auth": "./src/auth.ts",
+    "./campaigns": "./src/campaigns.ts",
     "./errors": "./src/errors.ts",
     "./lead-emails": "./src/lead-emails.ts",
     "./pagination": "./src/pagination.ts",

@@ -46,7 +46,12 @@ export const CampaignHeader = ({
         <Badge variant={campaign.isActive ? "default" : "outline"}>
           {campaign.isActive ? "Active" : "Inactive"}
         </Badge>
-        <Badge variant="outline">{`Searches “${campaign.keyword}”`}</Badge>
+        {campaign.keywords.map((keyword) => (
+          <Badge
+            key={keyword}
+            variant="outline"
+          >{`Searches “${keyword}”`}</Badge>
+        ))}
         <Badge variant="secondary">
           {!campaign.minPriceCents
             ? "Any price"
