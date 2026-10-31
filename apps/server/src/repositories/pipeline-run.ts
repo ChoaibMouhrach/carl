@@ -183,6 +183,13 @@ export class PipelineRunRepository extends BaseRepository {
       );
   }
 
+  public async setError(where: { runId: number; error: string | null }) {
+    await this.db
+      .update(pipelineRunsTable)
+      .set({ error: where.error })
+      .where(eq(pipelineRunsTable.runId, where.runId));
+  }
+
   public async syncTotal(where: { runId: number }) {
     await this.db
       .update(pipelineRunsTable)

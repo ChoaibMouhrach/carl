@@ -129,10 +129,16 @@ export class KeywordScrapper extends FakeSkoolScrapper {
     {};
   private readonly byKeyword: Record<string, Community[]>;
 
-  public constructor(byKeyword: Record<string, Community[] | Error>) {
-    const communities = Object.values(byKeyword).flatMap((result) =>
-      result instanceof Error ? [] : result,
-    );
+  public constructor(
+    byKeyword: Record<string, Community[] | Error>,
+    private readonly afterRecovery: Record<string, Community[]> = {},
+  ) {
+    const communities = [
+      ...Object.values(byKeyword).flatMap((result) =>
+        result instanceof Error ? [] : result,
+      ),
+      ...Object.values(afterRecovery).flat(),
+    ];
     super({
       pages: { 1: communities },
       owners: Object.fromEntries(
@@ -153,6 +159,12 @@ export class KeywordScrapper extends FakeSkoolScrapper {
         this.byKeyword[keyword] = result;
       }
     }
+  }
+
+  /** Lets a keyword that was set up to fail return its communities from now on */
+  public recover(keyword: string) {
+    delete this.discoverFailures[keyword];
+    this.byKeyword[keyword] = this.afterRecovery[keyword] ?? [];
   }
 
   public override async discover(query: {

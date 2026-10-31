@@ -25,9 +25,10 @@ const boot = async (
   db: DB,
   pool: Pool,
   byKeyword: Record<string, Community[] | Error>,
+  afterRecovery: Record<string, Community[]> = {},
 ) => {
   const context = createContext(db, pool, initENV());
-  const scrapper = new KeywordScrapper(byKeyword);
+  const scrapper = new KeywordScrapper(byKeyword, afterRecovery);
   context.skoolScrapper = scrapper;
   const discover = new ManualQueue<DiscoverJob>();
   context.queueHub.discover = discover;
@@ -201,6 +202,53 @@ test("a keyword that fails for good does not stop the others and is named on the
     expect(keywordRows.map((row) => [row.keyword, row.status]).sort()).toEqual([
       ["pilates", "failed"],
       ["yoga", "done"],
+    ]);
+  });
+});
+
+test("retrying a keyword that failed for good searches it again and adds its results to the finished run", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const { admin, discover, scrapper } = await boot(
+      db,
+      pool,
+      { yoga: [paidMonthly("alpha")], pilates: new Error("blocked") },
+      { pilates: [paidMonthly("beta"), paidMonthly("alpha")] },
+    );
+    const campaign = await insertCampaign(db, {
+      keywords: ["yoga", "pilates"],
+    });
+    await start(admin, campaign.campaignId);
+    const [yoga, pilates] = discover.added;
+    if (!yoga || !pilates) throw new Error("expected two discover jobs");
+    await discover.deliver(yoga);
+    await expect(discover.deliver(pilates, final)).rejects.toThrow("blocked");
+    expect(await runRows(db)).toMatchObject([
+      { status: "done", total: 1, processed: 1, error: expect.any(String) },
+    ]);
+
+    scrapper.recover("pilates");
+    await discover.deliver(pilates);
+
+    expect(await runRows(db)).toMatchObject([
+      {
+        status: "done",
+        itemsReady: true,
+        total: 2,
+        processed: 2,
+        failed: 0,
+        error: null,
+      },
+    ]);
+    const keywordRows = await db.select().from(pipelineRunKeywordsTable);
+    expect(
+      keywordRows.map((row) => [row.keyword, row.status, row.error]).sort(),
+    ).toEqual([
+      ["pilates", "done", null],
+      ["yoga", "done", null],
+    ]);
+    expect(scrapper.aboutCalls.toSorted()).toEqual([
+      `${SKOOL}/alpha`,
+      `${SKOOL}/beta`,
     ]);
   });
 });

@@ -2,7 +2,10 @@ import { publishPipelineChanged } from "./pipeline-events";
 import { PipelineProgressService } from "./pipeline-progress";
 import { BaseService } from "@server/lib/base-service";
 import type { Community as ScrapedCommunity } from "@server/lib/base-skool-scrapper";
-import type { CommunityInsert } from "@server/infrastructure/database/schemas";
+import type {
+  CommunityInsert,
+  PipelineRun,
+} from "@server/infrastructure/database/schemas";
 import type {
   DiscoverJob,
   ScrapeFilters,
@@ -62,7 +65,7 @@ export class ScrapeService extends BaseService {
     const settled = await this.context.repositories.transaction(
       async ({ tx }) => {
         const run = await tx.pipelineRun.lockByRunId({ runId });
-        if (!run || run.itemsReady || run.status === "failed") return null;
+        if (!run || run.status === "failed") return null;
         const keyword = await tx.pipelineRun.findKeyword({
           runId,
           keyword: input.search,
@@ -78,7 +81,7 @@ export class ScrapeService extends BaseService {
           keyword: input.search,
           status: "done",
         });
-        await this.settleRun(tx, runId);
+        await this.settleRun(tx, run);
 
         return { campaignId: run.campaignId, created: new Set(created) };
       },
@@ -102,7 +105,7 @@ export class ScrapeService extends BaseService {
     );
   }
 
-  // A retried job for a finished keyword only re-queues its unfinished items
+  // A retried job for a finished keyword only re-queues its unfinished items; a failed keyword is searched again
   private async resume(input: DiscoverJob, runId: number): Promise<boolean> {
     const { pipelineRun } = this.context.repositories;
     const run = await pipelineRun.findByRunId({ runId });
@@ -112,6 +115,7 @@ export class ScrapeService extends BaseService {
       runId,
       keyword: input.search,
     });
+    if (keyword?.status === "failed") return false;
     if (!run.itemsReady && keyword?.status !== "done") return false;
 
     const items = await pipelineRun.findItems({ runId });
@@ -125,7 +129,8 @@ export class ScrapeService extends BaseService {
     return true;
   }
 
-  private async settleRun(tx: Repositories, runId: number): Promise<void> {
+  private async settleRun(tx: Repositories, run: PipelineRun): Promise<void> {
+    const { runId } = run;
     const keywords = await tx.pipelineRun.findKeywords({ runId });
 
     if (keywords.some((keyword) => keyword.status === "pending")) {
@@ -145,15 +150,20 @@ export class ScrapeService extends BaseService {
       return;
     }
 
-    const items = await tx.pipelineRun.findItems({ runId });
-    await tx.pipelineRun.initializeItems({
-      runId,
-      total: items.length,
-      error:
-        failed.length > 0
-          ? `Search failed for ${reasons.join("; ")}`
-          : undefined,
-    });
+    const error =
+      failed.length > 0 ? `Search failed for ${reasons.join("; ")}` : undefined;
+
+    if (run.itemsReady) {
+      await tx.pipelineRun.syncTotal({ runId });
+      await tx.pipelineRun.setError({ runId, error: error ?? null });
+    } else {
+      const items = await tx.pipelineRun.findItems({ runId });
+      await tx.pipelineRun.initializeItems({
+        runId,
+        total: items.length,
+        error,
+      });
+    }
     await tx.pipelineRun.refreshProgress({ runId });
   }
 
@@ -180,7 +190,7 @@ export class ScrapeService extends BaseService {
           status: "failed",
           error: describeError(error),
         });
-        await this.settleRun(tx, runId);
+        await this.settleRun(tx, run);
 
         return run.campaignId;
       },
