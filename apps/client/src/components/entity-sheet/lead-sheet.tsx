@@ -7,6 +7,7 @@ import { onError } from "@/lib/base-api";
 import { formatDate, formatNumber } from "@/lib/format";
 import { invalidateLeadData } from "@/lib/invalidate";
 import { socialFields, socialLabels } from "@/lib/lead";
+import { LeadEmailStatusBadge } from "@/components/lead-email-status-badge";
 import { leadEmailSourceLabels } from "@/lib/lead-email";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button } from "@repo/ui/components/ui/button";
@@ -145,23 +146,29 @@ export const LeadSheet = ({ leadId, onClose }: LeadSheetProps) => {
                   <SheetField label="Emails">
                     {data.emails.length > 0 ? (
                       <ul className="space-y-1">
-                        {data.emails.map(({ emailId, address, source }) => (
-                          <li className="flex items-center gap-2" key={emailId}>
-                            <a
-                              className="min-w-0 break-all hover:underline"
-                              href={`mailto:${address}`}
+                        {data.emails.map(
+                          ({ emailId, address, source, status }) => (
+                            <li
+                              className="flex items-center gap-2"
+                              key={emailId}
                             >
-                              {address}
-                            </a>
-                            <Badge variant="outline">
-                              {leadEmailSourceLabels[source]}
-                            </Badge>
-                            <CopyButton
-                              label="Copy email address"
-                              value={address}
-                            />
-                          </li>
-                        ))}
+                              <a
+                                className="min-w-0 break-all hover:underline"
+                                href={`mailto:${address}`}
+                              >
+                                {address}
+                              </a>
+                              <Badge variant="outline">
+                                {leadEmailSourceLabels[source]}
+                              </Badge>
+                              <LeadEmailStatusBadge status={status} />
+                              <CopyButton
+                                label="Copy email address"
+                                value={address}
+                              />
+                            </li>
+                          ),
+                        )}
                       </ul>
                     ) : (
                       <span className="text-muted-foreground">

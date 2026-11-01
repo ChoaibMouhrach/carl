@@ -1,0 +1,1 @@
+ALTER TABLE "lead_emails" ADD COLUMN "status" text;

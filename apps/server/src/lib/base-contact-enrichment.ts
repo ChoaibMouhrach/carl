@@ -1,3 +1,5 @@
+import type { LeadEmailStatus } from "@repo/constants/lead-emails";
+
 export interface ContactEnrichmentInput {
   firstName: string;
   lastName: string;
@@ -8,7 +10,7 @@ export interface ContactEnrichmentInput {
 
 export interface ContactEmail {
   address: string;
-  status: string;
+  status: LeadEmailStatus;
 }
 
 export interface ContactEnrichmentResult {

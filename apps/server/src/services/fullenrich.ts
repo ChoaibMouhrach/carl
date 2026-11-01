@@ -55,11 +55,13 @@ export class FullEnrichService extends BaseService {
           leadId: lead.leadId,
           addresses: emails.workEmail ? [emails.workEmail.address] : [],
           source: "fullenrich-work",
+          status: emails.workEmail?.status,
         });
         await tx.leadEmail.addMany({
           leadId: lead.leadId,
           addresses: emails.personalEmail ? [emails.personalEmail.address] : [],
           source: "fullenrich-personal",
+          status: emails.personalEmail?.status,
         });
         return {
           leadId: lead.leadId,

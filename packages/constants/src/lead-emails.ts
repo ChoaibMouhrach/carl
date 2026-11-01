@@ -9,3 +9,12 @@ export const leadEmailSources = [
 ] as const;
 
 export type LeadEmailSource = (typeof leadEmailSources)[number];
+
+export const leadEmailStatuses = [
+  "deliverable",
+  "highProbability",
+  "catchAll",
+  "unknown",
+] as const;
+
+export type LeadEmailStatus = (typeof leadEmailStatuses)[number];

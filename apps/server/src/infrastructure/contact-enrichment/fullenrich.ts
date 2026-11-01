@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { LeadEmailStatus } from "@repo/constants/lead-emails";
 import {
   BaseContactEnrichment,
   ContactEnrichmentError,
@@ -16,6 +17,11 @@ const DEFAULT_INITIAL_DELAY_MS = 30_000;
 const DEFAULT_MAX_WAIT_MS = 300_000;
 const ENRICH_FIELDS = ["contact.work_emails", "contact.personal_emails"];
 const UNUSABLE_EMAIL_STATUSES = new Set(["INVALID", "INVALID_DOMAIN"]);
+const EMAIL_STATUSES: Record<string, LeadEmailStatus> = {
+  DELIVERABLE: "deliverable",
+  HIGH_PROBABILITY: "highProbability",
+  CATCH_ALL: "catchAll",
+};
 const IN_PROGRESS_CODE = "error.enrichment.in_progress";
 
 const errorBodySchema = z.object({
@@ -227,7 +233,10 @@ export class FullEnrichContactEnrichment extends BaseContactEnrichment {
 
     if (!candidate) return null;
 
-    return { address: candidate.email, status: candidate.status ?? "UNKNOWN" };
+    return {
+      address: candidate.email,
+      status: EMAIL_STATUSES[candidate.status ?? ""] ?? "unknown",
+    };
   }
 
   /** Returns null only when `keepPolling` is set and the enrichment is still running or rate limited. */

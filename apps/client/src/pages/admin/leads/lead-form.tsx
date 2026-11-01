@@ -4,7 +4,9 @@ import { skoolProfileUrl, socialFields, socialLabels } from "@/lib/lead";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   leadEmailSources,
+  leadEmailStatuses,
   type LeadEmailSource,
+  type LeadEmailStatus,
 } from "@repo/constants/lead-emails";
 import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
@@ -35,7 +37,11 @@ interface LeadFormProps {
   cancelAction: React.ReactNode;
   isPending: boolean;
   lead?: Omit<LeadFormValues, "emails"> & {
-    emails: { address: string; source: LeadEmailSource }[];
+    emails: {
+      address: string;
+      source: LeadEmailSource;
+      status: LeadEmailStatus | null;
+    }[];
   };
   onSubmit: (values: LeadFormValues) => Promise<unknown>;
 }
@@ -78,6 +84,7 @@ const schema = z.object({
             "Enter a valid email address",
           ),
         source: z.enum(leadEmailSources).nullable(),
+        status: z.enum(leadEmailStatuses).nullable(),
       }),
     )
     .max(20, "A lead can have at most 20 emails"),

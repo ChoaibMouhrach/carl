@@ -1,4 +1,5 @@
 import { CustomInput } from "@/components/custom-input";
+import { LeadEmailStatusBadge } from "@/components/lead-email-status-badge";
 import { Tip } from "@/components/tip";
 import { leadEmailSourceLabels } from "@/lib/lead-email";
 import { Badge } from "@repo/ui/components/ui/badge";
@@ -45,6 +46,7 @@ export const LeadFormEmails = ({ control, errors }: LeadFormEmailsProps) => {
                     {leadEmailSourceLabels[item.source]}
                   </Badge>
                 )}
+                <LeadEmailStatusBadge status={item.status} />
                 <Tip
                   label="Remove this email"
                   render={
@@ -70,7 +72,7 @@ export const LeadFormEmails = ({ control, errors }: LeadFormEmailsProps) => {
         label="Add another email address"
         render={
           <Button
-            onClick={() => append({ address: "", source: null })}
+            onClick={() => append({ address: "", source: null, status: null })}
             type="button"
             variant="outline"
           />

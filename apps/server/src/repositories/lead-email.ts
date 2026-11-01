@@ -1,5 +1,8 @@
 import { and, asc, eq, inArray, notInArray } from "drizzle-orm";
-import type { LeadEmailSource } from "@repo/constants/lead-emails";
+import type {
+  LeadEmailSource,
+  LeadEmailStatus,
+} from "@repo/constants/lead-emails";
 import {
   leadEmailsTable,
   type LeadEmail,
@@ -14,6 +17,7 @@ export class LeadEmailRepository extends BaseRepository {
     leadId: number;
     addresses: string[];
     source: LeadEmailSource;
+    status?: LeadEmailStatus;
   }): Promise<void> {
     const addresses = [
       ...new Set(
@@ -30,6 +34,7 @@ export class LeadEmailRepository extends BaseRepository {
           leadId: input.leadId,
           address,
           source: input.source,
+          status: input.status ?? null,
         })),
       )
       .onConflictDoNothing();
