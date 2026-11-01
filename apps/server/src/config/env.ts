@@ -60,6 +60,10 @@ const baseSchema = z.object({
   FULLENRICH_API_KEY: optional(z.string().nonempty()),
   FULLENRICH_CONCURRENCY: z.coerce.number().int().positive().default(2),
 
+  // Email verification (Apify) — optional, emails are not verified without it
+  APIFY_TOKEN: optional(z.string().nonempty()),
+  VERIFY_CONCURRENCY: z.coerce.number().int().positive().default(3),
+
   // Mail
   RESEND_API_KEY: z.string().nonempty(),
   MAIL_DOMAIN: z.string().nonempty(),

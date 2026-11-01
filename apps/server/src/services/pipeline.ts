@@ -32,22 +32,26 @@ export class PipelineService extends BaseService {
 
     const { pipelineRun, lead } = this.context.repositories;
 
-    const [scrape, enrich, website, fullenrich, funnel] = await Promise.all([
-      pipelineRun.findLatest({ ...where, step: "scrape" }),
-      pipelineRun.findLatest({ ...where, step: "enrich" }),
-      pipelineRun.findLatest({ ...where, step: "website" }),
-      pipelineRun.findLatest({ ...where, step: "fullenrich" }),
-      lead.findFunnel(where),
-    ]);
+    const [scrape, enrich, website, fullenrich, verify, funnel] =
+      await Promise.all([
+        pipelineRun.findLatest({ ...where, step: "scrape" }),
+        pipelineRun.findLatest({ ...where, step: "enrich" }),
+        pipelineRun.findLatest({ ...where, step: "website" }),
+        pipelineRun.findLatest({ ...where, step: "fullenrich" }),
+        pipelineRun.findLatest({ ...where, step: "verify" }),
+        lead.findFunnel(where),
+      ]);
 
     return {
       scrape,
       enrich,
       website,
       fullenrich,
+      verify,
       funnel,
       enrichmentAvailable: this.context.webSearch.isAvailable,
       emailEnrichmentAvailable: this.context.contactEnrichment.isAvailable,
+      emailVerificationAvailable: this.context.emailVerifier.isAvailable,
     };
   }
 
@@ -205,6 +209,31 @@ export class PipelineService extends BaseService {
         await this.context.queueHub.fullenrich.add(
           { type: "fullenrich-lead", runId, leadId },
           { idempotencyKey: `fullenrich-${runId}-${leadId}` },
+        ),
+    });
+  }
+
+  public async startVerify(
+    where: { campaignId: number },
+    options: { includeProcessed: boolean },
+  ): Promise<PipelineRun> {
+    await this.requireCampaign(where);
+
+    if (!this.context.emailVerifier.isAvailable) {
+      throw new BadRequestError({
+        message: "Email verification is not configured.",
+        code: "emailVerificationUnavailable",
+      });
+    }
+
+    return await this.startLeadRun({
+      ...where,
+      step: "verify",
+      includeProcessed: options.includeProcessed,
+      enqueue: async ({ runId, leadId }) =>
+        await this.context.queueHub.verify.add(
+          { type: "verify-lead", runId, leadId },
+          { idempotencyKey: `verify-${runId}-${leadId}` },
         ),
     });
   }

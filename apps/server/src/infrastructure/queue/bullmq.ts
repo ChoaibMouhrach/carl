@@ -10,6 +10,7 @@ import {
   type EmailJob,
   type EnrichJob,
   type FullEnrichJob,
+  type VerifyJob,
   type ListFailedInput,
   type ListFailedResult,
   type MaintenanceJob,
@@ -48,6 +49,12 @@ const fullenrichJobName = "run";
 // A retry starts a fresh paid FullEnrich job, so retry rarely and slowly.
 const fullenrichAttempts = 3;
 const fullenrichBackoffDelayMs = 30_000;
+
+const verifyQueueName = "verify";
+const verifyJobName = "run";
+// A retry starts another paid Apify run, so retry rarely and slowly.
+const verifyAttempts = 3;
+const verifyBackoffDelayMs = 30_000;
 
 const FAILED_JOB_RETENTION_SECONDS = 60 * 60 * 24 * 7;
 const FAILED_JOB_RETENTION_COUNT = 5_000;
@@ -401,12 +408,32 @@ export class FullEnrichQueue extends BullQueue<FullEnrichJob> {
   }
 }
 
+interface VerifyQueueInit {
+  concurrency: number;
+  errorMonitor: BaseErrorMonitor;
+  logger: BaseLogger;
+  redisUrl: string;
+}
+
+export class VerifyQueue extends BullQueue<VerifyJob> {
+  public constructor(init: VerifyQueueInit) {
+    super({
+      ...init,
+      attempts: verifyAttempts,
+      backoffDelayMs: verifyBackoffDelayMs,
+      jobName: verifyJobName,
+      name: verifyQueueName,
+    });
+  }
+}
+
 interface QueueHubInit extends EmailQueueInit {
   discoverConcurrency: number;
   scrapeConcurrency: number;
   enrichConcurrency: number;
   websiteConcurrency: number;
   fullenrichConcurrency: number;
+  verifyConcurrency: number;
 }
 
 export class QueueHub extends BaseQueueHub {
@@ -417,6 +444,7 @@ export class QueueHub extends BaseQueueHub {
   public enrich: EnrichQueue;
   public website: WebsiteQueue;
   public fullenrich: FullEnrichQueue;
+  public verify: VerifyQueue;
 
   public constructor(init: QueueHubInit) {
     super();
@@ -451,6 +479,12 @@ export class QueueHub extends BaseQueueHub {
       logger: init.logger,
       redisUrl: init.redisUrl,
     });
+    this.verify = new VerifyQueue({
+      concurrency: init.verifyConcurrency,
+      errorMonitor: init.errorMonitor,
+      logger: init.logger,
+      redisUrl: init.redisUrl,
+    });
     this.maintenance = new MaintenanceQueue({
       errorMonitor: init.errorMonitor,
       logger: init.logger,
@@ -467,6 +501,7 @@ export class QueueHub extends BaseQueueHub {
       { name: enrichQueueName, queue: this.enrich },
       { name: websiteQueueName, queue: this.website },
       { name: fullenrichQueueName, queue: this.fullenrich },
+      { name: verifyQueueName, queue: this.verify },
     ];
   }
 
@@ -478,5 +513,6 @@ export class QueueHub extends BaseQueueHub {
     await this.enrich.close();
     await this.website.close();
     await this.fullenrich.close();
+    await this.verify.close();
   }
 }

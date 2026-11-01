@@ -5,8 +5,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   leadEmailSources,
   leadEmailStatuses,
+  leadEmailVerifications,
   type LeadEmailSource,
   type LeadEmailStatus,
+  type LeadEmailVerification,
 } from "@repo/constants/lead-emails";
 import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardContent } from "@repo/ui/components/ui/card";
@@ -41,6 +43,7 @@ interface LeadFormProps {
       address: string;
       source: LeadEmailSource;
       status: LeadEmailStatus | null;
+      verification: LeadEmailVerification | null;
     }[];
   };
   onSubmit: (values: LeadFormValues) => Promise<unknown>;
@@ -85,6 +88,7 @@ const schema = z.object({
           ),
         source: z.enum(leadEmailSources).nullable(),
         status: z.enum(leadEmailStatuses).nullable(),
+        verification: z.enum(leadEmailVerifications).nullable(),
       }),
     )
     .max(20, "A lead can have at most 20 emails"),

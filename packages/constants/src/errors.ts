@@ -22,6 +22,7 @@ export const serverErrorCodes = [
   "enrichmentUnavailable",
   "enrichRequired",
   "emailEnrichmentUnavailable",
+  "emailVerificationUnavailable",
 ] as const;
 
 export type ServerErrorCode = (typeof serverErrorCodes)[number];

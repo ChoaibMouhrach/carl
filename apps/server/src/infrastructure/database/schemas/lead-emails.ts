@@ -1,8 +1,16 @@
 import { relations } from "drizzle-orm";
-import { index, integer, pgTable, text, unique } from "drizzle-orm/pg-core";
+import {
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+} from "drizzle-orm/pg-core";
 import {
   leadEmailSources,
   leadEmailStatuses,
+  leadEmailVerifications,
 } from "@repo/constants/lead-emails";
 import { id, timestamps } from "../utils";
 import { leadsTable } from "./leads";
@@ -21,6 +29,8 @@ export const leadEmailsTable = pgTable(
     address: text().notNull(),
     source: text({ enum: leadEmailSources }).notNull(),
     status: text({ enum: leadEmailStatuses }),
+    verification: text({ enum: leadEmailVerifications }),
+    verifiedAt: timestamp(),
 
     // -- timestamps
     ...timestamps(),

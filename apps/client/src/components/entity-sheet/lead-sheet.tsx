@@ -8,6 +8,7 @@ import { formatDate, formatNumber } from "@/lib/format";
 import { invalidateLeadData } from "@/lib/invalidate";
 import { socialFields, socialLabels } from "@/lib/lead";
 import { LeadEmailStatusBadge } from "@/components/lead-email-status-badge";
+import { LeadEmailVerificationBadge } from "@/components/lead-email-verification-badge";
 import { leadEmailSourceLabels } from "@/lib/lead-email";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button } from "@repo/ui/components/ui/button";
@@ -147,7 +148,13 @@ export const LeadSheet = ({ leadId, onClose }: LeadSheetProps) => {
                     {data.emails.length > 0 ? (
                       <ul className="space-y-1">
                         {data.emails.map(
-                          ({ emailId, address, source, status }) => (
+                          ({
+                            emailId,
+                            address,
+                            source,
+                            status,
+                            verification,
+                          }) => (
                             <li
                               className="flex items-center gap-2"
                               key={emailId}
@@ -162,6 +169,9 @@ export const LeadSheet = ({ leadId, onClose }: LeadSheetProps) => {
                                 {leadEmailSourceLabels[source]}
                               </Badge>
                               <LeadEmailStatusBadge status={status} />
+                              <LeadEmailVerificationBadge
+                                verification={verification}
+                              />
                               <CopyButton
                                 label="Copy email address"
                                 value={address}

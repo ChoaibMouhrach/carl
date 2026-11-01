@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, notInArray } from "drizzle-orm";
 import type {
   LeadEmailSource,
   LeadEmailStatus,
+  LeadEmailVerification,
 } from "@repo/constants/lead-emails";
 import {
   leadEmailsTable,
@@ -38,6 +39,29 @@ export class LeadEmailRepository extends BaseRepository {
         })),
       )
       .onConflictDoNothing();
+  }
+
+  public async recordVerifications(input: {
+    leadId: number;
+    results: { address: string; verification: LeadEmailVerification }[];
+    verifiedAt: Date;
+  }): Promise<void> {
+    const table = LeadEmailRepository.table;
+
+    for (const result of input.results) {
+      await this.db
+        .update(table)
+        .set({
+          verification: result.verification,
+          verifiedAt: input.verifiedAt,
+        })
+        .where(
+          and(
+            eq(table.leadId, input.leadId),
+            eq(table.address, result.address.trim().toLowerCase()),
+          ),
+        );
+    }
   }
 
   public async removeExcept(input: {

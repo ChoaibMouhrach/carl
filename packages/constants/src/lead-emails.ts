@@ -18,3 +18,12 @@ export const leadEmailStatuses = [
 ] as const;
 
 export type LeadEmailStatus = (typeof leadEmailStatuses)[number];
+
+export const leadEmailVerifications = [
+  "valid",
+  "risky",
+  "invalid",
+  "unknown",
+] as const;
+
+export type LeadEmailVerification = (typeof leadEmailVerifications)[number];

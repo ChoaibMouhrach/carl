@@ -27,7 +27,7 @@ import {
 import { BaseRepository } from "@server/lib/base-repository";
 import { escapeLike } from "@server/lib/utils";
 
-export type EligibleStep = "enrich" | "website" | "fullenrich";
+export type EligibleStep = "enrich" | "website" | "fullenrich" | "verify";
 
 export interface LeadFunnel {
   scraped: number;
@@ -185,9 +185,11 @@ export class LeadRepository extends BaseRepository {
         enrich: eligible("enrich", false),
         website: eligible("website", false),
         fullenrich: eligible("fullenrich", false),
+        verify: eligible("verify", false),
         enrichWithProcessed: eligible("enrich", true),
         websiteWithProcessed: eligible("website", true),
         fullenrichWithProcessed: eligible("fullenrich", true),
+        verifyWithProcessed: eligible("verify", true),
       })
       .from(LeadRepository.table)
       .innerJoin(
@@ -210,11 +212,13 @@ export class LeadRepository extends BaseRepository {
         enrich: row?.enrich ?? 0,
         website: row?.website ?? 0,
         fullenrich: row?.fullenrich ?? 0,
+        verify: row?.verify ?? 0,
       },
       eligibleWithProcessed: {
         enrich: row?.enrichWithProcessed ?? 0,
         website: row?.websiteWithProcessed ?? 0,
         fullenrich: row?.fullenrichWithProcessed ?? 0,
+        verify: row?.verifyWithProcessed ?? 0,
       },
     };
   }
@@ -284,6 +288,10 @@ export class LeadRepository extends BaseRepository {
           not(this.hasEmailMatching()),
           unprocessed(table.emailEnrichedAt),
         )!;
+      case "verify":
+        return this.hasEmailMatching(
+          includeProcessed ? undefined : isNull(leadEmailsTable.verifiedAt),
+        );
     }
   }
 

@@ -30,4 +30,6 @@ export const serverErrorMessages: Record<ServerErrorCode, string> = {
     "Finish a lead enrichment run before looking up emails for its leads.",
   emailEnrichmentUnavailable:
     "Email enrichment isn't configured. Set FULLENRICH_API_KEY on the server.",
+  emailVerificationUnavailable:
+    "Email verification isn't configured. Set APIFY_TOKEN on the server.",
 };

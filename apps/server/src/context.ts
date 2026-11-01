@@ -26,6 +26,12 @@ import { DisabledWebSearch } from "./infrastructure/web-search/disabled";
 import type { BaseWebPageFetcher } from "./lib/base-web-page-fetcher";
 import { HttpWebPageFetcher } from "./infrastructure/web-page-fetcher/http";
 import type { BaseContactEnrichment } from "./lib/base-contact-enrichment";
+import {
+  ApifyActorRunner,
+  ApifyEmailVerifier,
+} from "./infrastructure/email-verifier/apify";
+import { DisabledEmailVerifier } from "./infrastructure/email-verifier/disabled";
+import type { BaseEmailVerifier } from "./lib/base-email-verifier";
 import { FullEnrichContactEnrichment } from "./infrastructure/contact-enrichment/fullenrich";
 import { DisabledContactEnrichment } from "./infrastructure/contact-enrichment/disabled";
 
@@ -81,6 +87,7 @@ export const initContext = async () => {
     enrichConcurrency: env.ENRICH_CONCURRENCY,
     websiteConcurrency: env.WEBSITE_CONCURRENCY,
     fullenrichConcurrency: env.FULLENRICH_CONCURRENCY,
+    verifyConcurrency: env.VERIFY_CONCURRENCY,
     errorMonitor,
     logger,
     redisUrl: env.REDIS_CONNECTION_STRING,
@@ -112,6 +119,12 @@ export const initContext = async () => {
     ? new FullEnrichContactEnrichment({ apiKey: env.FULLENRICH_API_KEY })
     : new DisabledContactEnrichment();
 
+  const emailVerifier: BaseEmailVerifier = env.APIFY_TOKEN
+    ? new ApifyEmailVerifier({
+        runner: new ApifyActorRunner({ token: env.APIFY_TOKEN }),
+      })
+    : new DisabledEmailVerifier();
+
   const auth = createAuth({ db: dbConnection.db, env, queueHub });
 
   return {
@@ -128,6 +141,7 @@ export const initContext = async () => {
     webSearch,
     webPageFetcher,
     contactEnrichment,
+    emailVerifier,
   };
 };
 

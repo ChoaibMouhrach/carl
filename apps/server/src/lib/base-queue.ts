@@ -45,6 +45,12 @@ export type FullEnrichJob = {
   leadId: number;
 };
 
+export type VerifyJob = {
+  type: "verify-lead";
+  runId: number;
+  leadId: number;
+};
+
 /** A job that retrying cannot fix; the queue fails it for good instead of retrying */
 export class NonRetryableJobError extends Error {
   public constructor(message: string, options?: { cause?: unknown }) {
@@ -139,6 +145,7 @@ export abstract class BaseQueueHub {
   public abstract enrich: BaseQueue<EnrichJob>;
   public abstract website: BaseQueue<WebsiteJob>;
   public abstract fullenrich: BaseQueue<FullEnrichJob>;
+  public abstract verify: BaseQueue<VerifyJob>;
 
   public abstract queues(): RegisteredQueue[];
 

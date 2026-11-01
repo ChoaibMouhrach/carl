@@ -85,6 +85,13 @@
       "when": 1793535992420,
       "tag": "0011_lead_email_status",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793538704841,
+      "tag": "0012_lead_email_verification",
+      "breakpoints": true
     }
   ]
 }

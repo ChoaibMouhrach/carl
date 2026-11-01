@@ -43,6 +43,7 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
     pipeline.data?.enrich,
     pipeline.data?.website,
     pipeline.data?.fullenrich,
+    pipeline.data?.verify,
   ]);
   const previousRevision = useRef(revision);
 
@@ -91,6 +92,13 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
     onSuccess: refreshPipeline,
   });
 
+  const startVerify = useMutation({
+    mutationFn: () =>
+      api.campaign.startVerify({ campaignId }, { includeProcessed }),
+    onError,
+    onSuccess: refreshPipeline,
+  });
+
   const selectStage = (next: LeadStage | undefined) =>
     routeNavigate({
       search: (current) => ({ ...current, stage: next, page: 1 }),
@@ -105,8 +113,8 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
           ))}
         </div>
         <Skeleton className="h-6 w-64" />
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 4 }, (_, index) => (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {Array.from({ length: 5 }, (_, index) => (
             <Skeleton className="h-36" key={index} />
           ))}
         </div>
@@ -150,7 +158,7 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
           Include leads a step already tried
         </Label>
       </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <StepCard
           actionLabel={state.scrape ? "Run again" : "Run scrape"}
           badge="Adds leads"
@@ -217,6 +225,24 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
           run={state.fullenrich}
           runningLabel="Starting…"
           title="4. FullEnrich"
+          unit="leads"
+        />
+        <StepCard
+          actionLabel={`Run on ${eligible.verify}`}
+          badge={`${eligible.verify} eligible`}
+          blockedReason={
+            !state.emailVerificationAvailable
+              ? "Set APIFY_TOKEN on the server to enable email verification"
+              : eligible.verify === 0
+                ? "No lead has an email that still needs checking"
+                : undefined
+          }
+          isStarting={startVerify.isPending}
+          onRun={() => startVerify.mutate()}
+          rule="Paid, about $0.001 per email. Checks that each stored email can receive mail, so you do not send to addresses that bounce."
+          run={state.verify}
+          runningLabel="Starting…"
+          title="5. Verify"
           unit="leads"
         />
       </div>

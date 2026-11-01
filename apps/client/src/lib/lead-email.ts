@@ -1,6 +1,7 @@
 import type {
   LeadEmailSource,
   LeadEmailStatus,
+  LeadEmailVerification,
 } from "@repo/constants/lead-emails";
 
 export const leadEmailSourceLabels: Record<LeadEmailSource, string> = {
@@ -27,5 +28,25 @@ export const leadEmailStatusVariants: Record<
   deliverable: "default",
   highProbability: "secondary",
   catchAll: "outline",
+  unknown: "outline",
+};
+
+export const leadEmailVerificationLabels: Record<
+  LeadEmailVerification,
+  string
+> = {
+  valid: "Verified",
+  risky: "Risky",
+  invalid: "Invalid",
+  unknown: "Unknown",
+};
+
+export const leadEmailVerificationVariants: Record<
+  LeadEmailVerification,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
+  valid: "default",
+  risky: "secondary",
+  invalid: "destructive",
   unknown: "outline",
 };

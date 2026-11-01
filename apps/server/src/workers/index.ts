@@ -6,6 +6,7 @@ import { DiscoverWorker } from "./discover";
 import { ScrapeWorker } from "./scrape";
 import { EnrichWorker } from "./enrich";
 import { FullEnrichWorker } from "./fullenrich";
+import { VerifyWorker } from "./verify";
 import { WebsiteWorker } from "./website";
 
 export class Workers {
@@ -20,6 +21,7 @@ export class Workers {
       new EnrichWorker({ context: init.context }),
       new WebsiteWorker({ context: init.context }),
       new FullEnrichWorker({ context: init.context }),
+      new VerifyWorker({ context: init.context }),
     ];
 
     await Promise.all(this.workers.map(async (worker) => await worker.run()));
