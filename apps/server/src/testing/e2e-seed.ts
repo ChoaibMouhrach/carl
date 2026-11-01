@@ -1,7 +1,10 @@
 import { and, asc, desc, eq, like } from "drizzle-orm";
 import { hashPassword, makeSignature, signJWT } from "better-auth/crypto";
 import IORedis from "ioredis";
-import type { LeadEmailSource } from "@repo/constants/lead-emails";
+import type {
+  LeadEmailSource,
+  LeadEmailStatus,
+} from "@repo/constants/lead-emails";
 import { initDB, type DB } from "../infrastructure/database/client";
 import { RedisPubSubHub } from "../infrastructure/pubsub/redis";
 import { pipelineTopic } from "../lib/base-pubsub";
@@ -391,11 +394,17 @@ export const ageSessions = async (
       .where(eq(sessionTable.userId, userId));
   });
 
+export interface SeedEmail {
+  address: string;
+  source: LeadEmailSource;
+  status?: LeadEmailStatus;
+}
+
 export interface SeedLeadInput {
   name: string;
   username: string;
   email?: string | null;
-  emails?: { address: string; source: LeadEmailSource }[];
+  emails?: SeedEmail[];
   bio?: string | null;
   pictureUrl?: string | null;
   website?: string | null;
@@ -427,7 +436,7 @@ export const createLead = async (config: SeedConfig, input: SeedLeadInput) =>
       throw new Error(`could not create lead ${input.username}`);
     }
 
-    const emails: { address: string; source: LeadEmailSource }[] = [];
+    const emails: SeedEmail[] = [];
     if (input.email) {
       emails.push({ address: input.email, source: "unknown" });
     }
@@ -445,7 +454,7 @@ export const addLeadEmails = async (
   config: SeedConfig,
   input: {
     leadId: number;
-    emails: { address: string; source: LeadEmailSource }[];
+    emails: SeedEmail[];
   },
 ) =>
   withDb(config, async (db) => {
@@ -535,6 +544,7 @@ export const findLeadByUsername = async (
       .select({
         address: leadEmailsTable.address,
         source: leadEmailsTable.source,
+        status: leadEmailsTable.status,
       })
       .from(leadEmailsTable)
       .where(eq(leadEmailsTable.leadId, lead.leadId))

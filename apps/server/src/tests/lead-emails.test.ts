@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
 import {
   leadEmailsTable,
   leadsTable,
@@ -113,5 +114,53 @@ test("a lead update rejects more than twenty emails without persisting field or 
     expect(response.status).toBe(400);
     expect(await db.select().from(leadsTable)).toEqual(before);
     expect(await db.select().from(leadEmailsTable)).toEqual([]);
+  });
+});
+
+test("adding an address that already exists never changes its stored status or source, and a new one takes the status it is given", async () => {
+  await withTestDatabase(async ({ context, db }) => {
+    const lead = await context.repositories.lead.create({
+      name: "Ann",
+      username: "ann",
+      skoolUrl: "https://www.skool.com/@ann",
+    });
+    const { leadEmail } = context.repositories;
+
+    await leadEmail.addMany({
+      leadId: lead.leadId,
+      addresses: ["ann@coach.com"],
+      source: "fullenrich-work",
+      status: "deliverable",
+    });
+    await leadEmail.addMany({
+      leadId: lead.leadId,
+      addresses: ["ANN@coach.com", "other@coach.com"],
+      source: "website",
+      status: "catchAll",
+    });
+    await leadEmail.addMany({
+      leadId: lead.leadId,
+      addresses: ["plain@coach.com"],
+      source: "manual",
+    });
+
+    const stored = await db
+      .select({
+        address: leadEmailsTable.address,
+        source: leadEmailsTable.source,
+        status: leadEmailsTable.status,
+      })
+      .from(leadEmailsTable)
+      .where(eq(leadEmailsTable.leadId, lead.leadId))
+      .orderBy(leadEmailsTable.emailId);
+    expect(stored).toEqual([
+      {
+        address: "ann@coach.com",
+        source: "fullenrich-work",
+        status: "deliverable",
+      },
+      { address: "other@coach.com", source: "website", status: "catchAll" },
+      { address: "plain@coach.com", source: "manual", status: null },
+    ]);
   });
 });

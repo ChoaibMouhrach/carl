@@ -6,6 +6,7 @@ import { initENV } from "@server/config/env";
 import type { DB } from "@server/infrastructure/database/client";
 import {
   communitiesTable,
+  leadEmailsTable,
   leadsTable,
   type LeadInsert,
 } from "@server/infrastructure/database/schemas";
@@ -30,7 +31,13 @@ const listSchema = z.object({
   leads: z.array(
     leadSchema.extend({
       communitiesCount: z.number(),
-      emails: z.array(z.object({ address: z.string(), source: z.string() })),
+      emails: z.array(
+        z.object({
+          address: z.string(),
+          source: z.string(),
+          status: z.string().nullable(),
+        }),
+      ),
     }),
   ),
   meta: z.object({
@@ -76,6 +83,17 @@ const boot = async (db: DB, pool: Parameters<typeof createContext>[1]) => {
 };
 
 const leadRows = async (db: DB) => await db.select().from(leadsTable);
+
+const emailStatuses = async (db: DB, leadId: number) =>
+  await db
+    .select({
+      address: leadEmailsTable.address,
+      source: leadEmailsTable.source,
+      status: leadEmailsTable.status,
+    })
+    .from(leadEmailsTable)
+    .where(eq(leadEmailsTable.leadId, leadId))
+    .orderBy(leadEmailsTable.emailId);
 
 test("every lead route refuses anonymous and non-admin callers and changes nothing", async () => {
   await withTestDatabase(async ({ db, pool }) => {
@@ -468,7 +486,14 @@ for (const { name, emails } of refusedEmailUpdates) {
         addresses: ["//www.tiktok.com/@linktr.ee"],
         source: "website",
       });
+      await context.repositories.leadEmail.addMany({
+        leadId: ann.leadId,
+        addresses: ["checked@example.com"],
+        source: "fullenrich-work",
+        status: "highProbability",
+      });
       const before = await leadEmailRows(db, ann.leadId);
+      const statusesBefore = await emailStatuses(db, ann.leadId);
 
       const response = await admin.patch(`/api/leads/${ann.leadId}`, {
         emails,
@@ -477,6 +502,7 @@ for (const { name, emails } of refusedEmailUpdates) {
       // Schema validation rejects before the service runs, so nothing can have been written
       expect(response.status).toBe(400);
       expect(await leadEmailRows(db, ann.leadId)).toEqual(before);
+      expect(await emailStatuses(db, ann.leadId)).toEqual(statusesBefore);
     });
   });
 }
@@ -770,5 +796,127 @@ test("bulk deleting the largest allowed batch removes all of it and only it", as
     expect(
       (await db.select().from(communitiesTable)).map((row) => row.name),
     ).toEqual(["stays"]);
+  });
+});
+
+const seedCheckedEmails = async (
+  context: ReturnType<typeof createContext>,
+  leadId: number,
+) => {
+  const { leadEmail } = context.repositories;
+  await leadEmail.addMany({
+    leadId,
+    addresses: ["work@example.com"],
+    source: "fullenrich-work",
+    status: "deliverable",
+  });
+  await leadEmail.addMany({
+    leadId,
+    addresses: ["personal@example.com"],
+    source: "fullenrich-personal",
+    status: "catchAll",
+  });
+  await leadEmail.addMany({
+    leadId,
+    addresses: ["site@example.com"],
+    source: "website",
+  });
+};
+
+test("the list and a single lead return each email's status, and null where none was recorded", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const { context, admin } = await boot(db, pool);
+    const ann = await createLead(context, newLead("ann", { emails: [] }));
+    await seedCheckedEmails(context, ann.leadId);
+    const expected = [
+      {
+        address: "work@example.com",
+        source: "fullenrich-work",
+        status: "deliverable",
+      },
+      {
+        address: "personal@example.com",
+        source: "fullenrich-personal",
+        status: "catchAll",
+      },
+      { address: "site@example.com", source: "website", status: null },
+    ];
+
+    const list = listSchema.parse(await (await admin.get("/api/leads")).json());
+    const detail = leadSchema
+      .extend({ emails: listSchema.shape.leads.element.shape.emails })
+      .parse(await (await admin.get(`/api/leads/${ann.leadId}`)).json());
+
+    expect(list.leads.map((lead) => lead.emails)).toEqual([expected]);
+    expect(detail.emails).toEqual(expected);
+    expect(await emailStatuses(db, ann.leadId)).toEqual(expected);
+  });
+});
+
+test("editing a lead keeps the status of every email it keeps, gives a typed one none and drops the rest", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const { context, admin } = await boot(db, pool);
+    const ann = await createLead(context, newLead("ann", { emails: [] }));
+    await seedCheckedEmails(context, ann.leadId);
+
+    const renamed = await admin.patch(`/api/leads/${ann.leadId}`, {
+      name: "Ann Renamed",
+    });
+    expect(renamed.status).toBe(200);
+    expect(await emailStatuses(db, ann.leadId)).toEqual([
+      {
+        address: "work@example.com",
+        source: "fullenrich-work",
+        status: "deliverable",
+      },
+      {
+        address: "personal@example.com",
+        source: "fullenrich-personal",
+        status: "catchAll",
+      },
+      { address: "site@example.com", source: "website", status: null },
+    ]);
+
+    const replaced = await admin.patch(`/api/leads/${ann.leadId}`, {
+      emails: ["Work@Example.com", "typed@example.com"],
+    });
+    expect(replaced.status).toBe(200);
+    expect(await emailStatuses(db, ann.leadId)).toEqual([
+      {
+        address: "work@example.com",
+        source: "fullenrich-work",
+        status: "deliverable",
+      },
+      { address: "typed@example.com", source: "manual", status: null },
+    ]);
+
+    const cleared = await admin.patch(`/api/leads/${ann.leadId}`, {
+      emails: [],
+    });
+    expect(cleared.status).toBe(200);
+    expect(await emailStatuses(db, ann.leadId)).toEqual([]);
+  });
+});
+
+test("typing another lead's address in a different case gives this lead its own email with no status", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const { context, admin } = await boot(db, pool);
+    const ann = await createLead(context, newLead("ann", { emails: [] }));
+    const bob = await createLead(context, newLead("bob", { emails: [] }));
+    await seedCheckedEmails(context, ann.leadId);
+
+    const response = await admin.patch(`/api/leads/${bob.leadId}`, {
+      emails: ["WORK@example.com"],
+    });
+
+    expect(response.status).toBe(200);
+    expect(await emailStatuses(db, bob.leadId)).toEqual([
+      { address: "work@example.com", source: "manual", status: null },
+    ]);
+    expect(await emailStatuses(db, ann.leadId)).toContainEqual({
+      address: "work@example.com",
+      source: "fullenrich-work",
+      status: "deliverable",
+    });
   });
 });

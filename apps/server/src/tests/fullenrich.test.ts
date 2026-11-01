@@ -5,6 +5,7 @@ import { initENV } from "@server/config/env";
 import type { DB } from "@server/infrastructure/database/client";
 import { FullEnrichContactEnrichment } from "@server/infrastructure/contact-enrichment/fullenrich";
 import {
+  leadEmailsTable,
   leadsTable,
   pipelineItemsTable,
   pipelineRunsTable,
@@ -23,6 +24,7 @@ import {
 } from "@server/lib/base-queue";
 import { FullEnrichWorker } from "@server/workers/fullenrich";
 import { createContext } from "./helpers/context";
+import { finishedContact, withFullEnrichApi } from "./helpers/fullenrich-api";
 import { withTestDatabase } from "./helpers/http";
 import {
   FakeContactEnrichment,
@@ -39,7 +41,7 @@ const SKOOL = "https://www.skool.com";
 
 const email = (address: string): ContactEmail => ({
   address,
-  status: "DELIVERABLE",
+  status: "deliverable",
 });
 
 const noEmails: ContactEnrichmentResult = {
@@ -108,6 +110,16 @@ const leadRow = async (db: DB, leadId: number) => {
   return row;
 };
 
+const leadEmailStatuses = async (db: DB, leadId: number) =>
+  await db
+    .select({
+      address: leadEmailsTable.address,
+      status: leadEmailsTable.status,
+    })
+    .from(leadEmailsTable)
+    .where(eq(leadEmailsTable.leadId, leadId))
+    .orderBy(leadEmailsTable.emailId);
+
 const runRow = async (db: DB, runId: number) => {
   const [row] = await db
     .select()
@@ -163,6 +175,10 @@ test("a lead's work and personal emails are added to the lead, and the run finis
     expect(await leadEmailRows(db, lead.leadId)).toEqual([
       { address: "ann@anncoach.com", source: "fullenrich-work" },
       { address: "ann@gmail.com", source: "fullenrich-personal" },
+    ]);
+    expect(await leadEmailStatuses(db, lead.leadId)).toEqual([
+      { address: "ann@anncoach.com", status: "deliverable" },
+      { address: "ann@gmail.com", status: "deliverable" },
     ]);
     expect(stored.emailEnrichedAt).toBeInstanceOf(Date);
     expect(await itemRow(db, run.runId, lead.leadId)).toMatchObject({
@@ -290,6 +306,7 @@ test("a lead that already has emails is finished without calling the paid provid
       leadId: lead.leadId,
       addresses: ["old@work.com"],
       source: "fullenrich-work",
+      status: "catchAll",
     });
 
     await queue.deliver(job);
@@ -297,6 +314,9 @@ test("a lead that already has emails is finished without calling the paid provid
     expect(fake.inputs).toEqual([]);
     expect(await leadEmailRows(db, lead.leadId)).toEqual([
       { address: "old@work.com", source: "fullenrich-work" },
+    ]);
+    expect(await leadEmailStatuses(db, lead.leadId)).toEqual([
+      { address: "old@work.com", status: "catchAll" },
     ]);
     expect((await leadRow(db, lead.leadId)).emailEnrichedAt).toBeNull();
     expect(await runRows(db)).toMatchObject([
@@ -524,5 +544,163 @@ test("a run with found, failed and empty leads ends done once every lead is acco
       ),
     );
     expect(emails).toEqual([["ann@anncoach.com"], [], []]);
+  });
+});
+
+const realProviderBoot = async (db: DB, pool: Pool) =>
+  await boot(
+    db,
+    pool,
+    undefined,
+    new FullEnrichContactEnrichment({
+      apiKey: "test-key",
+      initialDelayMs: 0,
+      pollIntervalMs: 0,
+    }),
+  );
+
+test("through the real FullEnrich client each stored email keeps the status FullEnrich gave it", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const { context, queue } = await realProviderBoot(db, pool);
+    const { lead, run, job } = await seedLead(context, db);
+
+    await withFullEnrichApi(
+      [
+        finishedContact({
+          most_probable_work_email: {
+            email: "Ann@AnnCoach.com",
+            status: "HIGH_PROBABILITY",
+          },
+          most_probable_personal_email: {
+            email: "ann@gmail.com",
+            status: "CATCH_ALL",
+          },
+        }),
+      ],
+      async (calls) => {
+        await queue.deliver(job);
+
+        expect(calls.map((call) => call.method)).toEqual(["POST", "GET"]);
+      },
+    );
+
+    expect(await leadEmailStatuses(db, lead.leadId)).toEqual([
+      { address: "ann@anncoach.com", status: "highProbability" },
+      { address: "ann@gmail.com", status: "catchAll" },
+    ]);
+    expect(await leadEmailRows(db, lead.leadId)).toEqual([
+      { address: "ann@anncoach.com", source: "fullenrich-work" },
+      { address: "ann@gmail.com", source: "fullenrich-personal" },
+    ]);
+    expect(await runRow(db, run.runId)).toMatchObject({
+      status: "done",
+      processed: 1,
+      failed: 0,
+    });
+  });
+});
+
+test("through the real FullEnrich client an unrecognised status is stored as unknown, not as deliverable", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const { context, queue } = await realProviderBoot(db, pool);
+    const { lead, job } = await seedLead(context, db);
+
+    await withFullEnrichApi(
+      [
+        finishedContact({
+          most_probable_work_email: {
+            email: "ann@anncoach.com",
+            status: "SOMETHING_NEW",
+          },
+        }),
+      ],
+      async () => await queue.deliver(job),
+    );
+
+    expect(await leadEmailStatuses(db, lead.leadId)).toEqual([
+      { address: "ann@anncoach.com", status: "unknown" },
+    ]);
+  });
+});
+
+test("through the real FullEnrich client invalid emails are never stored, yet the lookup is stamped and the run finishes", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const { context, queue } = await realProviderBoot(db, pool);
+    const { lead, run, job } = await seedLead(context, db);
+
+    await withFullEnrichApi(
+      [
+        finishedContact({
+          most_probable_work_email: {
+            email: "bad@anncoach.com",
+            status: "INVALID",
+          },
+          work_emails: [{ email: "bad@anncoach.com", status: "INVALID" }],
+          most_probable_personal_email: {
+            email: "bad@gmail.com",
+            status: "INVALID_DOMAIN",
+          },
+        }),
+      ],
+      async () => await queue.deliver(job),
+    );
+
+    expect(await leadEmailStatuses(db, lead.leadId)).toEqual([]);
+    expect((await leadRow(db, lead.leadId)).emailEnrichedAt).not.toBeNull();
+    expect(await runRow(db, run.runId)).toMatchObject({
+      status: "done",
+      processed: 1,
+      failed: 0,
+    });
+  });
+});
+
+test("delivering a job twice through the real client pays for one lookup and leaves the stored status as it was", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const { context, queue } = await realProviderBoot(db, pool);
+    const { lead, job } = await seedLead(context, db);
+
+    await withFullEnrichApi(
+      [
+        finishedContact({
+          most_probable_work_email: {
+            email: "ann@anncoach.com",
+            status: "DELIVERABLE",
+          },
+        }),
+      ],
+      async (calls) => {
+        await queue.deliver(job);
+        await queue.deliver(job);
+
+        expect(calls.map((call) => call.method)).toEqual(["POST", "GET"]);
+      },
+    );
+
+    expect(await leadEmailStatuses(db, lead.leadId)).toEqual([
+      { address: "ann@anncoach.com", status: "deliverable" },
+    ]);
+  });
+});
+
+test("a provider failure through the real client stores no email and no status", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const { context, queue } = await realProviderBoot(db, pool);
+    const { lead, run, job } = await seedLead(context, db);
+
+    await withFullEnrichApi(
+      [{ status: "CREDITS_INSUFFICIENT", data: [] }],
+      async () => {
+        await expect(queue.deliver(job)).rejects.toBeInstanceOf(
+          NonRetryableJobError,
+        );
+      },
+    );
+
+    expect(await leadEmailStatuses(db, lead.leadId)).toEqual([]);
+    expect((await leadRow(db, lead.leadId)).emailEnrichedAt).toBeNull();
+    expect((await itemRow(db, run.runId, lead.leadId)).error).toContain(
+      "out of credits",
+    );
   });
 });

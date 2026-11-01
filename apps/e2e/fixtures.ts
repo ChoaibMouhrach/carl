@@ -1,6 +1,5 @@
 import { test as base, type BrowserContext } from "@playwright/test";
 import { faker } from "@faker-js/faker";
-import type { LeadEmailSource } from "@repo/constants/lead-emails";
 import {
   addCommunitiesToCampaign,
   addLeadsToCampaign,
@@ -39,6 +38,7 @@ import {
   type SeedCampaignInput,
   type SeedCommunityInput,
   type SeedPipelineRunInput,
+  type SeedEmail,
   type SeedLeadInput,
   type SeededUser,
 } from "@repo/server/testing/e2e-seed";
@@ -47,7 +47,7 @@ import { CLIENT_URL, seedConfig } from "./config";
 interface Seed {
   addLeadEmails: (input: {
     leadId: number;
-    emails: { address: string; source: LeadEmailSource }[];
+    emails: SeedEmail[];
   }) => Promise<void>;
   addCommunitiesToCampaign: (input: {
     campaignId: number;
