@@ -55,7 +55,7 @@ const boot = async (db: DB, pool: Pool, options: BootOptions = {}) => {
   const provider = new FakeContactEnrichment((input) => {
     const address = options.workEmails?.[input.firstName];
     return {
-      workEmail: address ? { address, status: "valid" } : null,
+      workEmail: address ? { address, status: "deliverable" } : null,
       personalEmail: null,
     };
   });

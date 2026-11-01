@@ -4,6 +4,7 @@ import IORedis from "ioredis";
 import type {
   LeadEmailSource,
   LeadEmailStatus,
+  LeadEmailVerification,
 } from "@repo/constants/lead-emails";
 import { initDB, type DB } from "../infrastructure/database/client";
 import { RedisPubSubHub } from "../infrastructure/pubsub/redis";
@@ -398,7 +399,14 @@ export interface SeedEmail {
   address: string;
   source: LeadEmailSource;
   status?: LeadEmailStatus;
+  verification?: LeadEmailVerification;
 }
+
+const toEmailRow = (leadId: number, email: SeedEmail) => ({
+  ...email,
+  leadId,
+  verifiedAt: email.verification ? new Date() : null,
+});
 
 export interface SeedLeadInput {
   name: string;
@@ -444,7 +452,7 @@ export const createLead = async (config: SeedConfig, input: SeedLeadInput) =>
     if (emails.length > 0) {
       await db
         .insert(leadEmailsTable)
-        .values(emails.map((email) => ({ ...email, leadId: lead.leadId })));
+        .values(emails.map((email) => toEmailRow(lead.leadId, email)));
     }
 
     return lead;
@@ -460,9 +468,7 @@ export const addLeadEmails = async (
   withDb(config, async (db) => {
     await db
       .insert(leadEmailsTable)
-      .values(
-        input.emails.map((email) => ({ ...email, leadId: input.leadId })),
-      );
+      .values(input.emails.map((email) => toEmailRow(input.leadId, email)));
   });
 
 export interface SeedCommunityInput {
@@ -545,6 +551,8 @@ export const findLeadByUsername = async (
         address: leadEmailsTable.address,
         source: leadEmailsTable.source,
         status: leadEmailsTable.status,
+        verification: leadEmailsTable.verification,
+        verifiedAt: leadEmailsTable.verifiedAt,
       })
       .from(leadEmailsTable)
       .where(eq(leadEmailsTable.leadId, lead.leadId))

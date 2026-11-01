@@ -76,7 +76,7 @@ test("a campaign that never ran offers a scrape, has nothing for the other steps
   await open();
 
   await expect(page.getByRole("button", { name: "Run scrape" })).toBeEnabled();
-  for (const title of ["3. Website"]) {
+  for (const title of ["3. Website", "5. Verify"]) {
     await expect(stepCard(page, title).getByRole("button")).toBeDisabled();
   }
   await expect(funnelTile(page, "Scraped")).toContainText("0");
@@ -486,6 +486,51 @@ test("including already-tried leads widens what the steps would run on", async (
   await expect(
     stepCard(page, "2. Tavily").getByRole("button", { name: "Run on 3" }),
   ).toBeVisible();
+});
+
+test("the Verify step counts leads with an email nobody has checked yet, and the switch widens it", async ({
+  page,
+  seed,
+  id,
+}) => {
+  const { campaign, open } = await openCampaign(page, seed, id);
+  const unchecked = await seed.createLead({
+    name: `Owner ${id} unchecked`,
+    username: `owner-${id}-unchecked`,
+    emails: [{ address: `unchecked-${id}@example.com`, source: "website" }],
+  });
+  const checked = await seed.createLead({
+    name: `Owner ${id} checked`,
+    username: `owner-${id}-checked`,
+    emails: [
+      {
+        address: `checked-${id}@example.com`,
+        source: "website",
+        verification: "valid",
+      },
+    ],
+  });
+  const bare = await seed.createLead({
+    name: `Owner ${id} bare`,
+    username: `owner-${id}-bare`,
+  });
+  await seed.addLeadsToCampaign({
+    campaignId: campaign.campaignId,
+    leadIds: [unchecked.leadId, checked.leadId, bare.leadId],
+  });
+
+  await open();
+
+  const verify = stepCard(page, "5. Verify");
+  await expect(verify.getByRole("button", { name: "Run on 1" })).toBeVisible();
+  await expect(verify.getByText("1 eligible", { exact: true })).toBeVisible();
+
+  await page
+    .getByRole("switch", { name: "Include leads a step already tried" })
+    .click();
+
+  await expect(verify.getByRole("button", { name: "Run on 2" })).toBeVisible();
+  expect(await seed.listPipelineRuns(campaign.campaignId)).toEqual([]);
 });
 
 test("a funnel tile filters the leads below it through the address", async ({

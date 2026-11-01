@@ -11,6 +11,7 @@ import {
   type EmailJob,
   type EnrichJob,
   type FullEnrichJob,
+  type VerifyJob,
   type WebsiteJob,
   type FailedJob,
   type ListFailedInput,
@@ -39,6 +40,7 @@ import type { Pool } from "pg";
 import { createAuth } from "@server/infrastructure/auth";
 import { DisabledWebSearch } from "@server/infrastructure/web-search/disabled";
 import { DisabledContactEnrichment } from "@server/infrastructure/contact-enrichment/disabled";
+import { DisabledEmailVerifier } from "@server/infrastructure/email-verifier/disabled";
 
 export interface LogRecord {
   level: "debug" | "info" | "warn" | "error";
@@ -266,6 +268,7 @@ export class TestQueueHub extends BaseQueueHub {
   public enrich: TestQueue<EnrichJob>;
   public website: TestQueue<WebsiteJob>;
   public fullenrich: TestQueue<FullEnrichJob>;
+  public verify: TestQueue<VerifyJob>;
 
   public constructor(init: { mailer: BaseMailer }) {
     super();
@@ -292,6 +295,9 @@ export class TestQueueHub extends BaseQueueHub {
     this.fullenrich = new TestQueue<FullEnrichJob>({
       process: async () => {},
     });
+    this.verify = new TestQueue<VerifyJob>({
+      process: async () => {},
+    });
   }
 
   public override queues(): RegisteredQueue[] {
@@ -303,6 +309,7 @@ export class TestQueueHub extends BaseQueueHub {
       { name: "enrich", queue: this.enrich },
       { name: "website", queue: this.website },
       { name: "fullenrich", queue: this.fullenrich },
+      { name: "verify", queue: this.verify },
     ];
   }
 
@@ -399,5 +406,6 @@ export const createContext = (
     webSearch: new DisabledWebSearch(),
     webPageFetcher: new NullWebPageFetcher(),
     contactEnrichment: new DisabledContactEnrichment(),
+    emailVerifier: new DisabledEmailVerifier(),
   };
 };

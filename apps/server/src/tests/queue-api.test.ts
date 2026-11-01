@@ -107,6 +107,7 @@ test("the overview lists every queue with its live counts", async () => {
       "fullenrich",
       "maintenance",
       "scrape",
+      "verify",
       "website",
     ]);
     const failed = Object.fromEntries(
@@ -119,6 +120,7 @@ test("the overview lists every queue with its live counts", async () => {
       fullenrich: 0,
       maintenance: 0,
       scrape: 0,
+      verify: 0,
       website: 0,
     });
   });

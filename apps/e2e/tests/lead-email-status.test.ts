@@ -190,13 +190,23 @@ test("saving an edited lead keeps the status of every email it did not touch", a
       address: emails[0]?.address,
       source: "fullenrich-work",
       status: "deliverable",
+      verification: null,
+      verifiedAt: null,
     },
     {
       address: emails[1]?.address,
       source: "fullenrich-personal",
       status: "catchAll",
+      verification: null,
+      verifiedAt: null,
     },
-    { address: emails[2]?.address, source: "website", status: null },
+    {
+      address: emails[2]?.address,
+      source: "website",
+      status: null,
+      verification: null,
+      verifiedAt: null,
+    },
   ]);
 });
 
@@ -221,7 +231,15 @@ test("removing one email keeps the others' statuses, and a retyped address start
       address: emails[1]?.address,
       source: "fullenrich-personal",
       status: "catchAll",
+      verification: null,
+      verifiedAt: null,
     },
-    { address: typed, source: "manual", status: null },
+    {
+      address: typed,
+      source: "manual",
+      status: null,
+      verification: null,
+      verifiedAt: null,
+    },
   ]);
 });

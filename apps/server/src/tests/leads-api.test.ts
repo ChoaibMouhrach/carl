@@ -2,6 +2,10 @@ import { leadEmailRows } from "./helpers/pipeline";
 import { expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import z from "zod";
+import type {
+  LeadEmailSource,
+  LeadEmailStatus,
+} from "@repo/constants/lead-emails";
 import { initENV } from "@server/config/env";
 import type { DB } from "@server/infrastructure/database/client";
 import {
@@ -828,7 +832,11 @@ test("the list and a single lead return each email's status, and null where none
     const { context, admin } = await boot(db, pool);
     const ann = await createLead(context, newLead("ann", { emails: [] }));
     await seedCheckedEmails(context, ann.leadId);
-    const expected = [
+    const expected: {
+      address: string;
+      source: LeadEmailSource;
+      status: LeadEmailStatus | null;
+    }[] = [
       {
         address: "work@example.com",
         source: "fullenrich-work",

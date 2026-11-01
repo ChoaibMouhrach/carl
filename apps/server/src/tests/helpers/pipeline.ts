@@ -21,6 +21,11 @@ import {
   type ContactEnrichmentInput,
   type ContactEnrichmentResult,
 } from "@server/lib/base-contact-enrichment";
+import type { LeadEmailVerification } from "@repo/constants/lead-emails";
+import {
+  BaseEmailVerifier,
+  type VerifiedEmail,
+} from "@server/lib/base-email-verifier";
 import { TestQueue } from "./context";
 
 export class FakeWebSearch extends BaseWebSearch {
@@ -63,6 +68,29 @@ export class FakeContactEnrichment extends BaseContactEnrichment {
     this.inputs.push(input);
 
     return this.respond(input);
+  }
+}
+
+export class FakeEmailVerifier extends BaseEmailVerifier {
+  public override readonly isAvailable = true;
+  public calls: string[][] = [];
+
+  public constructor(
+    private readonly respond: (address: string) => LeadEmailVerification = () =>
+      "valid",
+  ) {
+    super();
+  }
+
+  public override async verify(input: {
+    addresses: string[];
+  }): Promise<VerifiedEmail[]> {
+    this.calls.push(input.addresses);
+
+    return input.addresses.map((address) => ({
+      address,
+      verification: this.respond(address),
+    }));
   }
 }
 

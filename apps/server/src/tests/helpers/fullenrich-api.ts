@@ -20,30 +20,31 @@ export const withFullEnrichApi = async (
 ): Promise<void> => {
   const calls: FullEnrichCall[] = [];
   const pending = [...results];
+  const answer = async (input: string | URL | Request, init?: RequestInit) => {
+    const url =
+      input instanceof Request ? input.url : new URL(input).toString();
+    const method = init?.method ?? "GET";
+    calls.push({
+      method,
+      url,
+      authorization: new Headers(init?.headers).get("authorization"),
+    });
+
+    if (!url.startsWith(`${API}/`)) {
+      throw new Error(`A test reached the network: ${method} ${url}`);
+    }
+    if (method === "POST") {
+      return Response.json({ enrichment_id: "enrichment-1" });
+    }
+
+    const next = pending.shift();
+    if (!next) {
+      throw new Error(`FullEnrich was polled more than expected: ${url}`);
+    }
+    return Response.json(next);
+  };
   const spy = spyOn(globalThis, "fetch").mockImplementation(
-    async (input, init) => {
-      const url =
-        input instanceof Request ? input.url : new URL(input).toString();
-      const method = init?.method ?? "GET";
-      calls.push({
-        method,
-        url,
-        authorization: new Headers(init?.headers).get("authorization"),
-      });
-
-      if (!url.startsWith(`${API}/`)) {
-        throw new Error(`A test reached the network: ${method} ${url}`);
-      }
-      if (method === "POST") {
-        return Response.json({ enrichment_id: "enrichment-1" });
-      }
-
-      const next = pending.shift();
-      if (!next) {
-        throw new Error(`FullEnrich was polled more than expected: ${url}`);
-      }
-      return Response.json(next);
-    },
+    Object.assign(answer, { preconnect: () => {} }),
   );
 
   try {
