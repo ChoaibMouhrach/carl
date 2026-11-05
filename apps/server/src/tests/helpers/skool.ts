@@ -6,6 +6,7 @@ import type { DB } from "@server/infrastructure/database/client";
 import {
   BaseSkoolScrapper,
   type Community,
+  type LeadActivity,
   type FullCommunity,
   type FullLead,
 } from "@server/lib/base-skool-scrapper";
@@ -52,6 +53,8 @@ export class FakeSkoolScrapper extends BaseSkoolScrapper {
   public aboutCalls: string[] = [];
   public leadCalls: string[] = [];
   public discoverCalls: { search: string }[] = [];
+  public activityCalls: string[] = [];
+  public activitiesByCommunity: Record<string, LeadActivity[]> = {};
   public leadOverrides: Record<string, Partial<FullLead>> = {};
   /** Fails the next `remaining` lead fetches for a username, then recovers */
   public leadFailures: Record<string, { error: Error; remaining: number }> = {};
@@ -95,6 +98,14 @@ export class FakeSkoolScrapper extends BaseSkoolScrapper {
     }
 
     return { ...community, leadURL: `https://www.skool.com/@${owner}` };
+  }
+
+  public override async activities(input: {
+    communityURL: string;
+  }): Promise<LeadActivity[]> {
+    this.activityCalls.push(input.communityURL);
+
+    return this.activitiesByCommunity[input.communityURL] ?? [];
   }
 
   public override async lead(input: {

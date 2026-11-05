@@ -3,6 +3,7 @@ import { initENV } from "@server/config/env";
 import {
   SkoolScrapeError,
   type Community,
+  type LeadActivity as ScrapedActivity,
 } from "@server/lib/base-skool-scrapper";
 import { ScrapeService } from "@server/services/scrape";
 import { NonRetryableJobError } from "@server/lib/base-queue";
@@ -452,5 +453,52 @@ test("scraping again overwrites the images and clears them when Skool no longer 
       thumbnailUrl: null,
       logoUrl: null,
     });
+  });
+});
+
+test("scraping activities replaces a lead's stored activities in the community and keeps them when none come back", async () => {
+  await withTestDatabase(async ({ db, pool }) => {
+    const scrapper = new FakeSkoolScrapper({
+      pages: { 1: [paidMonthly("alpha")] },
+      owners: { "https://www.skool.com/alpha": "ann" },
+    });
+    const context = await boot(db, pool, scrapper);
+    const url = "https://www.skool.com/alpha";
+    const activity = (skoolId: string, day: number): ScrapedActivity => ({
+      skoolId,
+      kind: "comment",
+      rootPostId: "root",
+      postTitle: "A post",
+      content: `Content ${skoolId}`,
+      postedAt: new Date(`2026-11-0${day}T12:00:00Z`),
+    });
+    scrapper.activitiesByCommunity[url] = [activity("a", 1), activity("b", 2)];
+
+    await new ScrapeService({ context }).start({ search: "x" });
+
+    const { communities, leads } = await tableRows(db);
+    const communityId = communities[0]?.communityId ?? 0;
+    const stored = async () =>
+      await context.repositories.leadActivity.findAllByCommunityId({
+        communityId,
+      });
+
+    expect((await stored()).map((row) => row.skoolId)).toEqual(["b", "a"]);
+    expect(await stored()).toMatchObject([
+      { leadId: leads[0]?.leadId, content: "Content b", kind: "comment" },
+      { leadId: leads[0]?.leadId, content: "Content a" },
+    ]);
+
+    scrapper.activitiesByCommunity[url] = [activity("b", 3), activity("c", 4)];
+    await new ScrapeService({ context }).scrapeActivities({
+      communityURL: url,
+    });
+    expect((await stored()).map((row) => row.skoolId)).toEqual(["c", "b"]);
+
+    scrapper.activitiesByCommunity[url] = [];
+    await new ScrapeService({ context }).scrapeActivities({
+      communityURL: url,
+    });
+    expect((await stored()).map((row) => row.skoolId)).toEqual(["c", "b"]);
   });
 });

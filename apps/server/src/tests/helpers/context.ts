@@ -258,6 +258,10 @@ export class UnconfiguredSkoolScrapper extends BaseSkoolScrapper {
   public override lead(): Promise<never> {
     return Promise.reject(new Error("Skool scrapper not configured."));
   }
+
+  public override activities(): Promise<never> {
+    return Promise.reject(new Error("Skool scrapper not configured."));
+  }
 }
 
 export class TestQueueHub extends BaseQueueHub {

@@ -11,6 +11,7 @@ import {
   createEmailChangeUrl,
   addLeadEmails,
   createLead,
+  createLeadActivities,
   createLeads,
   createPipelineRun,
   deleteCampaignsContaining,
@@ -21,6 +22,7 @@ import {
   findLeadByUsername,
   listCampaignCommunityIds,
   listCampaignLeadIds,
+  listLeadActivityIds,
   ageSessions,
   banUser,
   deleteUser,
@@ -39,6 +41,7 @@ import {
   type SeedCommunityInput,
   type SeedPipelineRunInput,
   type SeedEmail,
+  type SeedLeadActivityInput,
   type SeedLeadInput,
   type SeededUser,
 } from "@repo/server/testing/e2e-seed";
@@ -82,6 +85,8 @@ interface Seed {
     input: SeedCommunityInput,
   ) => ReturnType<typeof createCommunity>;
   createLead: (input: SeedLeadInput) => ReturnType<typeof createLead>;
+  createLeadActivities: (input: SeedLeadActivityInput) => Promise<void>;
+  listLeadActivityIds: (communityId: number) => Promise<string[]>;
   createLeads: (input: {
     prefix: string;
     count: number;
@@ -161,6 +166,9 @@ export const test = base.extend<{ seed: Seed; resetRateLimits: void }>({
       createCommunity: (input) => createCommunity(config, input),
       addLeadEmails: (input) => addLeadEmails(config, input),
       createLead: (input) => createLead(config, input),
+      createLeadActivities: (input) => createLeadActivities(config, input),
+      listLeadActivityIds: (communityId) =>
+        listLeadActivityIds(config, communityId),
       createLeads: (input) => createLeads(config, input),
       findCommunityBySlug: (slug) => findCommunityBySlug(config, slug),
       findLeadByUsername: (username) => findLeadByUsername(config, username),

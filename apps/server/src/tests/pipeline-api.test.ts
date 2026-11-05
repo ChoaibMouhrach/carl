@@ -385,7 +385,9 @@ test("a scrape whose hits are all filtered out or already stored finishes at onc
       { status: "done", total: 1, processed: 1, failed: 0 },
     ]);
     expect(context.queueHub.discover.added).toHaveLength(1);
-    expect(context.queueHub.scrape.added).toHaveLength(0);
+    expect(context.queueHub.scrape.added).toEqual([
+      { type: "scrape-activities", communityURL: `${SKOOL}/alpha` },
+    ]);
     expect(await db.select().from(leadsTable)).toHaveLength(1);
     const linkedLeads = await db.select().from(campaignLeadsTable);
     expect(linkedLeads).toEqual([

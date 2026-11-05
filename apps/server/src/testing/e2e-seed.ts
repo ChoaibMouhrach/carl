@@ -15,6 +15,7 @@ import {
   campaignLeadsTable,
   campaignsTable,
   communitiesTable,
+  leadActivitiesTable,
   leadEmailsTable,
   leadsTable,
   pipelineRunsTable,
@@ -570,6 +571,47 @@ export const findCommunityBySlug = async (config: SeedConfig, slug: string) =>
       .limit(1);
 
     return community ?? null;
+  });
+
+export interface SeedLeadActivityInput {
+  leadId: number;
+  communityId: number;
+  items: {
+    skoolId: string;
+    kind: "post" | "comment";
+    postTitle: string;
+    content: string;
+    postedAt: Date;
+  }[];
+}
+
+export const createLeadActivities = async (
+  config: SeedConfig,
+  input: SeedLeadActivityInput,
+) =>
+  withDb(config, async (db) => {
+    await db.insert(leadActivitiesTable).values(
+      input.items.map((item) => ({
+        leadId: input.leadId,
+        communityId: input.communityId,
+        rootPostId: item.skoolId,
+        ...item,
+      })),
+    );
+  });
+
+export const listLeadActivityIds = async (
+  config: SeedConfig,
+  communityId: number,
+) =>
+  withDb(config, async (db) => {
+    const rows = await db
+      .select({ skoolId: leadActivitiesTable.skoolId })
+      .from(leadActivitiesTable)
+      .where(eq(leadActivitiesTable.communityId, communityId))
+      .orderBy(desc(leadActivitiesTable.postedAt));
+
+    return rows.map((row) => row.skoolId);
   });
 
 export const countLeadsWithPrefix = async (

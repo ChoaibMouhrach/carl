@@ -164,15 +164,15 @@ test("a scrape started over HTTP runs through Redis and ends up in the database"
     const response = await admin.post("/api/scrape", { search: "coaching" });
 
     expect(response.status).toBe(202);
-    await waitUntil(async () => (await hub.scrape.getCounts()).completed === 4);
+    await waitUntil(async () => (await hub.scrape.getCounts()).completed === 6);
 
-    // One discover job, then a community job and a lead job for each community
+    // One discover job, then a community, a lead and an activities job for each community
     expect(await hub.discover.getCounts()).toMatchObject({
       completed: 1,
       failed: 0,
     });
     expect(await hub.scrape.getCounts()).toMatchObject({
-      completed: 4,
+      completed: 6,
       failed: 0,
     });
     expect(errorMonitor.captured).toEqual([]);
@@ -256,7 +256,7 @@ test("a transient failure is retried by the queue and then stored, without alert
     );
 
     await new ScrapeService({ context }).start({ search: "coaching" });
-    await waitUntil(async () => (await hub.scrape.getCounts()).completed === 2);
+    await waitUntil(async () => (await hub.scrape.getCounts()).completed === 3);
 
     expect(scrapper.leadCalls).toHaveLength(2);
     expect(await hub.scrape.getCounts()).toMatchObject({ failed: 0 });
@@ -288,8 +288,9 @@ test("one community failing for good does not stop the others or leave a half-wr
     await waitUntil(async () => (await hub.scrape.getCounts()).failed === 1);
     await waitUntil(async () => await idle(hub));
 
+    // Both community jobs, then the lead and activities jobs of the good one
     expect(await hub.scrape.getCounts()).toMatchObject({
-      completed: 3,
+      completed: 4,
       failed: 1,
     });
     const rows = await tableRows(db);

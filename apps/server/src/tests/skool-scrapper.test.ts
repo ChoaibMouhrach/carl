@@ -727,3 +727,127 @@ describe.each(DOWNLOAD_DIRS)("every page downloaded into %s parses", (root) => {
     }
   });
 });
+
+describe("lead activities on a profile page", () => {
+  const LEAD = "ann-1";
+  const GROUP = { id: "g1", name: "alpha" };
+
+  const item = (
+    id: string,
+    postType: "generic" | "comment",
+    userName: string,
+    createdAt: string,
+    metadata: object = {},
+  ) => ({
+    id,
+    postType,
+    createdAt,
+    groupId: GROUP.id,
+    rootId: "root",
+    metadata,
+    user: { name: userName },
+  });
+
+  const profile = (postTrees: unknown[], currentGroup: unknown = GROUP) =>
+    pageHtml({ props: { pageProps: { currentGroup, postTrees } } });
+
+  const scrape = async (html: string, seen: string[] = []) => {
+    const { scrapper } = createScrapper(async (url) => {
+      seen.push(url);
+      return respond(url, html);
+    });
+
+    return await scrapper.activities({
+      communityURL: "https://www.skool.com/alpha",
+      leadURL: leadURL(LEAD),
+    });
+  };
+
+  test("keeps the lead's own posts and comments with their content and date, newest first", async () => {
+    const seen: string[] = [];
+    const activities = await scrape(
+      profile([
+        {
+          post: item("p1", "generic", "bob", "2026-11-01T00:00:00Z", {
+            title: "Bob's question",
+            content: "How?",
+          }),
+          children: [
+            {
+              post: item("c1", "comment", LEAD, "2026-11-04T10:00:00Z", {
+                content: "Like this",
+              }),
+            },
+            {
+              post: item("c2", "comment", "carl", "2026-11-04T11:00:00Z", {
+                content: "Not mine",
+              }),
+            },
+          ],
+        },
+        {
+          post: item("p2", "generic", LEAD, "2026-11-02T00:00:00Z", {
+            title: "My post",
+            content: "Hello all",
+          }),
+          children: [],
+        },
+      ]),
+      seen,
+    );
+
+    expect(seen).toEqual(["https://www.skool.com/@ann-1?g=alpha"]);
+    expect(activities).toEqual([
+      {
+        skoolId: "c1",
+        kind: "comment",
+        rootPostId: "root",
+        postTitle: "Bob's question",
+        content: "Like this",
+        postedAt: new Date("2026-11-04T10:00:00Z"),
+      },
+      {
+        skoolId: "p2",
+        kind: "post",
+        rootPostId: "root",
+        postTitle: "My post",
+        content: "Hello all",
+        postedAt: new Date("2026-11-02T00:00:00Z"),
+      },
+    ]);
+  });
+
+  test("ignores activity from another community", async () => {
+    const other = {
+      ...item("p1", "generic", LEAD, "2026-11-01T00:00:00Z"),
+      groupId: "g2",
+    };
+
+    expect(await scrape(profile([{ post: other }]))).toEqual([]);
+  });
+
+  test("returns nothing when the page is not scoped to the community", async () => {
+    const post = item("p1", "generic", LEAD, "2026-11-01T00:00:00Z");
+
+    expect(
+      await scrape(profile([{ post }], { id: "g9", name: "other" })),
+    ).toEqual([]);
+    expect(await scrape(profile([{ post }], null))).toEqual([]);
+  });
+
+  test("keeps at most thirty", async () => {
+    const trees = Array.from({ length: 35 }, (_, index) => ({
+      post: item(
+        `p${index}`,
+        "generic",
+        LEAD,
+        new Date(Date.UTC(2026, 10, 1, index)).toISOString(),
+      ),
+    }));
+
+    const activities = await scrape(profile(trees));
+
+    expect(activities).toHaveLength(30);
+    expect(activities[0]?.skoolId).toBe("p34");
+  });
+});
