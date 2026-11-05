@@ -33,6 +33,9 @@ export class ScrapeWorker extends BaseWorker {
       case "scrape-lead":
         await scrape.scrapeLead(job);
         return;
+      case "scrape-activities":
+        await scrape.scrapeActivities(job);
+        return;
     }
   }
 

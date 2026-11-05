@@ -37,6 +37,17 @@ export type FullLead = {
   pictureUrl: string | null;
 };
 
+export type LeadActivity = {
+  /** The Skool id of the lead's post or comment */
+  skoolId: string;
+  kind: "post" | "comment";
+  rootPostId: string;
+  /** The lead's own post title, or the title of the post the lead commented on */
+  postTitle: string;
+  content: string;
+  postedAt: Date;
+};
+
 export type SkoolScrapeErrorKind =
   | "blocked"
   | "rate_limited"
@@ -73,4 +84,9 @@ export abstract class BaseSkoolScrapper {
     communityURL: string;
   }): Promise<FullCommunity | null>;
   public abstract lead(input: { leadURL: string }): Promise<FullLead | null>;
+  /** The lead's newest posts and comments in one community, newest first; empty when Skool shows none */
+  public abstract activities(input: {
+    communityURL: string;
+    leadURL: string;
+  }): Promise<LeadActivity[]>;
 }

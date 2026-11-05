@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import { boolean, index, integer, pgTable, text } from "drizzle-orm/pg-core";
 import { id, timestamps } from "../utils";
+import { leadActivitiesTable } from "./lead-activities";
 import { leadsTable } from "./leads";
 
 export const communitiesTable = pgTable(
@@ -33,12 +34,16 @@ export const communitiesTable = pgTable(
   (table) => [index("communities_lead_id_idx").on(table.leadId)],
 );
 
-export const communitiesRelations = relations(communitiesTable, ({ one }) => ({
-  lead: one(leadsTable, {
-    fields: [communitiesTable.leadId],
-    references: [leadsTable.leadId],
+export const communitiesRelations = relations(
+  communitiesTable,
+  ({ one, many }) => ({
+    lead: one(leadsTable, {
+      fields: [communitiesTable.leadId],
+      references: [leadsTable.leadId],
+    }),
+    activities: many(leadActivitiesTable),
   }),
-}));
+);
 
 export type CommunitiesTable = typeof communitiesTable;
 export type Community = CommunitiesTable["$inferSelect"];

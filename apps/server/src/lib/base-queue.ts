@@ -29,7 +29,8 @@ export type ScrapeJob =
       type: "scrape-lead";
       leadURL: string;
       community: Community;
-    } & ScrapeRun);
+    } & ScrapeRun)
+  | ({ type: "scrape-activities"; communityURL: string } & ScrapeRun);
 
 export type EnrichJob = { type: "enrich-lead"; runId: number; leadId: number };
 

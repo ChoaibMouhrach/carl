@@ -5,6 +5,7 @@ import {
   BaseSkoolScrapper,
   SkoolScrapeError,
   type Community,
+  type LeadActivity,
   type FullCommunity,
   type FullLead,
   type Pricing,
@@ -19,6 +20,8 @@ const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_DISCOVERY_PAGES = 34;
 
 const DEFAULT_PAGE_CONCURRENCY = 5;
+
+const MAX_ACTIVITIES = 30;
 
 // Skool serves a bot-challenge page (HTTP 202) when the request carries an `accept` header
 const USER_AGENT =
@@ -122,6 +125,39 @@ const leadSchema = z.object({
           linkWebsite: optionalText,
         }),
       }),
+    }),
+  }),
+});
+
+const activityUserSchema = z.object({ name: z.string() });
+
+const activityItemSchema = z.object({
+  id: z.string(),
+  postType: z.string(),
+  createdAt: z.string(),
+  groupId: z.string(),
+  rootId: z.string(),
+  metadata: z.object({
+    title: z.string().nullish(),
+    content: z.string().nullish(),
+  }),
+  user: activityUserSchema,
+});
+
+type ActivityTree = { post: unknown; children?: ActivityTree[] };
+
+const activityTreeSchema: z.ZodType<ActivityTree> = z.lazy(() =>
+  z.object({
+    post: z.unknown(),
+    children: z.array(activityTreeSchema).optional(),
+  }),
+);
+
+const activitiesSchema = z.object({
+  props: z.object({
+    pageProps: z.object({
+      currentGroup: z.object({ id: z.string(), name: z.string() }).nullish(),
+      postTrees: z.array(activityTreeSchema).default([]),
     }),
   }),
 });
@@ -315,6 +351,81 @@ export class CustomSkoolScrapper extends BaseSkoolScrapper {
       email: this.firstEmail(metadata.bio),
       pictureUrl: metadata.pictureProfile,
     };
+  }
+
+  public async activities(input: {
+    communityURL: string;
+    leadURL: string;
+  }): Promise<LeadActivity[]> {
+    const communitySlug = this.slugFromURL(input.communityURL);
+    const leadSlug = this.slugFromURL(input.leadURL);
+    const username = leadSlug.replace(/^@/, "");
+
+    const path = `/${leadSlug}?${new URLSearchParams({ g: communitySlug })}`;
+    const data = await this.fetchNextData(path);
+
+    if (!data) {
+      return [];
+    }
+
+    const { currentGroup, postTrees } =
+      activitiesSchema.parse(data).props.pageProps;
+
+    // Without a matching community Skool lists the lead's activity across every community
+    if (!currentGroup || currentGroup.name !== communitySlug) {
+      return [];
+    }
+
+    const activities = new Map<string, LeadActivity>();
+
+    const visit = (tree: ActivityTree, root: { title: string }) => {
+      const parsed = activityItemSchema.safeParse(tree.post);
+
+      if (!parsed.success) {
+        void this.logger.warn({
+          message: "Skipped malformed item in lead activity",
+          path,
+          issue: this.summarizeIssues(parsed.error),
+        });
+      } else if (
+        parsed.data.user.name === username &&
+        parsed.data.groupId === currentGroup.id
+      ) {
+        const item = parsed.data;
+        const isComment = item.postType === "comment";
+
+        activities.set(item.id, {
+          skoolId: item.id,
+          kind: isComment ? "comment" : "post",
+          rootPostId: item.rootId,
+          postTitle: isComment ? root.title : item.metadata.title || "",
+          content: item.metadata.content ?? "",
+          postedAt: new Date(item.createdAt),
+        });
+      }
+
+      return parsed.success && parsed.data.postType !== "comment"
+        ? { title: parsed.data.metadata.title || "" }
+        : root;
+    };
+
+    const walk = (tree: ActivityTree, root: { title: string }) => {
+      const next = visit(tree, root);
+
+      for (const child of tree.children ?? []) {
+        walk(child, next);
+      }
+    };
+
+    for (const tree of postTrees) {
+      walk(tree, { title: "" });
+    }
+
+    return [...activities.values()]
+      .sort(
+        (first, second) => second.postedAt.getTime() - first.postedAt.getTime(),
+      )
+      .slice(0, MAX_ACTIVITIES);
   }
 
   private toCommunity(group: Group): Community {

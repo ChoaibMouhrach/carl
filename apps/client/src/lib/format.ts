@@ -15,3 +15,6 @@ export const formatDate = (value: string | Date) =>
 
 export const displayUrl = (url: string) =>
   url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
+
+export const readableSkoolText = (value: string) =>
+  value.replace(/\[(@[^\]]+)\]\(obj:\/\/[^)]*\)/g, "$1");

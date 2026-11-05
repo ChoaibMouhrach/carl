@@ -64,7 +64,12 @@ export class CommunityService extends BaseService {
       leadId: community.leadId,
     });
 
-    return { ...community, lead };
+    const activities =
+      await this.context.repositories.leadActivity.findAllByCommunityId({
+        communityId: community.communityId,
+      });
+
+    return { ...community, lead, activities };
   }
 
   public async create(input: CreateCommunityInput) {

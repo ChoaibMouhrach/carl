@@ -1,5 +1,6 @@
 import { api } from "@/api";
 import { CopyButton } from "@/components/copy-button";
+import { CommunityPosts } from "@/components/community-posts";
 import { CoverImage } from "@/components/cover-image";
 import { PictureAvatar } from "@/components/picture-avatar";
 import { Tip } from "@/components/tip";
@@ -200,6 +201,17 @@ export const CommunitySheet = ({
                         </span>
                       )}
                     </span>
+                  </SheetField>
+                  <SheetField label="Posts by the owner">
+                    <CommunityPosts
+                      posts={data.activities.map((activity) => ({
+                        activityId: activity.activityId,
+                        kind: activity.kind,
+                        title: activity.postTitle,
+                        content: activity.content,
+                        postedAt: activity.postedAt,
+                      }))}
+                    />
                   </SheetField>
                   <SheetField label="Added">
                     {formatDate(data.createdAt)}

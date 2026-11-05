@@ -57,6 +57,8 @@ export class ScrapeService extends BaseService {
       });
     }
 
+    await this.queueActivities(stored.map((community) => community.skoolUrl));
+
     if (runId === undefined) {
       await this.queueCommunities(input, fresh);
       return;
@@ -220,6 +222,17 @@ export class ScrapeService extends BaseService {
     );
   }
 
+  private async queueActivities(urls: string[]) {
+    await Promise.all(
+      urls.map((communityURL) =>
+        this.context.queueHub.scrape.add({
+          type: "scrape-activities",
+          communityURL,
+        }),
+      ),
+    );
+  }
+
   public async recordFailure(job: ScrapeJob, error: unknown): Promise<void> {
     if (job.runId === undefined) {
       return;
@@ -228,9 +241,9 @@ export class ScrapeService extends BaseService {
     await new PipelineProgressService({ context: this.context }).complete({
       runId: job.runId,
       itemKey:
-        job.type === "scrape-community"
-          ? job.communityURL
-          : job.community.communityURL,
+        job.type === "scrape-lead"
+          ? job.community.communityURL
+          : job.communityURL,
       status: "failed",
       error: describeError(error),
     });
@@ -326,6 +339,54 @@ export class ScrapeService extends BaseService {
         return { leadId: saved.leadId };
       },
     );
+
+    await this.queueActivities([input.community.communityURL]);
+  }
+
+  public async scrapeActivities(input: {
+    communityURL: string;
+  }): Promise<void> {
+    const { repositories, skoolScrapper } = this.context;
+
+    const community = await repositories.community.findBySkoolUrl({
+      skoolUrl: input.communityURL,
+    });
+
+    if (!community) {
+      return;
+    }
+
+    const lead = await repositories.lead.findByLeadId({
+      leadId: community.leadId,
+    });
+
+    if (!lead) {
+      return;
+    }
+
+    const activities = await skoolScrapper.activities({
+      communityURL: input.communityURL,
+      leadURL: lead.skoolUrl,
+    });
+
+    // An empty answer must not wipe activities stored earlier
+    if (activities.length === 0) {
+      return;
+    }
+
+    await repositories.transaction(async ({ tx }) => {
+      await tx.leadActivity.upsertMany(
+        activities.map((activity) => ({
+          ...activity,
+          leadId: lead.leadId,
+          communityId: community.communityId,
+        })),
+      );
+      await tx.leadActivity.removeExceptSkoolIds({
+        communityId: community.communityId,
+        skoolIds: activities.map((activity) => activity.skoolId),
+      });
+    });
   }
 
   private async finishItem(input: ScrapeRun, itemKey: string): Promise<void> {
