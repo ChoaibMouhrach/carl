@@ -17,6 +17,7 @@ import {
 } from "@repo/ui/components/ui/table";
 import { Link } from "@tanstack/react-router";
 import { LeadEmails } from "./lead-emails";
+import { LeadSteps } from "./lead-steps";
 
 type Lead = Awaited<ReturnType<typeof api.lead.list>>["leads"][number];
 
@@ -54,6 +55,7 @@ export const LeadTable = ({
           <TableHead>Email</TableHead>
           <TableHead>LinkedIn</TableHead>
           <TableHead>Website</TableHead>
+          <TableHead>Steps</TableHead>
           <TableHead>Communities</TableHead>
           <TableHead>Added</TableHead>
           <TableHead className="w-12">
@@ -104,6 +106,9 @@ export const LeadTable = ({
             </TableCell>
             <TableCell>
               <ExternalLink href={lead.website} />
+            </TableCell>
+            <TableCell>
+              <LeadSteps lead={lead} />
             </TableCell>
             <TableCell>
               <Badge

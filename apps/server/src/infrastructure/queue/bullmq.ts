@@ -11,6 +11,7 @@ import {
   type EnrichJob,
   type FullEnrichJob,
   type VerifyJob,
+  type PrepJob,
   type ListFailedInput,
   type ListFailedResult,
   type MaintenanceJob,
@@ -55,6 +56,9 @@ const verifyJobName = "run";
 // A retry starts another paid Apify run, so retry rarely and slowly.
 const verifyAttempts = 3;
 const verifyBackoffDelayMs = 30_000;
+
+const prepQueueName = "prep";
+const prepJobName = "run";
 
 const FAILED_JOB_RETENTION_SECONDS = 60 * 60 * 24 * 7;
 const FAILED_JOB_RETENTION_COUNT = 5_000;
@@ -427,6 +431,19 @@ export class VerifyQueue extends BullQueue<VerifyJob> {
   }
 }
 
+interface PrepQueueInit {
+  concurrency: number;
+  errorMonitor: BaseErrorMonitor;
+  logger: BaseLogger;
+  redisUrl: string;
+}
+
+export class PrepQueue extends BullQueue<PrepJob> {
+  public constructor(init: PrepQueueInit) {
+    super({ ...init, jobName: prepJobName, name: prepQueueName });
+  }
+}
+
 interface QueueHubInit extends EmailQueueInit {
   discoverConcurrency: number;
   scrapeConcurrency: number;
@@ -434,6 +451,7 @@ interface QueueHubInit extends EmailQueueInit {
   websiteConcurrency: number;
   fullenrichConcurrency: number;
   verifyConcurrency: number;
+  prepConcurrency: number;
 }
 
 export class QueueHub extends BaseQueueHub {
@@ -445,6 +463,7 @@ export class QueueHub extends BaseQueueHub {
   public website: WebsiteQueue;
   public fullenrich: FullEnrichQueue;
   public verify: VerifyQueue;
+  public prep: PrepQueue;
 
   public constructor(init: QueueHubInit) {
     super();
@@ -485,6 +504,12 @@ export class QueueHub extends BaseQueueHub {
       logger: init.logger,
       redisUrl: init.redisUrl,
     });
+    this.prep = new PrepQueue({
+      concurrency: init.prepConcurrency,
+      errorMonitor: init.errorMonitor,
+      logger: init.logger,
+      redisUrl: init.redisUrl,
+    });
     this.maintenance = new MaintenanceQueue({
       errorMonitor: init.errorMonitor,
       logger: init.logger,
@@ -502,6 +527,7 @@ export class QueueHub extends BaseQueueHub {
       { name: websiteQueueName, queue: this.website },
       { name: fullenrichQueueName, queue: this.fullenrich },
       { name: verifyQueueName, queue: this.verify },
+      { name: prepQueueName, queue: this.prep },
     ];
   }
 
@@ -514,5 +540,6 @@ export class QueueHub extends BaseQueueHub {
     await this.website.close();
     await this.fullenrich.close();
     await this.verify.close();
+    await this.prep.close();
   }
 }

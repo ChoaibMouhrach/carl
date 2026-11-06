@@ -64,6 +64,9 @@ const baseSchema = z.object({
   APIFY_TOKEN: optional(z.string().nonempty()),
   VERIFY_CONCURRENCY: z.coerce.number().int().positive().default(3),
 
+  // Website page fetching for AI context
+  PREP_CONCURRENCY: z.coerce.number().int().positive().default(5),
+
   // Mail
   RESEND_API_KEY: z.string().nonempty(),
   MAIL_DOMAIN: z.string().nonempty(),

@@ -155,7 +155,7 @@ export const LeadList = ({
             {view === "cards" ? (
               <CardGridSkeleton />
             ) : (
-              <TableSkeleton columns={5} />
+              <TableSkeleton columns={6} />
             )}
           </div>
         </CardContent>

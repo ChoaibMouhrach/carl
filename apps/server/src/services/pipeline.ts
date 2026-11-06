@@ -32,13 +32,14 @@ export class PipelineService extends BaseService {
 
     const { pipelineRun, lead } = this.context.repositories;
 
-    const [scrape, enrich, website, fullenrich, verify, funnel] =
+    const [scrape, enrich, website, fullenrich, verify, prep, funnel] =
       await Promise.all([
         pipelineRun.findLatest({ ...where, step: "scrape" }),
         pipelineRun.findLatest({ ...where, step: "enrich" }),
         pipelineRun.findLatest({ ...where, step: "website" }),
         pipelineRun.findLatest({ ...where, step: "fullenrich" }),
         pipelineRun.findLatest({ ...where, step: "verify" }),
+        pipelineRun.findLatest({ ...where, step: "prep" }),
         lead.findFunnel(where),
       ]);
 
@@ -48,6 +49,7 @@ export class PipelineService extends BaseService {
       website,
       fullenrich,
       verify,
+      prep,
       funnel,
       enrichmentAvailable: this.context.webSearch.isAvailable,
       emailEnrichmentAvailable: this.context.contactEnrichment.isAvailable,
@@ -234,6 +236,24 @@ export class PipelineService extends BaseService {
         await this.context.queueHub.verify.add(
           { type: "verify-lead", runId, leadId },
           { idempotencyKey: `verify-${runId}-${leadId}` },
+        ),
+    });
+  }
+
+  public async startPrep(
+    where: { campaignId: number },
+    options: { includeProcessed: boolean },
+  ): Promise<PipelineRun> {
+    await this.requireCampaign(where);
+
+    return await this.startLeadRun({
+      ...where,
+      step: "prep",
+      includeProcessed: options.includeProcessed,
+      enqueue: async ({ runId, leadId }) =>
+        await this.context.queueHub.prep.add(
+          { type: "prep-lead", runId, leadId },
+          { idempotencyKey: `prep-${runId}-${leadId}` },
         ),
     });
   }

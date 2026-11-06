@@ -18,6 +18,7 @@ export const pipelineSteps = [
   "website",
   "fullenrich",
   "verify",
+  "prep",
 ] as const;
 export const pipelineRunStatuses = ["running", "done", "failed"] as const;
 export const pipelineKeywordStatuses = ["pending", "done", "failed"] as const;

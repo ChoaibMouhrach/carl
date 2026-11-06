@@ -2,6 +2,7 @@ import { api } from "@/api";
 import { CopyButton } from "@/components/copy-button";
 import { ExternalLink } from "@/components/external-link";
 import { PictureAvatar } from "@/components/picture-avatar";
+import { LeadPages } from "@/components/lead-pages";
 import { Tip } from "@/components/tip";
 import { onError } from "@/lib/base-api";
 import { formatDate, formatNumber } from "@/lib/format";
@@ -217,6 +218,13 @@ export const LeadSheet = ({ leadId, onClose }: LeadSheetProps) => {
                     {formatDate(data.createdAt)}
                   </SheetField>
                 </dl>
+                <section className="space-y-3">
+                  <h3 className="font-medium">Website pages</h3>
+                  <LeadPages
+                    hasWebsite={Boolean(data.website)}
+                    pages={data.pages}
+                  />
+                </section>
                 <section className="space-y-3">
                   <div className="flex items-center justify-between gap-2">
                     <h3 className="font-medium">

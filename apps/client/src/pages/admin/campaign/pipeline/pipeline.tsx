@@ -44,6 +44,7 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
     pipeline.data?.website,
     pipeline.data?.fullenrich,
     pipeline.data?.verify,
+    pipeline.data?.prep,
   ]);
   const previousRevision = useRef(revision);
 
@@ -99,6 +100,13 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
     onSuccess: refreshPipeline,
   });
 
+  const startPrep = useMutation({
+    mutationFn: () =>
+      api.campaign.startPrep({ campaignId }, { includeProcessed }),
+    onError,
+    onSuccess: refreshPipeline,
+  });
+
   const selectStage = (next: LeadStage | undefined) =>
     routeNavigate({
       search: (current) => ({ ...current, stage: next, page: 1 }),
@@ -113,8 +121,8 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
           ))}
         </div>
         <Skeleton className="h-6 w-64" />
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          {Array.from({ length: 5 }, (_, index) => (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }, (_, index) => (
             <Skeleton className="h-36" key={index} />
           ))}
         </div>
@@ -158,7 +166,7 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
           Include leads a step already tried
         </Label>
       </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <StepCard
           actionLabel={state.scrape ? "Run again" : "Run scrape"}
           badge="Adds leads"
@@ -243,6 +251,22 @@ export const Pipeline = ({ campaign }: PipelineProps) => {
           run={state.verify}
           runningLabel="Starting…"
           title="5. Verify"
+          unit="leads"
+        />
+        <StepCard
+          actionLabel={`Run on ${eligible.prep}`}
+          badge={`${eligible.prep} eligible`}
+          blockedReason={
+            eligible.prep === 0
+              ? "No lead with a website is waiting to be prepped"
+              : undefined
+          }
+          isStarting={startPrep.isPending}
+          onRun={() => startPrep.mutate()}
+          rule="Free. Saves the HTML of the home, /about and /services pages of leads that have a website, as context for writing their emails."
+          run={state.prep}
+          runningLabel="Starting…"
+          title="6. Prep"
           unit="leads"
         />
       </div>

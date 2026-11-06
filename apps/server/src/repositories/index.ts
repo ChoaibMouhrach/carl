@@ -4,6 +4,7 @@ import { SettingRepository } from "./setting";
 import { HealthRepository } from "./health";
 import { LeadRepository } from "./lead";
 import { LeadEmailRepository } from "./lead-email";
+import { LeadPageRepository } from "./lead-page";
 import { CommunityRepository } from "./community";
 import { LeadActivityRepository } from "./lead-activity";
 import { CampaignRepository } from "./campaign";
@@ -22,6 +23,7 @@ export class Repositories {
   public health;
   public lead;
   public leadEmail;
+  public leadPage;
   public community;
   public leadActivity;
   public campaign;
@@ -48,6 +50,10 @@ export class Repositories {
     });
 
     this.leadEmail = new LeadEmailRepository({
+      db: dbConnection.db,
+    });
+
+    this.leadPage = new LeadPageRepository({
       db: dbConnection.db,
     });
 

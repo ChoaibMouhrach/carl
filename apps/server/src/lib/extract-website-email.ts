@@ -28,13 +28,16 @@ const hostOf = (website: string): string | null => {
   }
 };
 
-export const websitePageUrls = (website: string): string[] => {
+export const websitePageUrls = (
+  website: string,
+  paths: readonly string[] = WEBSITE_PATHS,
+): string[] => {
   try {
     const url = new URL(
       website.includes("://") ? website : `https://${website}`,
     );
     if (url.protocol !== "http:" && url.protocol !== "https:") return [];
-    return WEBSITE_PATHS.map((path) => new URL(path, url.origin).href);
+    return paths.map((path) => new URL(path, url.origin).href);
   } catch {
     return [];
   }

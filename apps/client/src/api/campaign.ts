@@ -113,6 +113,18 @@ export class CampaignApi extends BaseApi {
     );
   }
 
+  public startPrep(
+    where: { campaignId: number },
+    input: { includeProcessed: boolean },
+  ) {
+    return this.call(() =>
+      http.api.campaigns[":campaignId"].pipeline.prep.$post({
+        param: { campaignId: where.campaignId.toString() },
+        json: input,
+      }),
+    );
+  }
+
   public create(input: CreateCampaignInput) {
     return this.call(() => http.api.campaigns.$post({ json: input }));
   }

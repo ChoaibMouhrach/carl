@@ -38,10 +38,15 @@ export class LeadService extends BaseService {
       leadIds: leads.map((lead) => lead.leadId),
     });
 
+    const pageCounts = await this.context.repositories.leadPage.countByLeadIds({
+      leadIds: leads.map((lead) => lead.leadId),
+    });
+
     return {
       leads: leads.map((lead) => ({
         ...lead,
         emails: emails.filter((email) => email.leadId === lead.leadId),
+        pagesCount: pageCounts.get(lead.leadId) ?? 0,
       })),
       meta: {
         page: input.page,

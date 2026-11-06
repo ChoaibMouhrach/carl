@@ -27,7 +27,12 @@ import {
 import { BaseRepository } from "@server/lib/base-repository";
 import { escapeLike } from "@server/lib/utils";
 
-export type EligibleStep = "enrich" | "website" | "fullenrich" | "verify";
+export type EligibleStep =
+  | "enrich"
+  | "website"
+  | "fullenrich"
+  | "verify"
+  | "prep";
 
 export interface LeadFunnel {
   scraped: number;
@@ -104,6 +109,10 @@ export class LeadRepository extends BaseRepository {
       with: {
         communities: true,
         emails: { orderBy: (email, { asc }) => [asc(email.emailId)] },
+        pages: {
+          columns: { html: false },
+          orderBy: (page, { asc }) => [asc(page.pageId)],
+        },
       },
     });
 
@@ -186,10 +195,12 @@ export class LeadRepository extends BaseRepository {
         website: eligible("website", false),
         fullenrich: eligible("fullenrich", false),
         verify: eligible("verify", false),
+        prep: eligible("prep", false),
         enrichWithProcessed: eligible("enrich", true),
         websiteWithProcessed: eligible("website", true),
         fullenrichWithProcessed: eligible("fullenrich", true),
         verifyWithProcessed: eligible("verify", true),
+        prepWithProcessed: eligible("prep", true),
       })
       .from(LeadRepository.table)
       .innerJoin(
@@ -213,12 +224,14 @@ export class LeadRepository extends BaseRepository {
         website: row?.website ?? 0,
         fullenrich: row?.fullenrich ?? 0,
         verify: row?.verify ?? 0,
+        prep: row?.prep ?? 0,
       },
       eligibleWithProcessed: {
         enrich: row?.enrichWithProcessed ?? 0,
         website: row?.websiteWithProcessed ?? 0,
         fullenrich: row?.fullenrichWithProcessed ?? 0,
         verify: row?.verifyWithProcessed ?? 0,
+        prep: row?.prepWithProcessed ?? 0,
       },
     };
   }
@@ -292,6 +305,11 @@ export class LeadRepository extends BaseRepository {
         return this.hasEmailMatching(
           includeProcessed ? undefined : isNull(leadEmailsTable.verifiedAt),
         );
+      case "prep":
+        return and(
+          isNotNull(table.website),
+          unprocessed(table.pagesFetchedAt),
+        )!;
     }
   }
 

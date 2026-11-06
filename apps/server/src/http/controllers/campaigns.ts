@@ -296,4 +296,21 @@ export const campaignController = new Hono<AppContext>()
 
       return context.json(run, 202);
     },
+  )
+
+  .post(
+    "/:campaignId/pipeline/prep",
+    describeRoute({ tags: ["campaigns"] }),
+    validator("param", campaignParamSchema),
+    validator("json", pipelineRunSchema),
+    async (context) => {
+      const { campaignId } = context.req.valid("param");
+      const { includeProcessed } = context.req.valid("json");
+
+      const run = await context
+        .get("services")
+        .pipeline.startPrep({ campaignId }, { includeProcessed });
+
+      return context.json(run, 202);
+    },
   );

@@ -88,6 +88,7 @@ export const initContext = async () => {
     websiteConcurrency: env.WEBSITE_CONCURRENCY,
     fullenrichConcurrency: env.FULLENRICH_CONCURRENCY,
     verifyConcurrency: env.VERIFY_CONCURRENCY,
+    prepConcurrency: env.PREP_CONCURRENCY,
     errorMonitor,
     logger,
     redisUrl: env.REDIS_CONNECTION_STRING,
