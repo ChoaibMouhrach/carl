@@ -3,6 +3,7 @@ import type { DB } from "@server/infrastructure/database/client";
 import {
   campaignsTable,
   leadEmailsTable,
+  leadPagesTable,
   pipelineRunsTable,
   type CampaignInsert,
   type PipelineRunInsert,
@@ -171,3 +172,14 @@ export const leadEmailRows = async (db: DB, leadId: number) =>
     .from(leadEmailsTable)
     .where(eq(leadEmailsTable.leadId, leadId))
     .orderBy(asc(leadEmailsTable.emailId));
+
+export const leadPageRows = async (db: DB, leadId: number) =>
+  await db
+    .select({
+      path: leadPagesTable.path,
+      url: leadPagesTable.url,
+      html: leadPagesTable.html,
+    })
+    .from(leadPagesTable)
+    .where(eq(leadPagesTable.leadId, leadId))
+    .orderBy(asc(leadPagesTable.pageId));

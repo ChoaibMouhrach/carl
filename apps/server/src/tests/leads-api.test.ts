@@ -177,6 +177,7 @@ test("creating a lead stores every field", async () => {
       enrichedAt: null,
       emailEnrichedAt: null,
       websiteScrapedAt: null,
+      pagesFetchedAt: null,
       createdAt: expect.any(Date),
       updatedAt: expect.any(Date),
     });

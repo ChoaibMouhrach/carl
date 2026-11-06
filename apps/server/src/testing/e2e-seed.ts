@@ -17,6 +17,7 @@ import {
   communitiesTable,
   leadActivitiesTable,
   leadEmailsTable,
+  leadPagesTable,
   leadsTable,
   pipelineRunsTable,
   pipelineItemsTable,
@@ -421,6 +422,7 @@ export interface SeedLeadInput {
   enrichedAt?: Date | null;
   emailEnrichedAt?: Date | null;
   websiteScrapedAt?: Date | null;
+  pagesFetchedAt?: Date | null;
 }
 
 export const createLead = async (config: SeedConfig, input: SeedLeadInput) =>
@@ -438,6 +440,7 @@ export const createLead = async (config: SeedConfig, input: SeedLeadInput) =>
         enrichedAt: input.enrichedAt ?? null,
         emailEnrichedAt: input.emailEnrichedAt ?? null,
         websiteScrapedAt: input.websiteScrapedAt ?? null,
+        pagesFetchedAt: input.pagesFetchedAt ?? null,
       })
       .returning();
 
@@ -471,6 +474,34 @@ export const addLeadEmails = async (
       .insert(leadEmailsTable)
       .values(input.emails.map((email) => toEmailRow(input.leadId, email)));
   });
+
+export interface SeedLeadPageInput {
+  leadId: number;
+  pages: { path: string; url: string; html: string }[];
+}
+
+export const createLeadPages = async (
+  config: SeedConfig,
+  input: SeedLeadPageInput,
+) =>
+  withDb(config, async (db) => {
+    await db
+      .insert(leadPagesTable)
+      .values(input.pages.map((page) => ({ ...page, leadId: input.leadId })));
+  });
+
+export const listLeadPages = async (config: SeedConfig, leadId: number) =>
+  withDb(config, async (db) =>
+    db
+      .select({
+        path: leadPagesTable.path,
+        url: leadPagesTable.url,
+        html: leadPagesTable.html,
+      })
+      .from(leadPagesTable)
+      .where(eq(leadPagesTable.leadId, leadId))
+      .orderBy(asc(leadPagesTable.pageId)),
+  );
 
 export interface SeedCommunityInput {
   leadId: number;

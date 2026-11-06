@@ -34,6 +34,7 @@ const counts = z.object({
   website: z.number(),
   fullenrich: z.number(),
   verify: z.number(),
+  prep: z.number(),
 });
 
 const statusSchema = z.object({
@@ -81,6 +82,7 @@ interface LeadSpec {
   linkedin?: string;
   enrichedAt?: Date;
   websiteScrapedAt?: Date;
+  pagesFetchedAt?: Date;
   emailEnrichedAt?: Date;
   email?: "website" | "fullenrich-work";
   inCampaign?: boolean;
@@ -94,6 +96,7 @@ const specs: LeadSpec[] = [
     username: "site-scraped",
     website: "https://scraped.example.com",
     websiteScrapedAt: past,
+    pagesFetchedAt: past,
   },
   {
     username: "site-emailed",
@@ -130,6 +133,7 @@ const seed = async ({ context, campaign }: Booted) => {
       linkedin: spec.linkedin,
       enrichedAt: spec.enrichedAt,
       websiteScrapedAt: spec.websiteScrapedAt,
+      pagesFetchedAt: spec.pagesFetchedAt,
       emailEnrichedAt: spec.emailEnrichedAt,
     });
     ids.set(spec.username, lead.leadId);
@@ -181,12 +185,13 @@ test("the funnel counts campaign leads by what they have, and each step's eligib
       contactable: 6,
       withEmail: 2,
       needsEmail: 4,
-      eligible: { enrich: 4, website: 1, fullenrich: 3, verify: 2 },
+      eligible: { enrich: 4, website: 1, fullenrich: 3, verify: 2, prep: 2 },
       eligibleWithProcessed: {
         enrich: 5,
         website: 2,
         fullenrich: 4,
         verify: 2,
+        prep: 3,
       },
     });
   });
@@ -204,12 +209,13 @@ test("the funnel of a campaign without leads is all zeros", async () => {
       contactable: 0,
       withEmail: 0,
       needsEmail: 0,
-      eligible: { enrich: 0, website: 0, fullenrich: 0, verify: 0 },
+      eligible: { enrich: 0, website: 0, fullenrich: 0, verify: 0, prep: 0 },
       eligibleWithProcessed: {
         enrich: 0,
         website: 0,
         fullenrich: 0,
         verify: 0,
+        prep: 0,
       },
     });
   });
@@ -364,7 +370,7 @@ test("the step routes refuse anonymous and non-admin callers and an invalid body
       email: "eligibility-member@example.com",
     });
 
-    for (const step of ["enrich", "website", "fullenrich", "verify"]) {
+    for (const step of ["enrich", "website", "fullenrich", "verify", "prep"]) {
       const path = stepPath(booted.campaign.campaignId, step);
       const anonymous = await member.app.request(path, { method: "POST" });
       const refused = await member.app.request(path, {

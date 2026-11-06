@@ -76,7 +76,7 @@ test("a campaign that never ran offers a scrape, has nothing for the other steps
   await open();
 
   await expect(page.getByRole("button", { name: "Run scrape" })).toBeEnabled();
-  for (const title of ["3. Website", "5. Verify"]) {
+  for (const title of ["3. Website", "5. Verify", "6. Prep"]) {
     await expect(stepCard(page, title).getByRole("button")).toBeDisabled();
   }
   await expect(funnelTile(page, "Scraped")).toContainText("0");
@@ -655,4 +655,86 @@ test("when a website run finishes with emails the funnel moves those leads out o
       status: stored.status,
     })),
   ).toEqual([{ step: "website", status: "done" }]);
+});
+
+test("the Prep step counts leads with a website nobody has prepped yet, and the switch widens it", async ({
+  page,
+  seed,
+  id,
+}) => {
+  const { campaign, open } = await openCampaign(page, seed, id);
+  const fresh = await seed.createLead({
+    name: `Owner ${id} fresh`,
+    username: `owner-${id}-fresh`,
+    website: `https://${id}-fresh.invalid`,
+  });
+  const prepped = await seed.createLead({
+    name: `Owner ${id} prepped`,
+    username: `owner-${id}-prepped`,
+    website: `https://${id}-prepped.invalid`,
+    pagesFetchedAt: new Date("2026-01-01T00:00:00Z"),
+  });
+  const bare = await seed.createLead({
+    name: `Owner ${id} bare`,
+    username: `owner-${id}-bare`,
+  });
+  await seed.addLeadsToCampaign({
+    campaignId: campaign.campaignId,
+    leadIds: [fresh.leadId, prepped.leadId, bare.leadId],
+  });
+
+  await open();
+
+  const prep = stepCard(page, "6. Prep");
+  await expect(prep.getByRole("button", { name: "Run on 1" })).toBeVisible();
+  await expect(prep.getByText("1 eligible", { exact: true })).toBeVisible();
+
+  await page
+    .getByRole("switch", { name: "Include leads a step already tried" })
+    .click();
+
+  await expect(prep.getByRole("button", { name: "Run on 2" })).toBeVisible();
+  expect(await seed.listPipelineRuns(campaign.campaignId)).toEqual([]);
+});
+
+test("the Prep step runs only on the eligible leads and stores a run sized to them", async ({
+  page,
+  seed,
+  id,
+}) => {
+  const { campaign, open } = await openCampaign(page, seed, id);
+  const fresh = await seed.createLead({
+    name: `Owner ${id} fresh`,
+    username: `owner-${id}-fresh`,
+    website: `https://${id}-fresh.invalid`,
+  });
+  const prepped = await seed.createLead({
+    name: `Owner ${id} prepped`,
+    username: `owner-${id}-prepped`,
+    website: `https://${id}-prepped.invalid`,
+    pagesFetchedAt: new Date("2026-01-01T00:00:00Z"),
+  });
+  await seed.addLeadsToCampaign({
+    campaignId: campaign.campaignId,
+    leadIds: [fresh.leadId, prepped.leadId],
+  });
+  await open();
+
+  const started = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/pipeline/prep") &&
+      response.request().method() === "POST",
+  );
+  await stepCard(page, "6. Prep")
+    .getByRole("button", { name: "Run on 1" })
+    .click();
+
+  expect((await started).status()).toBe(202);
+  await expect
+    .poll(async () =>
+      (await seed.listPipelineRuns(campaign.campaignId)).filter(
+        (run) => run.step === "prep",
+      ),
+    )
+    .toMatchObject([{ total: 1 }]);
 });

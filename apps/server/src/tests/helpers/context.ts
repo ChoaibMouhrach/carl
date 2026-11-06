@@ -12,6 +12,7 @@ import {
   type EnrichJob,
   type FullEnrichJob,
   type VerifyJob,
+  type PrepJob,
   type WebsiteJob,
   type FailedJob,
   type ListFailedInput,
@@ -273,6 +274,7 @@ export class TestQueueHub extends BaseQueueHub {
   public website: TestQueue<WebsiteJob>;
   public fullenrich: TestQueue<FullEnrichJob>;
   public verify: TestQueue<VerifyJob>;
+  public prep: TestQueue<PrepJob>;
 
   public constructor(init: { mailer: BaseMailer }) {
     super();
@@ -302,6 +304,9 @@ export class TestQueueHub extends BaseQueueHub {
     this.verify = new TestQueue<VerifyJob>({
       process: async () => {},
     });
+    this.prep = new TestQueue<PrepJob>({
+      process: async () => {},
+    });
   }
 
   public override queues(): RegisteredQueue[] {
@@ -314,6 +319,7 @@ export class TestQueueHub extends BaseQueueHub {
       { name: "website", queue: this.website },
       { name: "fullenrich", queue: this.fullenrich },
       { name: "verify", queue: this.verify },
+      { name: "prep", queue: this.prep },
     ];
   }
 

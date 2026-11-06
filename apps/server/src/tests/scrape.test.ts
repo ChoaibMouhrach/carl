@@ -94,6 +94,7 @@ test("a scrape discovers communities, then stores them and their leads in the da
       enrichedAt: null,
       emailEnrichedAt: null,
       websiteScrapedAt: null,
+      pagesFetchedAt: null,
       ...timestamps,
     });
     expect(leadByName("bob")).toEqual({
@@ -110,6 +111,7 @@ test("a scrape discovers communities, then stores them and their leads in the da
       enrichedAt: null,
       emailEnrichedAt: null,
       websiteScrapedAt: null,
+      pagesFetchedAt: null,
       ...timestamps,
     });
 
